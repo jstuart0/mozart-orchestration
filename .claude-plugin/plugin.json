@@ -1,0 +1,18 @@
+{
+  "name": "mozart-orchestration",
+  "version": "0.1.0",
+  "description": "Mozart conducts a roster of specialist subagents (sarah, harry, ruby, bob, dexter, xander, otto, ian, librarian, dick, jackson, scott, valerie) through three orchestration shapes: DELIVER (build), AUDIT (review), and DIAGNOSE (investigate). Includes pluggable ticketing and documentation surfaces.",
+  "author": {
+    "name": "Jay Stuart"
+  },
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "agents",
+    "subagents",
+    "mozart",
+    "delivery",
+    "code-review",
+    "planning"
+  ]
+}
