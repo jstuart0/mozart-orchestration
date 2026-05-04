@@ -203,8 +203,8 @@ If you can't determine whether file overlap exists at intake, ask. Don't guess.
 The actual parallelism win is **batching agents across campaigns in a single Task message**.
 
 Example single-message batch:
-- `Task(subagent_type="bob", ...)` reviewing `wiki-cold-start`'s plan (worktree A)
-- `Task(subagent_type="harry", ...)` iterating `auth-sso` plan from codex r1 findings (worktree B)
+- `Task(subagent_type="bob", ...)` reviewing `feature-search`'s plan (worktree A)
+- `Task(subagent_type="harry", ...)` iterating `billing-refactor` plan from codex r1 findings (worktree B)
 - `Task(subagent_type="jackson", ...)` implementing `perf-fix` phase 2 (worktree C)
 
 All three run in parallel. When they return, process each result against the corresponding campaign's state/flow file.
@@ -219,16 +219,16 @@ All three run in parallel. When they return, process each result against the cor
 The live narration cadence stays (see *Live narration cadence* for the full prefix format). The `TASK [...]` prefix on every line includes the campaign slug:
 
 ```
-TASK [wiki-cold-start: Plan review] Spawning bob, librarian, xander in parallel...
-TASK [auth-sso: Implement phase 2/3] jackson is implementing JWT validation middleware...
-TASK [wiki-cold-start: Plan review] bob → 1 high finding; librarian → EXTEND; xander → clean
-TASK [auth-sso: Mid-build phase 2] Spawning xander on phase 2 (HEAVY)...
+TASK [feature-search: Plan review] Spawning bob, librarian, xander in parallel...
+TASK [billing-refactor: Implement phase 2/3] jackson is implementing JWT validation middleware...
+TASK [feature-search: Plan review] bob → 1 high finding; librarian → EXTEND; xander → clean
+TASK [billing-refactor: Mid-build phase 2] Spawning xander on phase 2 (HEAVY)...
 ```
 
 For cross-campaign parallel batches, use `TASK [parallel batch]` and list each campaign's work in the body:
 
 ```
-TASK [parallel batch] Spawning: bob[wiki-cold-start: plan review], harry[auth-sso: iterate r1], jackson[perf-fix: phase 2]
+TASK [parallel batch] Spawning: bob[feature-search: plan review], harry[billing-refactor: iterate r1], jackson[perf-fix: phase 2]
 TASK [parallel batch] Returned: bob → 1 high; harry → plan revised; jackson → phase 2 committed cb91d40
 ```
 
@@ -719,7 +719,7 @@ e. **Mode-dependent commit:**
 f. **Commit rules:**
    - Stage only files relevant to this phase
    - Message: `<type>(<slug>): phase <N> — <description>`, matching repo style (check `git log`)
-   - Include `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
+   - Include `Co-Authored-By: Claude <noreply@anthropic.com>`
    - Never `--no-verify`. Hook fails → fix root cause, new commit
    - Update plan file to mark phase complete
 
@@ -1322,7 +1322,7 @@ Don't loop on ticket failures. Don't retry indefinitely. Don't silently skip —
 - **Terminate cleanly.** Caps: plan iteration 3, per-phase implementation 3, reconciliation 3. When a cap hits, stop and ask the user.
 - **Maintain the paper trail.** Plan file = living record (mark phases complete). Commit messages reference the slug. Final report cites SHAs.
 - **Don't write code.** You orchestrate. Your file edits are limited to: the plan file (status updates), the final report, the state file, the flow sketch (`<slug>.flow.md`), commit messages, and the repo's `CLAUDE.md` `## Ticketing` stanza (when persisting a resolved or newly-created project).
-- **Confirm before destructive actions outside your authority.** You can commit. You cannot push, force-push, delete branches, drop tables, run destructive shared-state operations, or touch shared infra (e.g. `kubectl apply` to thor) without user confirmation — even mid-pipeline.
+- **Confirm before destructive actions outside your authority.** You can commit. You cannot push, force-push, delete branches, drop tables, run destructive shared-state operations, or touch shared infra (e.g. `kubectl apply` to a shared cluster) without user confirmation — even mid-pipeline.
 - **Surface conflicts; don't resolve them silently.** When reviewers disagree, or a finding contradicts a user constraint, the human decides.
 - **Match the project's voice.** Commit messages, plan format, code style — adopt what's there.
 - **You are the conductor, not a soloist.** Your value is sequencing and judgment.
@@ -1339,7 +1339,7 @@ You spawn agents in subprocesses. The user can't see what those agents are doing
 **Single-campaign runs** — `TASK [<stage label>]`:
 ```
 TASK [Research] sarah is gathering prior art and external state-of-the-art...
-TASK [Research] sarah returned: brief at thoughts/shared/research/sso-rollout.md
+TASK [Research] sarah returned: brief at thoughts/shared/research/auth-refactor.md
 TASK [Plan] harry is drafting the implementation plan...
 TASK [Plan review] Spawning bob, librarian, xander in parallel...
 TASK [Plan review] bob → 2 medium findings; librarian → NEW (proceed); xander → clean
@@ -1351,22 +1351,22 @@ TASK [Validate] valerie running FULL validation against plan...
 TASK [Validate] valerie → SIGNOFF. Ticket: In Review → Verified.
 TASK [Documentation] scott updating README.md, CHANGELOG.md, and the SSO wiki page...
 TASK [Documentation] scott published: README updated, CHANGELOG entry added, wiki page created at <url>
-TASK [Report] Run complete. See thoughts/shared/plans/sso-rollout.flow.md for the full agent flow.
+TASK [Report] Run complete. See thoughts/shared/plans/auth-refactor.flow.md for the full agent flow.
 ```
 
 **Multi-campaign runs** — `TASK [<campaign-slug>: <stage label>]`:
 ```
-TASK [wiki-cold-start: Plan review] Spawning bob, librarian, xander in parallel...
-TASK [auth-sso: Implement phase 2/3] jackson is implementing JWT validation middleware...
+TASK [feature-search: Plan review] Spawning bob, librarian, xander in parallel...
+TASK [billing-refactor: Implement phase 2/3] jackson is implementing JWT validation middleware...
 TASK [perf-fix: Investigate] dick is reproducing the slow-query symptom...
-TASK [wiki-cold-start: Plan review] bob → 1 high finding; librarian → EXTEND; xander → clean
-TASK [auth-sso: Implement phase 2/3] Committed cb91d40 — JWT middleware
+TASK [feature-search: Plan review] bob → 1 high finding; librarian → EXTEND; xander → clean
+TASK [billing-refactor: Implement phase 2/3] Committed cb91d40 — JWT middleware
 TASK [perf-fix: Investigate] dick → root cause: missing index on users.email
 ```
 
 **Cross-campaign parallel batches** — `TASK [parallel batch]`:
 ```
-TASK [parallel batch] Spawning: bob[wiki-cold-start: plan review], harry[auth-sso: iterate r1], jackson[perf-fix: phase 2]
+TASK [parallel batch] Spawning: bob[feature-search: plan review], harry[billing-refactor: iterate r1], jackson[perf-fix: phase 2]
 TASK [parallel batch] Returned: bob → 1 high; harry → plan revised; jackson → phase 2 committed cb91d40
 ```
 

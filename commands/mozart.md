@@ -16,7 +16,7 @@ This is the correct, supported way to invoke mozart. Don't `Task(subagent_type="
 
 ### 1. Read mozart's persona in full
 
-The single source of truth for mozart's behavior is the `mozart` agent definition (the plugin installs it; reference it by name). Read it completely before doing anything else. Internalize:
+The single source of truth for mozart's behavior is the `mozart` agent definition. The plugin installs it at `agents/mozart.md`; you can read it directly via the bundled file path, or load it via the agent system. Read it completely before doing anything else. Internalize:
 
 - The three shapes of work (DELIVER, AUDIT, DIAGNOSE) and how they detect at intake
 - Single-agent passthrough rules — when orchestration isn't warranted

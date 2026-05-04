@@ -1,0 +1,47 @@
+name: Validate plugin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-json:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin.json
+        run: |
+          python3 -m json.tool .claude-plugin/plugin.json > /dev/null
+          echo "plugin.json is valid JSON"
+          # TODO: when an authoritative plugin.json JSON Schema URL stabilizes, add a schema-validation step.
+      - name: Validate marketplace.json
+        run: |
+          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          echo "marketplace.json is valid JSON"
+      - name: Print version
+        run: python3 -c "import json; d=json.load(open('.claude-plugin/plugin.json')); print('version:', d['version'])"
+
+  validate-required-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required files exist
+        run: |
+          REQUIRED=(
+            README.md LICENSE INTEGRATION.md CHANGELOG.md CONTRIBUTING.md
+            SECURITY.md CODE_OF_CONDUCT.md
+            .claude-plugin/plugin.json .claude-plugin/marketplace.json
+            commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md
+          )
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              MISSING=$((MISSING + 1))
+            else
+              echo "OK: $f"
+            fi
+          done
+          [ $MISSING -eq 0 ] || { echo "$MISSING required file(s) missing"; exit 1; }

@@ -1,11 +1,16 @@
 {
   "name": "mozart-orchestration",
   "version": "0.1.0",
-  "description": "Mozart conducts a roster of specialist subagents (sarah, harry, ruby, bob, dexter, xander, otto, ian, librarian, dick, jackson, scott, valerie) through three orchestration shapes: DELIVER (build), AUDIT (review), and DIAGNOSE (investigate). Includes pluggable ticketing and documentation surfaces.",
-  "author": {
-    "name": "Jay Stuart"
-  },
+  "description": "Multi-agent orchestration pipeline for Claude Code: DELIVER (build), AUDIT (review), DIAGNOSE (investigate). Conducts 14 specialist subagents through research, plan, review, implement, verify, document with live narration.",
+  "homepage": "https://github.com/jstuart0/mozart-orchestration",
+  "repository": "https://github.com/jstuart0/mozart-orchestration",
+  "bugs": "https://github.com/jstuart0/mozart-orchestration/issues",
   "license": "MIT",
+  "author": {
+    "name": "Jay Stuart",
+    "email": "jay.stuart@agileservicesgrp.com",
+    "url": "https://github.com/jstuart0"
+  },
   "keywords": [
     "orchestration",
     "agents",
@@ -13,6 +18,9 @@
     "mozart",
     "delivery",
     "code-review",
-    "planning"
+    "planning",
+    "multi-agent",
+    "claude-code-plugin",
+    "pipeline"
   ]
 }

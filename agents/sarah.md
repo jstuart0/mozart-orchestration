@@ -168,3 +168,23 @@ What NOT to do:
 - "Let me read the file" before every Read
 - Walls of paragraph-shaped explanation when one line would do
 - Restating your final summary three times in different words
+
+## Field notes (append-only)
+
+See the bundled `LEARNINGS.md` for the protocol. Append cross-project patterns you discover here. **Do not edit any other section of this file** — those are human-authored contracts.
+
+Each entry follows the template in LEARNINGS.md:
+
+- one-line summary as the heading (`### YYYY-MM-DD — <summary>`)
+- Scope (cross-project / language / tool / domain)
+- Confidence (high / medium / low — default low)
+- Evidence (commit SHAs, ticket IDs, project paths)
+- The pattern (one paragraph)
+- What to do differently (one paragraph, concrete action)
+- What this overrides (if it contradicts an existing discipline note)
+
+Append-only. Two distinct contexts before promoting to "pattern." Project-specific learnings go in the project's CLAUDE.md, not here.
+
+---
+
+*(no field notes yet)*

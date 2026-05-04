@@ -58,7 +58,8 @@ states:
 
 auth:
   # Recommended: store in a secret manager and retrieve with a one-liner
-  command: kubectl -n automation get secret plane-api-credentials -o jsonpath='{.data.api-token}' | base64 -d
+  # Example shape — substitute your own secret store / namespace / secret name
+  command: <your secret-fetch command, e.g., kubectl -n <ns> get secret <secret-name> -o jsonpath='{.data.api-token}' | base64 -d>
   # Or, if using env: PLANE_API_TOKEN
 ```
 
@@ -192,7 +193,8 @@ external_wiki:
   api: graphql
   graphql_endpoint: https://wiki.your-domain.example/graphql
   auth:
-    command: kubectl -n automation get secret wikijs-api-credentials -o jsonpath='{.data.api-key}' | base64 -d
+    # Example shape — substitute your own secret store / namespace / secret name
+    command: <your secret-fetch command, e.g., kubectl -n <ns> get secret <secret-name> -o jsonpath='{.data.api-key}' | base64 -d>
   categories:
     runbooks: /infrastructure/runbooks
     decisions: /infrastructure/decisions

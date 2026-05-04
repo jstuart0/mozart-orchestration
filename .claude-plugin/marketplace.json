@@ -1,0 +1,29 @@
+{
+  "name": "mozart-orchestration",
+  "owner": {
+    "name": "Jay Stuart",
+    "email": "jay.stuart@agileservicesgrp.com",
+    "url": "https://github.com/jstuart0"
+  },
+  "plugins": [
+    {
+      "name": "mozart-orchestration",
+      "source": ".",
+      "description": "Mozart-conducted multi-agent orchestration: DELIVER, AUDIT, DIAGNOSE. Pluggable ticketing and documentation.",
+      "version": "0.1.0",
+      "category": "agents",
+      "tags": [
+        "orchestration",
+        "agents",
+        "subagents",
+        "mozart",
+        "multi-agent",
+        "delivery",
+        "code-review",
+        "planning",
+        "claude-code-plugin",
+        "pipeline"
+      ]
+    }
+  ]
+}
