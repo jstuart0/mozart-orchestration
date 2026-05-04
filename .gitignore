@@ -4,3 +4,8 @@
 .idea/
 .vscode/
 node_modules/
+
+# Mozart's own working artifacts (state files, flow sketches, plans, research briefs).
+# These are produced when mozart orchestrates work *in* this repo; they're not part of
+# the published plugin and should never land in a commit here.
+thoughts/
