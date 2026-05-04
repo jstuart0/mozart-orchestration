@@ -234,7 +234,7 @@ TASK [parallel batch] Returned: bob → 1 high; harry → plan revised; jackson 
 
 ### Per-campaign artifacts (unchanged)
 
-Each campaign maintains its own:
+Each campaign maintains its own (see *Run identification and prior-art discovery* for the slug format `<YYYY-MM-DD>-<shape>-<descriptive>`):
 - **State file**: `thoughts/shared/plans/<slug>.state.md`
 - **Flow sketch**: `thoughts/shared/plans/<slug>.flow.md`
 - **Plan file**: `thoughts/shared/plans/<slug>.md`
@@ -352,6 +352,57 @@ Before jumping to a non-default entry point, verify:
 - For Validate: the diff scope is meaningful (base commit reachable, branch has commits)
 
 If any of these fails, surface to the user and ask before proceeding.
+
+## Run identification and prior-art discovery
+
+Every run that creates state files uses a naming convention that makes prior work greppable. The slug is the join key for all of a run's artifacts (state, flow sketch, plan, investigation, research brief).
+
+### Slug format
+
+`<YYYY-MM-DD>-<shape>-<descriptive-kebab>`
+
+- **Date** — ISO date of intake (sortable; lexicographic = chronological)
+- **Shape** — `deliver` / `audit` / `diagnose`, matching the work shape detected at intake
+- **Descriptive** — kebab-case, 2–6 words, names the *thing* not the request style. Prefer the system or capability ("paperless-deployment", "registry-storage-migration", "auth-mfa-rollout") over the verb ("add-paperless", "fix-registry"). Verbs lose information when the work shape changes mid-run
+
+Examples:
+
+- `2026-05-04-deliver-paperless-deployment`
+- `2026-05-04-audit-security-posture`
+- `2026-05-04-diagnose-forgejo-down`
+- `2026-05-04-diagnose-registry-disk-pressure` (a DIAGNOSE that may escalate into a DELIVER — keep the diagnose slug for the investigation, open a new deliver slug for the remediation; cross-link both in their state files)
+
+### Why this shape
+
+- **Sortable by date** — `ls thoughts/shared/plans/` shows chronological order
+- **Filterable by shape** — `ls thoughts/shared/plans/*-audit-*.md` finds every past audit; `*-diagnose-*` finds every investigation; `*-deliver-*` finds every feature/refactor delivery
+- **Filterable by topic** — `ls thoughts/shared/plans/*forgejo*` finds every run touching forgejo regardless of shape
+- **Greppable across artifact types** — same slug for the plan, state, flow, investigation, and research files, so all of a run's artifacts surface together
+
+### At intake: discover prior art
+
+Before locking the slug, search for prior runs that may inform this one. Two passes:
+
+1. **Topic match** — substring-grep the descriptive part against existing slugs. If "paperless" appears in any prior run, surface it. The user may want to extend it, supersede it, or just know what was tried before
+2. **Shape match** — list the most recent N (default 3–5) prior runs of the same shape. For DIAGNOSE, recent investigations of similar systems often share root causes worth reading. For AUDIT, prior audits set the baseline a new audit should re-check or build on. For DELIVER, recent deliveries of adjacent features show conventions and pitfalls
+
+Surface findings concisely, e.g.:
+
+> Found 2 prior runs touching this topic:
+> - `2026-03-16-deliver-paperless-deployment` (complete, 47 days ago) — initial deploy plan and outcome
+> - `2026-04-22-diagnose-paperless-search-broken` (complete, 12 days ago) — investigation, root cause was X
+>
+> Recent runs of the same shape: `2026-04-30-audit-storage-posture`, `2026-04-15-audit-security-posture`
+>
+> Use any as input?
+
+Don't import their full content unless asked — just surface that they exist and let the user decide what to load. Pull the relevant prior plan/investigation/audit into context only if (a) the user opts in, or (b) the prior run is clearly a direct predecessor (a DIAGNOSE that escalates to DELIVER on the same topic, a previous audit being explicitly re-run).
+
+### Slug discipline
+
+- **Lock the slug at intake.** Once the state file exists, the slug doesn't change. If the work shape changes mid-run (e.g., a DIAGNOSE escalates into a DELIVER), open a new run with a new slug; cross-link the two state files in their `Status notes`
+- **One slug per artifact set.** State, flow, plan, investigation, research all use the same slug. Don't free-style file names mid-run
+- **No date-rolling.** A run that crosses midnight keeps its intake date. If a paused run is resumed days later, the original slug stays — `Last updated` in the state file tracks recency
 
 ## State persistence (crash-resume)
 
@@ -474,18 +525,23 @@ Wait for approval. On approval: commit, continue. On feedback: brief jackson wit
 
 ## Pipeline flow sketch
 
-Every run that creates a state file also produces a **flow sketch** — a human-readable markdown document showing which agents were involved, in what order, and at which stage. The sketch is the audit trail of *what mozart actually did this run*, separate from the state file's role as machine-readable resumable status.
+Every run that creates a state file also produces a **flow sketch** — a human-readable markdown document showing which agents *were proposed*, which *actually ran*, in what order, and where the two diverged. The sketch is the audit trail of how mozart shaped and re-shaped the run, separate from the state file's role as machine-readable resumable status.
 
 **Why a separate file**:
 - The **state file** (`.state.md`) is operational — who's at what stage, can a fresh mozart resume from here?
-- The **flow sketch** (`.flow.md`) is retrospective — a clear visual + textual record the user can scan to confirm "did the right agents touch this work?"
+- The **flow sketch** (`.flow.md`) is retrospective + comparative — *proposed* vs *actual*, with deviations explicit so a reader can see where mozart's initial read of the work was right and where it had to adapt
 
 A user reviewing a run shouldn't have to parse a state file to see the agent flow. The sketch is the artifact for that.
 
+**Two flows in one document**:
+- **Proposed flow** — captured at intake (stage 1), then frozen. What mozart planned to do before any agent ran
+- **Actual flow** — live, updated at every stage transition. What actually happened
+- **Deviations from proposed** — append-only list of every divergence with the trigger (concrete reason)
+
 **Location**: `thoughts/shared/plans/<slug>.flow.md` (alongside the plan and state files)
 
-**Created**: at intake (stage 1), alongside the state file.
-**Updated**: at every stage transition — append to the stage trace, update the Mermaid diagram if a new agent enters the run.
+**Created**: at intake (stage 1), alongside the state file. Both *Proposed flow* and the empty *Actual flow* / *Deviations* sections are written then.
+**Updated**: at every stage transition — append to the stage trace, update the *Actual flow* Mermaid diagram if a new agent enters the run, append to *Deviations from proposed* if the run diverges from intake's plan. **Never edit the proposed flow after intake.**
 **Finalized**: at the final report stage — fill in the participation summary and the "skipped agents" rationale.
 
 **Applies to**: any run that creates a state file (DELIVER, AUDIT, DIAGNOSE — full or partial flows). **Does NOT apply to passthroughs** — single-agent invocations don't warrant a flow sketch; the agent's return message is the artifact.
@@ -508,14 +564,17 @@ A user reviewing a run shouldn't have to parse a state file to see the agent flo
 | Plan | thoughts/shared/plans/<slug>.md |
 | Investigation | thoughts/shared/investigations/<slug>.md (or n/a) |
 
-## Agent flow
+## Proposed flow (locked at intake)
 
-**Orientation rule**: count the nodes (each agent/stage box).
+What mozart proposed to run at the end of stage 1 (Intake), *before any agents executed*. Captured once, then frozen — this is the snapshot used to compare against what actually happened. If you'd want to change it later, append to "Deviations from proposed" instead.
 
-- **5 or fewer nodes** → use `flowchart LR` (left-to-right). Compact, fits inline.
-- **More than 5 nodes** → use `flowchart TD` (top-down). Stays readable as the flow grows; no node-squeezing.
+Shape this section with:
+- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why
+- A Mermaid diagram of the planned stages and agents (apply the orientation rule below)
 
-When the flow grows mid-run past the threshold (e.g., a short DIAGNOSE escalates into a multi-phase DELIVER), switch the orientation when you next update the sketch. Don't try to squeeze a 12-node flow into LR for visual consistency.
+Example (DELIVER / STANDARD / BROWNFIELD, FULL flow):
+
+> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
 
 ```mermaid
 flowchart TD
@@ -525,23 +584,58 @@ flowchart TD
     bob[Plan review — bob]
     librarian[Plan review — librarian]
     codex1[Codex r1]
-    jacksonP1[Phase 1 — jackson]
-    ian[Mid-build — ian]
+    jacksonP1[Implement — jackson]
     valerie[Validate — valerie]
     scott[Documentation — scott]
     report[Report — mozart]
 
-    intake --> sarah
-    sarah --> harry
+    intake --> sarah --> harry
     harry --> bob
     harry --> librarian
     bob --> codex1
     librarian --> codex1
     codex1 --> jacksonP1
-    jacksonP1 --> ian
-    ian --> valerie
-    valerie --> scott
-    scott --> report
+    jacksonP1 --> valerie --> scott --> report
+```
+
+## Actual flow (live)
+
+What mozart is *actually* running. Updated at every stage transition — new agents added when they enter, orientation flipped when node count crosses the threshold.
+
+**Orientation rule**: count the nodes (each agent/stage box).
+
+- **5 or fewer nodes** → use `flowchart LR` (left-to-right). Compact, fits inline.
+- **More than 5 nodes** → use `flowchart TD` (top-down). Stays readable as the flow grows; no node-squeezing.
+
+When the flow grows mid-run past the threshold (e.g., a short DIAGNOSE escalates into a multi-phase DELIVER), switch the orientation when you next update the sketch. Don't try to squeeze a 12-node flow into LR for visual consistency.
+
+Example (the proposed flow above, with two unforeseen agents pulled in mid-build):
+
+```mermaid
+flowchart TD
+    intake[Intake — mozart]
+    sarah[Research — sarah]
+    harry[Plan — harry]
+    bob[Plan review — bob]
+    librarian[Plan review — librarian]
+    dexter[Plan review — dexter — added]
+    codex1[Codex r1]
+    jacksonP1[Phase 1 — jackson]
+    dick[Mid-build — dick — added]
+    jacksonP2[Phase 2 — jackson]
+    ian[Mid-build — ian]
+    valerie[Validate — valerie]
+    scott[Documentation — scott]
+    report[Report — mozart]
+
+    intake --> sarah --> harry
+    harry --> bob
+    harry --> librarian
+    harry --> dexter
+    bob --> codex1
+    librarian --> codex1
+    dexter --> codex1
+    codex1 --> jacksonP1 --> dick --> jacksonP2 --> ian --> valerie --> scott --> report
 ```
 
 For a short flow (e.g., INVESTIGATE-ONLY: intake → dick → decision):
@@ -555,6 +649,18 @@ flowchart LR
     intake --> dick
     dick --> decision
 ```
+
+## Deviations from proposed
+
+Append-only list of every place the actual flow diverged from the proposed flow, with the cause. Empty when there are no deviations — silence reads as oversight, so always populate this section honestly.
+
+Each entry: stage, what changed, what triggered it.
+
+- **Stage 4** — added dexter (not in proposed flow). **Triggered by**: harry's plan introduced 3 new shared utilities; dexter pulled in for shallow-module review before codex
+- **Stage 8 (phase 1 → phase 2)** — invoked dick (not in proposed flow). **Triggered by**: jackson hit a regression in the existing test suite that wasn't part of the planned work; bug-shaped, escalated to dick for diagnosis before continuing to phase 2
+- **Stage 12** — skipped scott (was in proposed flow). **Triggered by**: change is internal-only with no docs surface; rationale captured in *Notes*
+
+If a deviation requires a re-shape (e.g., a DIAGNOSE escalates into a DELIVER mid-run), open a new run with a new slug rather than re-shaping this one in place; cross-link the slugs in *Notes*.
 
 ## Stage trace
 
@@ -609,11 +715,14 @@ Anything noteworthy about the flow itself — escalations, cap hits, agent disag
 ### Discipline
 
 - **Always cite agents by name.** "A reviewer flagged X" is useless; "bob flagged X at stage 4" is auditable.
-- **Match the actual flow.** If you skipped a stage, say so in the trace ("Stage 5 skipped — TINY tier"). Don't omit silently.
-- **Update the Mermaid diagram as agents enter.** Don't pre-populate it with agents who turn out to be skipped — those go in "Skipped agents" with rationale.
+- **Lock the proposed flow at intake.** It's a snapshot of mozart's initial plan, not a working draft. Don't edit it after stage 1 ends. If you'd want to revise it later, that's a deviation — append to *Deviations from proposed* instead.
+- **Update the actual-flow diagram as agents enter.** Don't pre-populate it with agents who turn out to be skipped — those go in *Skipped agents* with rationale.
+- **Track deviations as they happen.** Every divergence from proposed (added agent, skipped agent, re-run stage, escalated shape) goes into *Deviations from proposed* before you move on. Capture the *trigger* (the concrete reason — codex finding, regression, scope change) not just the *what*. An empty Deviations section in a finalized run is a claim, not an absence — only use it when actual genuinely matched proposed.
+- **Re-shape via new slug, not in-place rewrite.** If the run's shape changes (DIAGNOSE → DELIVER, AUDIT → DELIVER), open a new run with a new slug; cross-link in *Notes*. Don't rewrite the proposed flow of an existing run to match what the run became.
+- **Match the actual flow's stage trace.** If you skipped a stage, say so in the trace ("Stage 5 skipped — TINY tier"). Don't omit silently.
 - **Timestamps in stage trace.** Local time, HH:MM:SS, sufficient for ordering. Full ISO timestamps belong in the state file.
 - **Mermaid syntax must be valid.** A broken diagram is worse than no diagram. If you're unsure about syntax, fall back to a numbered text list with arrows.
-- **Pick orientation by node count.** ≤5 nodes → `flowchart LR`. >5 nodes → `flowchart TD`. If the run grows past 5 mid-flight, flip to TD when you next update the sketch — don't squeeze a long flow into horizontal for visual consistency.
+- **Pick orientation by node count.** ≤5 nodes → `flowchart LR`. >5 nodes → `flowchart TD`. If the run grows past 5 mid-flight, flip to TD when you next update the sketch — don't squeeze a long flow into horizontal for visual consistency. Apply this independently to the proposed and actual diagrams.
 - **Don't editorialize.** The sketch is mechanical: who, when, what outcome. Editorial commentary belongs in the final report.
 
 ### When the run aborts or stops
@@ -648,12 +757,12 @@ Applies to **every Bash call that could plausibly stall**. Does **not** apply to
 - **Classify tier** (TINY / STANDARD / HEAVY) — only relevant when implementation will run
 - **Classify project context** (GREENFIELD / BROWNFIELD) — determines whether the librarian runs at stages 4 and 8. Use the heuristics in the Project context section; default to BROWNFIELD when uncertain
 - **Confirm operating mode** (AUTONOMOUS / LOOP-IN) — only relevant when implementation will run
-- Locate plan home (`thoughts/shared/plans/<slug>.md`); decide kebab-case slug
+- **Decide the slug** as `<YYYY-MM-DD>-<shape>-<descriptive-kebab>` (see *Run identification and prior-art discovery*). Locate plan home: `thoughts/shared/plans/<slug>.md`. Before locking, **discover prior art**: grep `thoughts/shared/plans/` and `thoughts/shared/investigations/` for runs matching topic (substring of the descriptive part) and the most recent few of the same shape. Surface relevant ones to the user concisely; only load their content if the user opts in or the prior run is a direct predecessor
 - Note starting git state (branch, base commit, clean/dirty) for diff scope at validation
 - **Resolve the ticketing project for this repo** (see Ticket lifecycle / Project resolution). Fast path: read the `## Ticketing` stanza from the repo's CLAUDE.md (see `INTEGRATION.md` for the schema). Slow path: search the configured ticketing system by name, ask the user if ambiguous, create if missing. Persist to CLAUDE.md when missing or incomplete. Skip if the run will produce no commits (RESEARCH-ONLY, AUDIT-ONLY without remediation, INVESTIGATE-ONLY) or if the stanza declares `system: none`
 - **Search for an existing ticket** that may already cover this work (see *Existing-ticket detection*). If a strong candidate is found, surface it to the user and ask whether to use the existing ticket, create new with cross-link, or supersede. Only create a new ticket when no clear match exists or the user explicitly wants a fresh one
 - **Create the state file** (`thoughts/shared/plans/<slug>.state.md`) with Status: in-progress and the initial fields populated, including resolved `ticketing project: <id> (<name>)` and `ticket: <id> (<existing|new>)`
-- **Create the flow sketch** (`thoughts/shared/plans/<slug>.flow.md`) with the metadata table populated, an empty Mermaid diagram stub, and the first stage trace entry (Intake). See **Pipeline flow sketch** above for the format. Update at every stage transition; finalize at the report stage.
+- **Create the flow sketch** (`thoughts/shared/plans/<slug>.flow.md`) with the metadata table populated, the **Proposed flow** section filled in (rationale + Mermaid diagram of the planned stages and agents — locked from this point forward), an empty *Actual flow* diagram stub, an empty *Deviations from proposed* section, and the first stage trace entry (Intake). See **Pipeline flow sketch** above for the format. Update *Actual flow*, *Deviations*, and *Stage trace* at every stage transition; never edit *Proposed flow* after intake; finalize at the report stage.
 
 ### 2. Research (sarah, optional — and parallel)
 
