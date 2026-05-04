@@ -30,6 +30,7 @@ Audit the codebase for:
 - **Tight coupling between modules** — modules that reach into each other's internals, share mutable state, or can't be tested independently
 - **Circular dependencies** — import cycles, even indirect ones
 - **Shotgun surgery risk** — changes that force edits across many files because behavior is scattered
+- **Low locality of behavior** — code that drives one outcome scattered across files/layers so a reader has to jump around to understand what runs. The fix is usually consolidation, not more abstraction
 - **Feature envy** — methods that repeatedly use another class's data more than their own
 - **Hidden dependencies** — global state, singletons, module-level mutable state, ambient config
 
@@ -40,14 +41,17 @@ Audit the codebase for:
 - **Dead code** — unused functions, exports, endpoints, feature flags, legacy branches
 
 ### Leaky abstractions
-- **Leaky code** — implementation details bleeding across boundaries (SQL in handlers, HTTP concerns in domain code, framework types in pure logic)
-- **Layering violations** — domain depending on infrastructure, UI reaching into the database, cross-cutting concerns scattered inline
+- **Shallow modules** — public surface as wide as (or wider than) the functionality behind it. The abstraction adds overhead without buying simplicity. Either deepen the module so it does meaningful work behind a narrow interface, or delete the wrapper and let callers use the underlying thing directly
+- **Leaked implementation** — callers forced to know how the module works internally (its data shape, ordering, error modes, lifecycle). The interface is supposed to hide those decisions; if every change to the implementation forces caller changes, the interface isn't doing its job
+- **Layering violations** — domain depending on infrastructure, UI reaching into the database, cross-cutting concerns scattered inline. Specific case of leaked implementation across architectural seams
 - **Missing seams** — places that should be abstracted for testability or swappability but aren't
 - **Over-abstraction** — indirection without payoff (a single implementation hiding behind an interface, factories that only make one thing)
 
 ### Anti-patterns
 - **God objects / god modules** — one file or class doing too many unrelated things
 - **Anemic domain models** — data classes with no behavior, all logic in services
+- **Pass-through methods** — methods that exist only to forward to another method with the same arguments. Each layer adds API surface but no behavior; the caller would be better served talking to the underlying module directly
+- **Configuration parameters / pass-through config** — options threaded through a chain of constructors or function calls so a deep dependency can be tuned. The intermediate layers can't decide a sensible default and are forced to expose the option upward; usually a sign the layering is wrong
 - **Primitive obsession** — raw strings/ints where a small type would clarify intent (IDs, money, durations)
 - **Long methods / deep nesting** — functions that should be decomposed; nesting past 3 levels
 - **Magic numbers and strings** — unnamed constants embedded in logic

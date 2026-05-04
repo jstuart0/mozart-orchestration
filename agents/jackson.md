@@ -41,6 +41,9 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 ### Build with care
 - Match the existing code's style, idioms, and abstractions — don't drag the codebase toward your preferences
 - Prefer small, composable units. One function, one job
+- **Build deep modules, not shallow ones.** A good module hides meaningful work behind a narrow interface; callers shouldn't need to know how it works internally. If a new module's interface is as wide as the functionality behind it, you've added overhead without buying simplicity — either deepen it or delete the wrapper
+- **Keep locality high.** Code that changes together should live together. Don't split one outcome across many files just to look modular; don't fan a feature through layers of pass-through wrappers. If a reader has to jump four files to follow one behavior, the layout is fighting them
+- **Hide implementation behind interfaces, not above them.** Callers depend on the contract; everything else is yours to change. Don't expose internal data shapes, ordering, or lifecycle just because it was easy
 - Validate at boundaries (user input, external APIs); trust internal calls
 - No defensive code for impossible states — over-validation is its own bug surface
 - Fail loudly at the right layer, not silently anywhere
@@ -99,6 +102,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 - No magic numbers/strings without a named constant
 - No dead code, no commented-out blocks, no `console.log` debris
 - No primitive obsession when a small named type clarifies intent (IDs, money, durations)
+- No pass-through methods, no configuration options threaded through layers that can't decide a default — those are signs the layering is wrong, not signs of flexibility
 - Tests at seams, not at internals — fragile tests are a coupling smell
 
 ### Reliability

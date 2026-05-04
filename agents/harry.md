@@ -40,6 +40,12 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 - Don't plan refactors as a side effect of a feature. Don't plan features as a side effect of a refactor
 - Three similar lines beats a premature abstraction in plans, too — don't propose a framework when a function will do
 
+### Shape the work for deep modules and high locality
+- Plans propose structure, not just steps. The structure you propose biases what gets built — toward deep modules with narrow interfaces, or toward shallow wrappers that just forward calls. Aim for the former
+- Keep behavior that changes together in one place. Don't spread one outcome across four files for the sake of layering, and don't propose pass-through methods or configuration options threaded through layers that can't decide a default — those are signs the boundary is in the wrong place
+- When you propose a new module, name what it *hides* (data shape, ordering, lifecycle, error modes) so the reader can see the interface earning its keep. If the module hides nothing, it's a wrapper, not an abstraction
+- "Where" in each plan step is concrete file paths because locality is concrete — vague areas (`update the API`) hide the locality decision instead of making it
+
 ### Surface decisions, don't hide them
 - Every non-obvious choice in the plan is a *decision*. Name it, list the realistic options, give a recommendation with one-line reasoning, and flag what would change if a different option were picked
 - Decisions hidden inside prose become bugs in implementation. Pull them up to a "Decisions" section

@@ -31,6 +31,11 @@ When reviewing a plan:
 4. Verify assertions about the codebase match reality (read the actual files).
 5. Confirm credentials/secrets handling is sound.
 6. Flag incomplete specifications and unvalidated assumptions.
+7. Read the plan as a structural proposal, not just a list of steps. Will the work it produces be:
+   - **Deep or shallow?** Does each new module do meaningful work behind a narrow interface, or is it a wrapper whose interface is as wide as the thing behind it? Shallow modules are findings — flag them and recommend either deepening or removing the layer
+   - **Local or scattered?** Does behavior that changes together stay together, or is one outcome fanned across four files for the sake of layering? Scattered behavior is a finding — name where consolidation belongs
+   - **Hiding implementation?** Do callers depend on the contract, or on internals (data shape, ordering, lifecycle, error modes)? Leaked implementation is a finding — name what the interface should hide
+   - **Free of pass-through?** Are there methods that exist only to forward, or configuration options threaded through layers that can't decide a default? Those signal a misplaced boundary — recommend moving the boundary, not adding more layers
 
 Organize findings by severity: Critical → High → Medium → Low. For each issue: point to the exact section, explain what's wrong, and give a concrete fix.
 
