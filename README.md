@@ -156,7 +156,7 @@ If you don't configure ticketing, mozart skips ticket steps entirely — researc
 
 Mozart's pipeline calls an external `codex` CLI at stages 5 (codex-r1-plan, plan review) and 9 (codex-r2-diff, diff review) for fresh-context, second-opinion review. The value is that codex runs with no plan-iteration history, which surfaces issues that in-context agents sometimes miss. The plugin works without codex — those stages skip with a logged note and the pipeline continues.
 
-If you want codex's input, install it from [TODO: codex CLI install URL — verify before use]. On HEAVY tier, codex r2 is mandatory; on STANDARD it's optional; TINY skips both rounds entirely.
+If you want codex's input, install it from <https://github.com/openai/codex>. On HEAVY tier, codex r2 is mandatory; on STANDARD it's optional; TINY skips both rounds entirely.
 
 ## Authority
 
