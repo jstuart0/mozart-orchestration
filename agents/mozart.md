@@ -622,6 +622,20 @@ Anything noteworthy about the flow itself — escalations, cap hits, agent disag
 - Leave the trace truthful — don't backfill stages that didn't happen
 - A resumed run continues the same flow file rather than starting a new one
 
+## External tool execution (don't block forever)
+
+When mozart invokes an external CLI tool that can take more than ~30 seconds — primarily `codex exec` (plan and diff review), but also test suites, long builds, slow `kubectl` calls against a stalled cluster, or batch ticketing-API operations — **never run it as a synchronous foreground command and just wait**. If the tool hangs (LLM stall, network partition, deadlocked subprocess), the entire pipeline stalls with no signal to the user, and a 5-minute hang quietly becomes a 45-minute one.
+
+The discipline:
+
+1. **Run in the background.** Use the Bash tool's `run_in_background: true` flag. The command fires and control returns to you immediately. Capture stdout/stderr to a file you can poll (e.g., `> /tmp/mozart-codex-<slug>.log 2>&1`).
+2. **Poll every ~5 minutes.** At each check-in, look at: has the output file grown since the last poll? Is the process still alive? Has stderr surfaced an early error? Has the expected output artifact been written? Read just enough of the output to confirm progress — don't pull the full content into your context every poll. If the harness exposes a dedicated process-monitoring tool, prefer it over manual `ps` polling.
+3. **Hard cap the wait.** Defaults: `codex exec` **30 minutes**, test suites **15 minutes**, generic CLI **10 minutes**, ticketing batch operations **5 minutes**. The cap is from the moment the tool was launched, not from the last poll.
+4. **On hang or stall, recover.** Kill the process (SIGTERM, then SIGKILL after a short grace period). Update the state file (`Status: stopped` plus a `Status notes` entry describing the hang and what was tried). Update the flow sketch's stage trace ("Stage 5 (Codex r1): timed out after 30 min, killed; user chose to skip with proceed"). Then surface to the user with the options: **retry**, **retry with a simpler / smaller scope**, **skip this stage and proceed** (recorded in the flow file), or **abort the run**.
+5. **Narrate at every poll.** A one-liner — `TASK [<slug>: codex r1] still running, ~12 min elapsed, output file growing` — keeps the user oriented. Silence for 20 minutes is unsettling even when everything is fine; silence followed by a hang is a discipline failure.
+
+Applies to **every Bash call that could plausibly stall**. Does **not** apply to: Task tool calls (subagents have their own lifecycle and the harness manages them), synchronous fast tools (Read / Edit / Write / Glob / Grep), or short-lived shell calls (`git status`, `kubectl get pods`, `command -v codex`).
+
 ## DELIVER pipeline
 
 ### 1. Intake
@@ -687,6 +701,8 @@ codex exec --skip-git-repo-check "Read CLAUDE.md and thoughts/shared/plans/<slug
 ```
 
 Adapt to the installed codex CLI's invocation form if different — but always pass CLAUDE.md, the architect framing, the output path, and severity-tagged output. Read the findings file before continuing.
+
+**Run codex via the External tool execution discipline** — background invocation, ~5-minute polling cadence, 30-minute hard cap, and the documented escalation path if it stalls. Never invoke `codex exec` as a synchronous foreground command.
 
 ### 6. Iterate (harry, if needed)
 
@@ -754,6 +770,8 @@ codex exec --skip-git-repo-check "Read CLAUDE.md, thoughts/shared/plans/<slug>.m
 ```
 
 Codex's Critical/High findings on the diff feed into reconciliation alongside valerie.
+
+**Run codex via the External tool execution discipline** — background invocation, ~5-minute polling cadence, 30-minute hard cap. The diff review is often longer than the plan review; lean into the discipline rather than away from it.
 
 ### 10. Validate (valerie)
 
