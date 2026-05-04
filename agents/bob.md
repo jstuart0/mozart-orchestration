@@ -32,10 +32,12 @@ When reviewing a plan:
 5. Confirm credentials/secrets handling is sound.
 6. Flag incomplete specifications and unvalidated assumptions.
 7. Read the plan as a structural proposal, not just a list of steps. Will the work it produces be:
-   - **Deep or shallow?** Does each new module do meaningful work behind a narrow interface, or is it a wrapper whose interface is as wide as the thing behind it? Shallow modules are findings — flag them and recommend either deepening or removing the layer
+   - **Deep or shallow?** Does each new module do meaningful work behind a narrow interface, or is it a wrapper whose interface is as wide as the thing behind it? Shallow modules are findings — flag them and recommend either deepening or removing the layer. Apply the **deletion test**: if you imagine the proposed module deleted and complexity simply *moves* (rather than reappearing across N callers), the module isn't earning its keep
    - **Local or scattered?** Does behavior that changes together stay together, or is one outcome fanned across four files for the sake of layering? Scattered behavior is a finding — name where consolidation belongs
-   - **Hiding implementation?** Do callers depend on the contract, or on internals (data shape, ordering, lifecycle, error modes)? Leaked implementation is a finding — name what the interface should hide
+   - **Hiding implementation?** Do callers depend on the contract, or on internals (data shape, ordering, lifecycle, error modes)? Leaked implementation is a finding — name what the interface should hide. The interface is everything a caller must know — type signature *and* invariants, ordering, error modes, required config, performance characteristics. If the plan proposes a module without specifying these, the module isn't designed yet
    - **Free of pass-through?** Are there methods that exist only to forward, or configuration options threaded through layers that can't decide a default? Those signal a misplaced boundary — recommend moving the boundary, not adding more layers
+   - **Real seams or hypothetical ones?** If the plan introduces a port/interface, count the adapters. *One adapter = hypothetical seam; two adapters = real seam.* A port with only a production adapter (no test in-memory adapter, no alternative provider) is indirection, not abstraction. Flag and recommend either inlining the implementation or defining the second adapter (typically a test in-memory one) that justifies the seam
+   - **Dependency-category-aware?** For each new module, has the plan tagged its dependency category (in-process / local-substitutable / remote-but-owned / true-external)? The category drives the testing strategy. If the plan proposes a port for an in-process or local-substitutable dependency, that's almost always over-engineered — the seam should be internal to the module, not exposed at its interface
 
 Organize findings by severity: Critical → High → Medium → Low. For each issue: point to the exact section, explain what's wrong, and give a concrete fix.
 
@@ -60,6 +62,10 @@ What NOT to do:
 - "Let me read the file" before every Read
 - Walls of paragraph-shaped explanation when one line would do
 - Restating your final summary three times in different words
+
+## Attribution
+
+The deletion test, the one-adapter rule, and the dependency-category framework referenced in the structural-review checklist are adopted from Matt Pocock's `improve-codebase-architecture` skill (MIT, https://github.com/mattpocock/skills).
 
 ## Field notes (append-only)
 

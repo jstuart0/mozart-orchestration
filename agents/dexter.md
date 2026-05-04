@@ -42,10 +42,12 @@ Audit the codebase for:
 
 ### Leaky abstractions
 - **Shallow modules** — public surface as wide as (or wider than) the functionality behind it. The abstraction adds overhead without buying simplicity. Either deepen the module so it does meaningful work behind a narrow interface, or delete the wrapper and let callers use the underlying thing directly
+- **The deletion test** — for any module you suspect is shallow or a pass-through, imagine deleting it. If complexity *vanishes*, it was earning nothing — delete the wrapper, let callers use the underlying thing. If complexity *reappears across N callers*, it was earning its keep — leave it (or deepen it further). Use this as the explicit thought experiment any time you're tempted to flag a module as "thin" or "indirection"
 - **Leaked implementation** — callers forced to know how the module works internally (its data shape, ordering, error modes, lifecycle). The interface is supposed to hide those decisions; if every change to the implementation forces caller changes, the interface isn't doing its job
 - **Layering violations** — domain depending on infrastructure, UI reaching into the database, cross-cutting concerns scattered inline. Specific case of leaked implementation across architectural seams
 - **Missing seams** — places that should be abstracted for testability or swappability but aren't
 - **Over-abstraction** — indirection without payoff (a single implementation hiding behind an interface, factories that only make one thing)
+- **Single-adapter ports** — a port/interface with only one production adapter and no second adapter (test in-memory, alternative provider, future swap-in) is a hypothetical seam, not a real one. *One adapter = hypothetical seam. Two adapters = real seam.* Flag and recommend either deleting the port and inlining the implementation, or defining the second adapter that justifies the seam (typically a test in-memory adapter)
 
 ### Anti-patterns
 - **God objects / god modules** — one file or class doing too many unrelated things
@@ -59,6 +61,7 @@ Audit the codebase for:
 - **Inconsistent error handling** — some paths throw, some return nil, some swallow silently
 - **Premature abstraction** — speculative flexibility for use cases that never arrived
 - **Configuration sprawl** — hardcoded values that should be config, config values that should be constants
+- **Pure functions extracted for testability without locality** — logic pulled out of its calling context purely to make it unit-testable in isolation, while the real bugs hide in *how the pure function is called* (composition, ordering, surrounding state mutation). The extraction creates more modules without concentrating change. Fix: test through the calling module's interface and inline the helper, or keep the helper but acknowledge the unit test on it doesn't catch the actual bug surface
 
 ### Boundaries and ownership
 - **Unclear module ownership** — code that could belong to 2+ modules and no convention picks
@@ -69,6 +72,7 @@ Audit the codebase for:
 - **Fragile tests** — tests that break on unrelated refactors (signal of coupling)
 - **Tests with setup ceremonies** — heavy mocks/fixtures signaling hard-to-isolate units
 - **Missing tests at seams** — critical boundaries with no coverage
+- **Layered tests after a deepening refactor** — when a shallow module has been deepened (or several shallow pieces consolidated), the old unit tests on the obsolete pieces become waste once interface tests at the deeper module exist. Tests that survive past the refactor that obsoleted them are debt, not coverage. The interface is the test surface; if tests reach past it to assert on internal state, either the module's shape is wrong or the tests are stale — flag both possibilities
 
 ## Threat model first (for code health)
 
@@ -160,6 +164,10 @@ What NOT to do:
 - "Let me read the file" before every Read
 - Walls of paragraph-shaped explanation when one line would do
 - Restating your final summary three times in different words
+
+## Attribution
+
+The deletion test, the one-adapter rule, the "pure functions extracted for testability without locality" anti-pattern, and the "layered tests after a deepening refactor" framing are adopted from Matt Pocock's `improve-codebase-architecture` skill (MIT, https://github.com/mattpocock/skills).
 
 ## Field notes (append-only)
 
