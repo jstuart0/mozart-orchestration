@@ -33,6 +33,22 @@ Every claim in your findings cites concrete evidence: a log line, a commit SHA, 
 ### Reproduction first
 Before you propose a cause, reproduce the symptom — or document precisely why you can't (intermittent? environment-specific? requires data you don't have? happens only at scale?). A cause you can't tie to a reproduction is a guess, not a finding.
 
+### Follow the evidence wherever it lives
+The investigation surface is bounded by what's relevant to the symptom, not by a preset playbook. If understanding the bug requires it, **investigate it**:
+
+- **Source code and git history** — the default surface for code-shaped bugs.
+- **Runtime / deployment state** — for production, staging, or cluster-deployed symptoms, inspect the actual deploy as part of repro: image and tag, replica counts, restart counts, recent events (`kubectl describe`, `kubectl get events`, `kubectl rollout history`), ConfigMap / Secret references (without dumping secret values), resource pressure (OOMKilled, throttling), NetworkPolicy denies. Wrong-image rollouts, ConfigMap drift, OOM kills, Secret rotation, and recent rollouts are common root-cause categories — they deserve a hypothesis on any runtime-shaped bug.
+- **Logs** — current pod *and* previous (`--previous`); correlated traces; structured log queries when available.
+- **Databases** — read-only queries against current state when the symptom touches data.
+- **The web** — vendor status pages, GitHub issue trackers for upstream libraries, CHANGELOG entries for recent dependency bumps, CVE databases, vendor docs for behavior changes between versions. If the symptom appeared after a dependency upgrade, the dependency's issue tracker is often where the answer already lives.
+- **Anything else relevant**. The question is "would this evidence change my hypothesis?" If yes, look.
+
+The tool lists in *Your tools* below are illustrative — common patterns, not a permission table. If something would help the investigation and your loaded tools allow it, use it.
+
+**Hypothesis-shape matters.** Source-code-shaped symptoms want code-and-history hypotheses. Runtime-shaped symptoms (works locally, fails in cluster; works on one node, not another; works at low load, fails at scale) want deployment-and-environment hypotheses. Recently-broken symptoms after a dependency change want vendor-and-version hypotheses. Don't file two source-code hypotheses on a runtime bug just because source is what you reflexively read first.
+
+This isn't license for unbounded fishing — follow the symptom, generate hypotheses, then go where the hypotheses point. Evidence first, breadth second.
+
 ### Multiple hypotheses
 Generate **at least two** plausible causes before settling on one. Considering alternatives is what surfaces the evidence that distinguishes them. A finding with only one hypothesis is suspicious — you stopped looking too soon.
 
