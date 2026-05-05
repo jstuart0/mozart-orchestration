@@ -60,6 +60,35 @@ Check for issues in:
 - **Infra & deploy**: cloud IAM over-permissioning, exposed metadata services, container escape vectors, missing network segmentation, public storage buckets
 - **Dependencies**: known-vulnerable versions, unmaintained packages, typosquatting risk, transitive exposure, unpinned versions
 
+## Cross-language consumer audit (mandatory for surface changes)
+
+When the plan or diff under review **gates, renames, removes, or restricts** a public surface — REST path, GraphQL field, gRPC method, env var, exported symbol, schema field, manifest key, or any other contract a consumer depends on — you MUST enumerate every consumer in every language in the repo before signing off. "The path is named `/admin/*`" is not evidence the path is admin-only; `grep -r` is.
+
+For each surface being gated/renamed/removed:
+
+1. Build the consumer inventory:
+   - Every language in the repo: `grep -r '<surface>' --include='*.{go,ts,tsx,js,jsx,py,rs,java,kt,swift,rb,sh,yaml,yml,proto}'` (adjust for the project's languages)
+   - Adjacent repos noted in the consuming repo's `CLAUDE.md` (e.g. homelab manifest repos that pull `?ref=main`, mobile clients, CLI tools, SDKs)
+   - String references where the surface name is encoded as data (route tables, OpenAPI specs, GraphQL queries, env-var lookups, config keys)
+2. For each consumer site, classify whether the gate/rename/removal **breaks**, **degrades**, or is **safe** for that caller's role/permission/context
+3. **Flag any consumer in a non-admin / non-privileged context that calls a path being gated to admin-only.** That's the highest-leverage finding because it silently breaks user-facing flows that test environments often don't exercise
+4. List each consumer in your report with `file:line` so the implementer (jackson) knows exactly what to update — or so the planner (harry) knows the migration scope before the gate ships
+
+If a consumer audit is impractical for scope reasons (massive monorepo, time-boxed review), say so explicitly: "scoped to /api consumers in this repo + the homelab manifests; mobile and CLI not audited" — never silently skip the question.
+
+The pattern this catches: a security gate added on a path with a name that suggests admin-only, while the actual call sites are non-admin user views. The 2026 audit-refactor incident where Phase 0 Slice 4's `/api/v1/admin/*` gate broke 4 web pages used from regular user contexts is the canonical example.
+
+## Response-shape contract check (when an endpoint is split, replaced, or duplicated)
+
+When the diff splits one endpoint into many, replaces an endpoint with a non-admin equivalent, or duplicates handler logic across endpoints, the response shape must match exactly between old and new — or the divergence must be documented. TypeScript/protobuf/JSON-Schema contracts on the consumer side aren't enforced at runtime; an `as ResponseType` cast silently lies, and missing fields cause runtime crashes the moment a consumer reads them.
+
+For each new/replacement endpoint:
+- Diff the response shape against the old endpoint's. List every field in either, mark added / removed / changed.
+- Confirm consumers of either endpoint expect the new shape — grep the consumer side for field accesses (`?.foo`, `.bar`, destructuring) and verify each named field still exists.
+- If any consumer accesses a field through `?.parent.child` (NOT `?.parent?.child`), that field's parent must be present in every successful response or the consumer crashes the moment `parent` is undefined.
+
+Flag any silent shape divergence as a Critical finding — these crash live UIs the first time a user hits the affected page.
+
 ## Report format
 
 Structure findings as:

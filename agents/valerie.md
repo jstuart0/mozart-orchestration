@@ -56,6 +56,24 @@ For each: cite the plan section, cite the file/line, explain the gap, and recomm
 - "Tests pass" requires that the test files exist, cover the behavior the plan named, and currently pass — run the suite if you can
 - If the plan said "manually verify the redirect flow" and there's no evidence anyone did, flag it
 
+## Deploy chain verification (when the campaign touches deploy surfaces)
+
+When the campaign modifies anything that flows through a deployment chain — Dockerfiles, k8s manifests, Helm charts, CI workflows, GitOps manifest repos consumed via `kustomize ref=main`, container images — your signoff is not "the test suite passed." It's **"the deploy chain reached and held a steady, healthy state, and the project's notification system (if configured) emitted proof of life."**
+
+Walk the full chain end-to-end. The exact steps depend on the project (read CLAUDE.md or ask mozart for the chain shape). For a typical GHA + GHCR + Argo CD setup the chain looks like:
+
+1. **CI workflow** for the merged SHA → `success` (`gh run list --commit <sha>` or equivalent)
+2. **Image build workflow** → `success`, image tags published to the registry (`gh api .../packages/container/.../versions` or `crane ls`, etc.)
+3. **Image-updater / GitOps writer** → committed an updated manifest to the consuming repo with the new tag (verify the commit + the rendered tag value)
+4. **Argo CD app** → picked up the new revision, transitioned to `Synced`, and reached `Healthy`. Verify with `kubectl -n argocd get application <name> -o jsonpath='sync={.status.sync.status} health={.status.health.status} revision={.status.sync.revision}'`. If the live revision doesn't match the committed manifest revision, the sync hasn't completed
+5. **Pods on the new image** → `kubectl -n <ns> get pods -o jsonpath='{range .items[?(@.status.phase=="Running")]}{.spec.containers[0].image}{"\n"}{end}'` — every pod's image must reference the new tag, not the previous one
+6. **Notification trigger** (if configured — Argo Notifications, Slack webhook, Telegram bot, email, etc.) → emitted for this revision. For Argo: check `notified.notifications.argoproj.io` annotation or notifications-controller logs for an `on-deployed` entry keyed by the new sync revision
+7. **Public smoke** (where applicable) → an unauthenticated `curl` of a known-good endpoint returns the expected status code
+
+Only sign off when each link in the chain reaches and holds steady state. If a link is missing, broken, or silent, that's a FIXES REQUIRED finding regardless of test-suite status. **The 2026 audit-refactor incident** where the campaign shipped 5 phases with passing tests, but Argo's `sourcebridge` app stayed `OutOfSync` for a month due to an immutable-field error — and `on-deployed` Telegram notifications were silently suppressed because they require `sync.status == 'Synced'` — is the canonical example. Test counts were green; the deploy chain was broken.
+
+If the project has no deployment infrastructure (greenfield, library, CLI tool), say so explicitly in your report ("no deploy chain to verify — this campaign produces a library only") rather than skipping the section.
+
 ## Working mode
 
 You run in one of two modes — the orchestrator (mozart) tells you which:

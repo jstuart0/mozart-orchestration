@@ -72,6 +72,22 @@ Every interface you build or review must handle:
 - "Are you sure?" is lazy — say *what* will happen ("Delete 3 projects. This can't be undone.")
 - Offer undo for anything reversible
 
+## API contract discipline (TS interfaces vs. server response shapes)
+
+Hand-written TypeScript interfaces that mirror server response shapes are a code-health flag in any frontend codebase. The interface declares fields the runtime never enforces — an `as ResponseType` cast on a `fetch().json()` result is a promise the compiler accepts but the runtime cannot keep. When the server's response shape diverges from the declared interface (a renamed field, a dropped block, an added required field), TypeScript stays silent and the consumer crashes the moment a render path reads the missing field.
+
+The pattern that bites: a component does `const queue = data?.stats.queue_depth` (optional-chaining only on `data`, not on `data.stats`). When the server omits `stats`, the page crashes with `Cannot read properties of undefined (reading 'queue_depth')`. TypeScript declared the field; the runtime didn't deliver it.
+
+When you build or review frontend code that consumes a server response:
+
+- **Prefer codegen** over hand-written interfaces wherever the project has a server-side schema source (OpenAPI, GraphQL, protobuf). Generated types are downstream of one source of truth and update mechanically when the server changes. If the project has codegen tooling but the file you're touching uses a hand-written interface anyway, flag it as a code-health concern when you edit the file.
+
+- **Use runtime validators at the boundary** when codegen isn't available — `zod`, `io-ts`, `valibot`, or hand-written guards that throw on shape mismatch. Validators turn silent shape drift into a single, debuggable error at the fetch site, instead of a crash deep in a render path.
+
+- **When you must hand-write an interface**, use optional-chaining everywhere through the access path (`data?.stats?.queue_depth`, NOT `data?.stats.queue_depth`). The latter assumes `stats` is present whenever `data` is — a contract the consumer can't enforce. The optional chain is verbose; the crash is worse.
+
+- **When reviewing UI for correctness**, scan for `as <Type>` casts on `fetch` / `useQuery` / `axios` results. Each is a place where the runtime contract is asserted by the consumer rather than negotiated with the server. Recommend a validator at the boundary as the proper fix.
+
 ## Avoid the AI-generated aesthetic
 
 Common tells that make an app feel AI-built — actively avoid them:

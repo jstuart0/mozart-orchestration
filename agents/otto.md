@@ -33,7 +33,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 - Verify cluster context awareness: does the change assume the right namespace, the right cluster, the right environment? Many repos document a context-verification discipline in CLAUDE.md — flag any change that doesn't respect that boundary
 - For Helm: read the rendered output, not just the values file. Templating errors silently produce broken manifests
 
-### The big seven categories
+### The big eight categories
 For every infra change, sweep these:
 
 1. **Resource constraints** — every container has CPU+memory `requests` AND `limits`. Missing limits = noisy-neighbor risk; missing requests = unschedulable on busy nodes; over-provisioned limits = wasted cluster capacity. Flag any container without both
@@ -43,6 +43,18 @@ For every infra change, sweep these:
 5. **Persistent state** — PVC `storageClassName` matches what the cluster actually has, `accessModes` correct (ReadWriteOnce vs ReadWriteMany), `persistentVolumeReclaimPolicy: Retain` for anything you can't easily rebuild. Flag `Delete` on stateful workloads
 6. **Secrets handling** — no plaintext secrets in manifests, no committed secrets, `secretRef` pointing to existing secrets in the right namespace, Sealed Secrets / external-secrets / vault refs where applicable
 7. **Identity & RBAC** — `ServiceAccount` defined explicitly (don't rely on `default`), Role/RoleBinding scoped narrowly (verbs and resources), no `cluster-admin` unless genuinely required and called out
+8. **Immutability check on existing live state** — many resource fields are immutable after the resource is first created. Modifying them in a manifest causes Argo / `kubectl apply` to fail with `Forbidden: spec is immutable` and silently block the entire sync transaction. **For any change to a stateful resource that already exists on the target cluster, verify the changed fields are mutable on that resource type** — and if they're not, flag the change as requiring resource recreation (with a documented cascade strategy: `--cascade=orphan`, PVC retention, blue/green, etc.). The most-bitten immutable fields:
+   - **`StatefulSet`**: `spec.serviceName`, `spec.selector`, `spec.volumeClaimTemplates[*]` (including `storageClassName` inside a volumeClaimTemplate — adding it to an existing StatefulSet that didn't have it = Forbidden)
+   - **`PersistentVolumeClaim`**: `spec.storageClassName`, `spec.accessModes`, `spec.volumeMode` (most of `spec` after binding)
+   - **`Service`**: `spec.clusterIP`, `spec.type` (some transitions only), `spec.ipFamilies` (sometimes)
+   - **`Job`**: `spec.template.spec` (most fields once the Job has started — needs delete + recreate)
+   - **`Deployment`**: `spec.selector` (immutable after creation; pod template labels must keep matching)
+   - **`PersistentVolume`**: `spec.capacity`, `spec.accessModes`, most of `spec` once Bound
+   - **CRDs**: `spec.scope`, `spec.group` (after creation); per-version schema changes have their own constraints
+
+   When the consuming repo's `CLAUDE.md` documents a long-running cluster (production, homelab, anything that's been running >30d), assume every existing resource has immutable-field constraints and add a step to the plan/runbook: **run `kubectl apply --dry-run=server` (NOT `--dry-run=client` — the server-side dry-run is what catches immutability errors) against the target cluster before merging the change**. If that's not feasible for the campaign (no cluster access, brand-new cluster, etc.), say so explicitly in your finding rather than silently skipping.
+
+   The pattern this catches: a manifest change that renders cleanly with `kubectl kustomize` but fails to apply against an existing resource because a previously-unset field has been added (or vice versa). The 2026 audit-refactor incident where Phase 5 Slice 6 added `storageClassName: CHANGE-ME-...` to a `StatefulSet.volumeClaimTemplates` — and the cluster's existing StatefulSet had no `storageClassName` — is the canonical example. Argo's sync silently failed for a month, suppressing all `on-deployed` notifications.
 
 ### Repo-specific concerns
 

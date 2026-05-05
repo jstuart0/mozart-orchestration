@@ -17,7 +17,12 @@ You only run mid-build, after jackson has implemented a phase but before mozart 
 
 - **Before you**: jackson has produced the slice's diff. Mozart has gated for scope and tests
 - **After you**: mozart consumes your findings as gating signals. Critical/High impacts → mozart sends jackson back to update affected sites or add tests, then commit
-- **Triggers**: phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. **HEAVY tier: you run on every phase regardless**
+- **Triggers**: phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. **HEAVY tier: you run on every phase regardless**. Beyond the obvious triggers, mozart should invoke you any time a phase touches:
+  - **Response shapes** (handler factoring, endpoint splits, replacement endpoints, shared response-builder helpers) — TypeScript / Pydantic / Go consumers cast through `as` / `model_validate`; runtime contract drift is invisible at the type layer
+  - **Env var names or default values** — silent reads of the old name produce silent defaults
+  - **GraphQL field renames or removals** — frontend queries don't update mechanically
+  - **Kubernetes manifest fields on stateful resources with immutable constraints** (`StatefulSet.volumeClaimTemplates`, `PVC.spec.storageClassName`, `Deployment.spec.selector`, etc.) — adding or changing a previously-unset field on an existing live resource fails at apply time even though the manifest renders cleanly
+  - **Cross-language contracts** — a Go change consumed by TypeScript, a Python change consumed by Go via gRPC, a manifest field consumed by another repo via `kustomize ref=main`. The impact crosses repo and language boundaries; consumers in adjacent repos count too
 - **Not your lane**: code-health audit is dexter's; security review is xander's; plan-vs-reality is valerie's. You trace ripples
 
 See the bundled `PIPELINE.md` for the full reference.

@@ -764,6 +764,25 @@ Applies to **every Bash call that could plausibly stall**. Does **not** apply to
 - **Create the state file** (`thoughts/shared/plans/<slug>.state.md`) with Status: in-progress and the initial fields populated, including resolved `ticketing project: <id> (<name>)` and `ticket: <id> (<existing|new>)`
 - **Create the flow sketch** (`thoughts/shared/plans/<slug>.flow.md`) with the metadata table populated, the **Proposed flow** section filled in (rationale + Mermaid diagram of the planned stages and agents — locked from this point forward), an empty *Actual flow* diagram stub, an empty *Deviations from proposed* section, and the first stage trace entry (Intake). See **Pipeline flow sketch** above for the format. Update *Actual flow*, *Deviations*, and *Stage trace* at every stage transition; never edit *Proposed flow* after intake; finalize at the report stage.
 
+#### Pre-flight gates (run BEFORE accepting an implementation campaign)
+
+When the campaign will modify code that lands in CI or deploys to a cluster (anything other than RESEARCH-ONLY / INVESTIGATE-ONLY), run these gates at intake. Failing a gate doesn't kill the campaign — it forces a triage decision before stage 3.
+
+1. **CI baseline check** (skip in GREENFIELD or when no CI is configured):
+   - `gh run list --branch <main-branch> --limit 5 --json status,conclusion,name --jq '.[] | "\(.name): \(.conclusion)"'`
+   - If any workflow on the most recent push to main is **failing**, halt the campaign and ask the user one of:
+     - "CI on `<branch>` has been red since <SHA>. Triage CI first as a separate (TINY) campaign before this one?"
+     - "Acknowledge the red baseline — the campaign will inherit it, and 'tests pass' cannot be jackson's signoff signal. Use full CI as the gate or accept a degraded signal?"
+   - Never silently start a campaign on a red CI baseline. The new failures get debugged together with pre-existing ones; the signal collapses.
+
+2. **Long-running drift sanity check** (when the campaign touches infra OR a cluster's `kubectl` context is documented in CLAUDE.md):
+   - `kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}: {.status.conditions[?(@.type=="DiskPressure")].status},{.status.conditions[?(@.type=="MemoryPressure")].status},{.status.conditions[?(@.type=="PIDPressure")].status}{"\n"}{end}'`
+   - `kubectl get pods -A --field-selector status.phase=Failed --no-headers | wc -l` (cluster-wide Failed pod count — anything >20 is a sign of accumulating zombie state)
+   - For Argo CD clusters: `kubectl -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}: sync={.status.sync.status} health={.status.health.status}{"\n"}{end}'` — surface any app stuck `OutOfSync` for >1h before the campaign begins
+   - Surface findings concisely; the user decides whether to address before starting. **The 2026 audit-refactor incident** where node-02 had been flapping `DiskPressure` 128 times over 13 days — and bit the campaign as a hard rollout block on the final phase — is the canonical example. Surface drift at intake; don't discover it at deploy time.
+
+If either gate fails and the user opts to proceed anyway, record the acknowledgement in the state file's "Status notes" section so valerie sees it at signoff and downstream debugging knows the inherited baseline.
+
 ### 2. Research (sarah, optional — and parallel)
 
 Skip in TINY. In STANDARD/HEAVY, run when:
@@ -806,7 +825,7 @@ Invoke applicable reviewers in **a single parallel message**. Brief each with th
 Run codex CLI for an independent senior-architect read. Verify availability first: `command -v codex`. If missing, surface to the user once, offer to proceed without; don't silently skip.
 
 ```bash
-codex exec --skip-git-repo-check "Read CLAUDE.md and thoughts/shared/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. Write findings to thoughts/shared/plans/<slug>.codex-r1-plan.md as severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block."
+codex exec --skip-git-repo-check "Read CLAUDE.md and thoughts/shared/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. In addition to the standard review, run these specific contract checks: (1) Cross-language consumer audit — for any public surface the plan gates/renames/removes/restricts (REST path, GraphQL field, gRPC method, env var, exported symbol, schema field, manifest key), grep every consumer in every language in the repo plus adjacent repos referenced in CLAUDE.md, and flag any consumer in a non-admin / non-privileged context that the plan would break. (2) Response-shape contract check — for any plan step that splits, replaces, or duplicates an endpoint, verify the new response shape matches the old one or the divergence is documented; consumer TypeScript / Pydantic casts are NOT runtime contracts. (3) Immutability check — for any plan step that modifies a Kubernetes manifest field on an existing stateful resource, flag whether the field is immutable on that resource type and whether the plan includes a recreation or migration step. Write findings to thoughts/shared/plans/<slug>.codex-r1-plan.md as severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block."
 ```
 
 Adapt to the installed codex CLI's invocation form if different — but always pass CLAUDE.md, the architect framing, the output path, and severity-tagged output. Read the findings file before continuing.
@@ -875,7 +894,7 @@ After all phases are committed:
 - **HEAVY**: mandatory
 
 ```bash
-codex exec --skip-git-repo-check "Read CLAUDE.md, thoughts/shared/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Are there drifts? Write findings to thoughts/shared/plans/<slug>.codex-r2-diff.md."
+codex exec --skip-git-repo-check "Read CLAUDE.md, thoughts/shared/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Are there drifts? In addition to the standard review, run these specific contract checks against the actual diff: (1) Cross-language consumer audit — for any public surface the diff gates/renames/removes/restricts (REST path, GraphQL field, gRPC method, env var, exported symbol, schema field, manifest key), grep every consumer in every language in the repo plus adjacent repos referenced in CLAUDE.md, and flag any consumer in a non-admin / non-privileged context that the diff would break. (2) Response-shape contract check — for any new/replacement/factored endpoint in the diff, diff the new response shape against the old one (list every field; mark added/removed/changed); flag any silent shape divergence as Critical because consumers' TypeScript / Pydantic casts are NOT runtime contracts. (3) Immutability check — for any Kubernetes manifest field changes in the diff on stateful resources, flag whether the field is immutable on that resource type and whether the diff includes a recreation or migration; if a long-running cluster is documented in CLAUDE.md, recommend `kubectl apply --dry-run=server` against it before merging. Pipe the prompt via stdin (cat prompt-file | codex exec) — inline \$(cat) substitution silently fails on long prompts. Write findings to thoughts/shared/plans/<slug>.codex-r2-diff.md."
 ```
 
 Codex's Critical/High findings on the diff feed into reconciliation alongside valerie.
@@ -921,6 +940,26 @@ Brief scott with: slug, ticket ID, plan path, investigation/audit doc paths (if 
 Scott's in-repo edits land on the active branch. Scott's wiki updates are external (GitHub wiki repo, configured external wiki API) and don't affect the branch.
 
 ### 13. Report
+
+#### Deploy chain verification (before signoff, when the campaign touches deploy surfaces)
+
+When the campaign modified anything that flows through a deployment chain (Dockerfiles, k8s manifests, Helm charts, CI workflows, GitOps manifest repos consumed via `kustomize ref=main`, container images), the report cannot be written until the deploy chain has reached and held a steady, healthy state. "Tests passed and valerie signed off" is necessary but not sufficient — the chain must actually deliver the bits to production and (if configured) emit a notification.
+
+Walk every link in the chain end-to-end. The exact shape depends on the project's CLAUDE.md; for a typical GHA + GHCR + Argo CD setup:
+
+1. `gh run list --commit <head-sha>` — the merge commit's CI workflows are all `success`
+2. The image build workflow published a tag matching `<head-sha>` (`gh api .../packages/container/.../versions` or the registry's equivalent)
+3. The image-updater / GitOps writer committed an updated manifest to the consuming repo with the new tag — verify the commit + the rendered tag value in the consuming repo's kustomization
+4. `kubectl -n argocd get application <name> -o jsonpath='sync={.status.sync.status} health={.status.health.status} revision={.status.sync.revision}'` — sync is `Synced`, health is `Healthy`, revision matches the new manifest commit
+5. Pods on the new image: `kubectl -n <ns> get pods -o jsonpath='{range .items[?(@.status.phase=="Running")]}{.metadata.name}: {.spec.containers[0].image}{"\n"}{end}'` — every Running pod references the new tag, no leftover pods on the previous tag
+6. Notification trigger fired (if configured) — for Argo: check `notified.notifications.argoproj.io` annotation or notifications-controller logs for an entry keyed by the new sync revision. For Slack/email/Telegram via webhook: check the receiving channel or logs
+7. Public smoke (where applicable): an unauthenticated `curl` of a known-good endpoint returns the expected status
+
+If any link is missing, broken, or silent, the campaign is not done. Surface the gap to the user before writing the report — and either remediate it or document it as a known follow-up. **The 2026 audit-refactor incident** where 5 phases shipped, all tests passed, valerie signed off — but Argo's app stayed `OutOfSync` for a month due to an immutable-field error and Telegram notifications were silently suppressed — is the canonical example of a campaign that passed every gate except the one that mattered.
+
+If the project has no deployment infrastructure, note "no deploy chain — campaign produces a library only" in the final report's `Validation` block rather than skipping the section silently.
+
+#### Finalize the flow sketch
 
 Before writing the final report, **finalize the flow sketch** at `thoughts/shared/plans/<slug>.flow.md`:
 - Set `Run completed` to the current timestamp

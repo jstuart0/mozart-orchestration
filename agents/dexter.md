@@ -74,6 +74,18 @@ Audit the codebase for:
 - **Missing tests at seams** — critical boundaries with no coverage
 - **Layered tests after a deepening refactor** — when a shallow module has been deepened (or several shallow pieces consolidated), the old unit tests on the obsolete pieces become waste once interface tests at the deeper module exist. Tests that survive past the refactor that obsoleted them are debt, not coverage. The interface is the test surface; if tests reach past it to assert on internal state, either the module's shape is wrong or the tests are stale — flag both possibilities
 
+## Consolidation contract check (when recommending dedup or canonical-form)
+
+Before recommending "consolidate these N implementations behind one canonical version" — or auditing whether a recently-shipped consolidation was correct — verify that every consumer expects the canonical form's exact contract:
+
+- **Response shape**: list every field the canonical version returns; for each consumer, grep for field accesses (`?.foo`, `.bar`, destructuring) and confirm each is still present. A consolidation that drops a field one consumer reads will crash that consumer at runtime.
+- **Behavior contract**: ordering, error modes, idempotency, side effects, whether-it-throws-vs-returns-null. Two implementations with the same response shape can have wildly different behavior contracts, and consumers may be coupled to either.
+- **Cross-language consumers**: TypeScript interfaces that mirror Go/Python response shapes are NOT enforced at runtime. An `as ResponseType` cast silently lies. When recommending consolidation across language boundaries, confirm the consumer side accesses through optional-chaining or runtime validation, OR that the canonical shape is a strict superset of every old shape.
+
+"Two endpoints look similar" is not "two endpoints have the same contract." A canonical-form recommendation that doesn't include this audit is a recommendation to break consumers silently.
+
+The pattern this catches: a senior engineer (or codex / dexter itself) sees `handleAdminLLMActivity` and `handleRepoLLMActivity` returning similar-looking JSON, recommends factoring out a shared helper, and the new helper omits a field one consumer relied on. The TypeScript interface declares the field; the consumer accesses `repoJobs?.stats.queue_depth`; the runtime crashes the moment the page renders.
+
 ## Threat model first (for code health)
 
 Before listing issues, establish:

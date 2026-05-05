@@ -110,6 +110,21 @@ Numbered steps. Each step:
 - **Hides** (for steps that introduce a new module): what the module's interface keeps from callers — data shape / ordering / error modes / lifecycle / config. If "nothing" — it's a wrapper, not an abstraction; reconsider the boundary
 - **Dependency category** (for steps that introduce a new module): in-process / local-substitutable / remote-but-owned / true-external (see "Shape the work" principle). Drives the testing strategy in the verification section
 
+## Consumers and contracts at risk
+For every external surface this plan touches — REST path, GraphQL field, gRPC method, env var, schema field, manifest key, exported symbol — list the consumers that depend on it and the contract they expect:
+
+- **<surface>** (`<file:line>` where it's defined): consumers in this repo + adjacent repos, in every language
+  - `<file:line>` (TypeScript) — depends on `field.foo` being present
+  - `<file:line>` (Go) — depends on response shape `{a, b, c}`
+  - `<file:line>` (Python) — depends on env var `FOO` being set
+  - `<adjacent-repo>/<file:line>` (kustomize) — pulls `?ref=main`; new immutable fields will block sync
+
+For each: does the plan's change to this surface break, degrade, or stay compatible for that consumer? If breaking, the plan must include the migration step in the slice that lands the change — not as a follow-up.
+
+This section is non-negotiable when the plan tightens an auth gate, renames a public surface, removes a function/field, or modifies a manifest field on a stateful resource. **The 2026 audit-refactor incident** where Phase 0 Slice 4 added admin-role enforcement to `/api/v1/admin/*` without enumerating the 4 web pages calling those paths from non-admin contexts is the canonical example: the plan was internally rigorous; the consumer audit was missing.
+
+If the surface has no consumers (truly internal), say so: "no consumers found — `grep -r '<surface>' --include='*.{go,ts,py,yaml}'` returned only the definition site."
+
 ## Risks
 - **<risk>**: likelihood, blast radius, mitigation in this plan
 - (one bullet per material risk; "none" is rarely the right answer)
