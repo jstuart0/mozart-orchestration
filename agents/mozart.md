@@ -859,7 +859,7 @@ Pre-filter reviewers based on what the plan actually touches. Don't invoke a len
 | **dexter** | | Refactors, shared utilities, new abstractions, anything where code-health debt matters |
 | **ruby** | | UI/UX surface, frontend components, accessibility, design system |
 | **otto** | | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, namespaces, persistent volumes, infra YAML |
-| **tessa** | | Plan introduces non-trivial logic (parsers, state machines, validators, business rules, API handlers, RAG retrievers/scorers, migrations with logical constraints) — *or* the campaign is in TDD flow (then she's mandatory and also authors the test contract). Skip on infra-only, manifest-only, doc-only, or pure-glue plans where logic lives elsewhere |
+| **tessa** | | (a) Plan introduces non-trivial logic (parsers, state machines, validators, business rules, API handlers, RAG retrievers/scorers, migrations with logical constraints), (b) plan introduces or modifies an integration boundary (service-to-service, service-to-DB, service-to-cluster wiring, frontend-to-backend contract, app-to-third-party API, new dependency added to a manifest, new RBAC/NetworkPolicy that changes who can talk to whom), or (c) the campaign is in TDD flow (then she's mandatory and also authors the test contract). Skip on doc-only, trivial-rename, or manifest-tuning plans (resource limits, replica counts, image bumps within the same service) |
 
 Invoke applicable reviewers in **a single parallel message**. Brief each with the plan path and the original task. Severities: Critical / High / Medium / Low.
 
@@ -925,7 +925,7 @@ Run on the slice **before committing** when triggered. **HEAVY tier: ian and xan
 | **ruby** | Phase introduces or modifies UI flows |
 | **dexter** | Phase produces a refactor that smells off, or new shared abstractions |
 | **bob** | Phase deviates from the plan in a way you're unsure about |
-| **tessa** | Phase modified test files (added or changed) — *or* phase introduced new logic (parsers, validators, business rules, API handlers, state machines) that should be tested but no test diff was produced — *or* the campaign is in TDD flow (then she's mandatory). Skip on phases that are infra-only, manifest-only, doc-only, or trivial rename |
+| **tessa** | (a) Phase modified test files, (b) phase introduced new logic that should be tested (parsers, validators, business rules, API handlers, state machines) but no test diff was produced, (c) phase introduced or modified an integration boundary (new DB call, new HTTP client, new external API consumer, new message-queue producer/consumer, new manifest wiring a dependency, new RBAC/NetworkPolicy changing who can talk to whom) but no integration test diff was produced, or (d) the campaign is in TDD flow (then she's mandatory). Skip on doc-only, trivial-rename, or manifest-tuning phases (resource limits, replica counts, image bumps within the same service) |
 
 Treat findings the same as plan-review findings: address before committing. Multiple specialists run in parallel when their concerns don't overlap.
 
@@ -986,6 +986,21 @@ Brief scott with: slug, ticket ID, plan path, investigation/audit doc paths (if 
 Scott's in-repo edits land on the active branch. Scott's wiki updates are external (GitHub wiki repo, configured external wiki API) and don't affect the branch.
 
 ### 13. Report
+
+#### Promised-tests cross-check (before signoff, when tessa specified integration or E2E tests in the plan)
+
+If tessa's stage-4 review or her test contract (TDD mode) named integration or E2E tests as part of the test strategy, **confirm those tests actually ran** for the merge commit before signing off. Tests that exist in the repo but are excluded from the running suite — skipped, marked with a tag that wasn't selected, in a separate CI job that didn't fire on this PR — are decoration, not verification. This is the canonical gap behind "individual components passed but the integration broke in production."
+
+```bash
+# Confirm the integration / E2E jobs ran and passed for the head SHA
+gh run list --commit <head-sha> --workflow integration-tests.yml
+gh run list --commit <head-sha> --workflow e2e-tests.yml
+
+# Or, for a single-pipeline setup, check selection within the run
+gh run view <run-id> --log | grep -E "(passed|skipped|deselected)"
+```
+
+If a promised test class wasn't actually run for this commit: surface to the user before writing the report. Either re-run the missing job, mark the gap explicitly in the report's `Notable findings`, or — if the user accepts the trade-off — note that the promise was waived and explain why.
 
 #### Deploy chain verification (before signoff, when the campaign touches deploy surfaces)
 

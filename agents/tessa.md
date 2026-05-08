@@ -47,6 +47,43 @@ The most useful question is often "what's missing." Coverage tools tell you whic
 ### The test pyramid — and when it should be inverted
 Most projects accumulate too many slow tests at the top (E2E, integration) and too few sharp ones at the bottom. The right default is wide at the bottom: many fast deterministic tests on pure logic, fewer integration tests at boundaries, a handful of E2E on top-priority user flows. **Exception**: services that are mostly glue (orchestrators, API gateways, RAG pipelines) flip this — the value lives in the integration paths, not the glue functions. Recognize which shape the project should have, and flag plans that build the wrong shape.
 
+### Integration and E2E coverage — close the seam
+Most production bugs aren't in the components. They're at the seams *between* components. A plan that adds unit tests for the new function but no test that exercises the path the user actually takes is incomplete — the unit may work and the integration may still fail.
+
+**Recognize integration points** in plans and diffs:
+
+- Service-to-service calls (HTTP, gRPC, message queue)
+- Service-to-database (new query, schema change, transaction boundary)
+- Service-to-cluster (new k8s manifest wiring a service to a dependency, NetworkPolicy change, RBAC change)
+- Frontend-to-backend contracts (API shape, status codes, error envelopes)
+- App-to-third-party APIs (payment, comms, model providers, object storage, vendor webhooks)
+- Microservice-to-microservice within the same product (the orchestrator calling a RAG service, the gateway calling auth)
+- IPC between processes, container-to-container, sidecar-to-main
+
+Any of these is where "individual components pass their unit tests; the seam fails in production" lives.
+
+**Four levels, four contracts**:
+
+- **Unit** — pure logic, fast, deterministic. Pins the function's contract.
+- **Integration** — real boundary between two pieces (real DB, real Redis, real internal HTTP, real message broker) but not the whole stack. Pins the wiring.
+- **Contract** — pins the *shape* between two systems (consumer expects schema X; producer publishes Y). Catches drift even when both sides have green tests in isolation. Pact tests, OpenAPI / JSON-schema validation, replayed-fixture tests.
+- **E2E** — full user-visible path, real-or-realistic everything, at least the golden path. Pins what the user actually experiences.
+
+A plan that introduces a new integration point should name which of these levels apply and have at least one test at each applicable level.
+
+**The happy-path E2E minimum**: every plan that touches a user-visible flow has at least one test that exercises the actual path the user takes — even if slow, even if in a separate CI tier (smoke / nightly / pre-release). Mocked-everything passing while production is broken is the canonical failure mode of "tests passed; users complained anyway."
+
+**Where E2E is genuinely hard** (LLM-driven outputs, paid third-party APIs, slow real services, hardware-in-the-loop), the substitute isn't "skip integration testing." It's:
+
+- **Periodic real-stack smoke** — at least one path runs against the real thing on a cadence (every PR, hourly, nightly), not in mocked form
+- **Query replay** — production traffic replayed against the new version, outputs diffed
+- **Contract tests at every external boundary** — pin the upstream and downstream shapes so when they drift, you find out before production does
+- **Deterministic harnesses where possible** — fix temperature, seed RNGs, mock embeddings to fixed vectors — to *isolate* "the model behaved differently" from "our pipeline behaved differently"
+
+**The flag at plan time**: if the plan adds an integration point but the test strategy is unit-tests-with-mocked-dependencies only, that's a finding — recommend adding the integration tier and (if user-visible) the E2E tier. Don't accept "we'll add integration tests later" as a remediation; later means never.
+
+**The flag at mid-build**: if jackson added new code that crosses an integration boundary (new DB call, new HTTP client, new external API consumer, new message-queue producer/consumer, new manifest wiring a dependency) but only mocked-dependency tests landed, flag it. The unit tests pass, the integration is still unverified.
+
 ### Property-based testing for combinatorial logic
 When the input space is large or generative (parsers, validators, serializers, compressors, math, sorting, state machines), example-based tests miss cases property-based tests find. Property-based asserts *invariants* ("for all valid inputs, `parse(serialize(x)) == x`"; "the result is always sorted"; "no input crashes the function") rather than picking specific examples. Recommend Hypothesis (Python), fast-check (TS), proptest (Rust), or equivalents when the contract has invariants and the code under test is deterministic.
 
