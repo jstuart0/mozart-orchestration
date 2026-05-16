@@ -4,6 +4,32 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — codex discipline + state-file hygiene + intake stale-run detection
+
+A multi-repo evaluation across four agentpulse / os-project-athena / sourcebridge / ai-meeting (97 state files + 65 flow sketches, May 2026) surfaced one dominant pattern: **mozart frequently false-skips codex** — asserting unavailability without probing, conflating Task-tool absence with codex-CLI absence, reading codex stdout instead of the target findings file, and never updating the state-file `Paths` block after codex actually runs. The state-file `Codex r1: not yet run` template literal then misleads future-mozart on resume, compounding the skip.
+
+This release adds load-bearing codex discipline plus adjacent state-file hygiene fixes:
+
+- **`agents/mozart.md` — new top-level `Codex availability and use` section** (placed near "Default standard"). Frames codex as a load-bearing CLI gate, not optional decoration. Explicit invariants: codex is a CLI (not a subagent), Task-tool availability is independent of codex availability, success detection requires (exit 0 + target file exists + non-trivial content with severity tags), reading stdout instead of the target file is a canonical false-skip pattern.
+- **`agents/mozart.md` stage 1 (Intake)** — adds a `command -v codex` probe at intake; result recorded to the state file's `Codex r1 (plan)` and `Codex r2 (diff)` lines before any other stage runs.
+- **`agents/mozart.md` stage 5 (Codex r1)** — reads the recorded probe result instead of re-asserting availability. Adds an explicit success-detection block (exit + file + content). Adds a stage-exit contract requiring simultaneous (checkbox + Paths update + flow-sketch trace) in one operation.
+- **`agents/mozart.md` stage 9 (Codex r2)** — STANDARD tier flipped from "optional" to "default-run." HEAVY tier upgraded from "mandatory" to "non-negotiable" with explicit non-skip-reasons listed. Same success detection + stage-exit contract as stage 5.
+- **`agents/mozart.md` Orchestration discipline** — three new hardenings: caps are hard (cap reduction is user-only, never mozart's autonomous call); context pressure is a stop signal not a skip signal (collapsing mandatory gates under context pressure is invalid; the correct response is `Status: stopped` and resume in a fresh session); state-file `Paths` block must stay in sync with stage progress.
+- **`agents/mozart.md` "Detecting an in-progress run at intake"** — both probes now run every time (not "fast path first, fallback only if empty"). Added a third probe for `finished-*` files whose body still says `Status: in-progress` (rename-drift catch). Added a >7-day staleness flag in the surfacing message.
+- **`agents/mozart.md` stage 13 (Promote artifacts to finished-)** — adds a corruption check after the rename: `Status: complete ⇔ filename prefix is finished-`. Two grep one-liners verify the invariant before the campaign is declared shipped.
+- **`agents/harry.md` self-review checklist** — promotes "every claim about the current codebase is backed by a file I actually read (and ideally cited `file:line`)" to require `file:line` citation grounded via a code-aware index (jcodemunch, LSP, IDE, or grep). The May-2026 evaluation linked ungrounded plan references to 4-5 codex iteration rounds on the same campaign; this self-review bullet is the upstream fix.
+
+What this catches that the prior pipeline didn't:
+
+- Codex r1/r2 skipped on HEAVY runs with no probe evidence
+- Codex returning exit 0 + empty target file treated as clean pass
+- State-file `Paths` block claiming "Codex r1: not yet run" when codex actually ran (artifact exists on disk)
+- Cap-reduction "to conserve context" shipping under-reviewed plans
+- HEAVY mid-build specialists consolidated into "codex r2 covers it" (and codex r2 then BLOCKs)
+- Unprefixed legacy state files invisible to the `active-*.state.md` glob at intake
+- `finished-*` files whose body is still `Status: in-progress` (premature rename)
+- Plan iteration thrash on HEAVY (4-5 codex rounds) caused by ungrounded `file:line` references
+
 ### Added — wiring-sites discipline (closes the per-commit consistency gap)
 
 Audits routinely catch a class of finding that per-commit gates structurally cannot see: patterns wired into one site but missed at parallel sites the diff didn't touch (security defenses on sibling providers, cross-deployment-method drift between Helm/kustomize/compose files, ARIA patterns on newly-introduced sibling components). Each individual diff is internally correct; the per-discipline reviewers each look at the diff; nobody looks at the *population* of sites that should be parallel.
