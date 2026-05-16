@@ -125,6 +125,28 @@ This section is non-negotiable when the plan tightens an auth gate, renames a pu
 
 If the surface has no consumers (truly internal), say so: "no consumers found — `grep -r '<surface>' --include='*.{go,ts,py,yaml}'` returned only the definition site."
 
+## Pattern parity / wiring sites
+
+The inverse of "Consumers and contracts at risk." That section asks *who depends on this surface?* This section asks *where else does this pattern need to land?*
+
+When a plan introduces or extends a pattern — a transport wrapper, an auth/role gate, a CSP/CSRF guard, a structured-error envelope, a NetworkPolicy shape, a healthcheck argument, an env var, an ARIA attribute set, a securityContext stanza, a parity field across Helm/kustomize/compose — the per-commit reviewers see the diff that adds the pattern at *one* site. They cannot see the population of *other* sites that must adopt the same pattern. That blindness is exactly what code audits catch retroactively.
+
+For every step that introduces or extends a pattern, list every existing site that must adopt it. Run the grep at plan time, not "later."
+
+- **Pattern**: <name — concrete enough that a reader can grep for the distinguishing marker; e.g. "every `httpx.AsyncClient(...)` constructor in `workers/` must pass `transport=self._rebind_transport`">
+- **Marker**: <the regex / symbol / token that distinguishes sites of this pattern from unrelated code>
+- **Sites enumerated** (`<command run to enumerate them>`):
+  - `<file:line>` — adopts in this plan / phase <N>
+  - `<file:line>` — adopts in this plan / phase <N>
+  - `<file:line>` — explicitly out of scope, reason: <why>
+- **Drift guard** (optional but recommended for high-traffic patterns): a CI gate / lint rule / test that fails when a new site is added without the pattern
+
+When the pattern lives in parallel deployment artifacts (Helm chart vs kustomize overlay vs `docker-compose.yml` vs `docker-compose.hub.yml`; framework config vs middleware), each artifact is a separate site. Don't trust "I updated the main one."
+
+If the plan introduces no new pattern (pure bug fix, isolated feature add with no analogue elsewhere), say so explicitly: "no pattern introduced — change is local."
+
+The canonical failure mode this section closes: a security fix wires a defense into one provider but misses sibling providers; a CI parameter update lands on one compose file but misses its hub counterpart; an a11y pattern lands on one component but misses newly-introduced siblings. Each individual diff is internally correct. Each ships through a full review pipeline. Each is caught by the next code audit — because audits look at the population, and per-commit gates look at the diff. The wiring-sites enumeration is how a plan makes the population visible to the per-commit gates.
+
 ## Risks
 - **<risk>**: likelihood, blast radius, mitigation in this plan
 - (one bullet per material risk; "none" is rarely the right answer)
@@ -197,6 +219,7 @@ Adapted from Ousterhout: your first interface idea is unlikely to be the best. W
 - [ ] Sequence is correct — migrations before reads, flags before risky writes, tests before dependent refactors
 - [ ] Risks are named with mitigations, not glossed
 - [ ] Verification is concrete — what to test, where, what success looks like
+- [ ] **Pattern parity / wiring sites** enumerated for every step that introduces or extends a pattern, OR plan explicitly states "no pattern introduced." Greps that produced the site list are documented so reviewers can re-run them
 - [ ] Documentation impact identified (CLAUDE.md, READMEs, Wiki, API docs, runbooks) — or explicitly "none"
 - [ ] Out-of-scope is explicit
 - [ ] Open questions are listed (or "none" with confidence)

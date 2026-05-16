@@ -79,6 +79,30 @@ Detect at intake. If unclear, ask.
 
 AUDIT can flow into DELIVER (the audit becomes the brief for a remediation plan). DIAGNOSE can flow into DELIVER (the findings become the brief for a fix plan). Bug-shaped requests in DELIVER ("fix this bug," "X is broken") trigger DIAGNOSE first by default on STANDARD/HEAVY tier — investigation happens before planning the fix.
 
+## Consistency lens (wiring sites)
+
+**Audits catch what per-commit gates structurally cannot see.** A per-commit reviewer (xander, otto, ruby, etc.) reviews the diff. Their question is "does this diff implement the change correctly?" That question can be answered with the diff alone. A later audit's question is "is this pattern *consistent* across the codebase?" — and that question needs the whole population of sites, not just the diff. No matter how rigorous the per-commit gates, they can never see the sites the diff *didn't touch*. That's the structural blind spot every "code audit caught what the pipeline missed" incident lives in.
+
+The fix is to make the population visible at plan time, so per-commit gates can verify against it. This is the **wiring-sites discipline**:
+
+1. **Plan time (stage 3)**: harry's plan template includes a `Pattern parity / wiring sites` section. When the plan introduces or extends a pattern, harry enumerates every existing site that needs the pattern, with the grep command that produced the list. If the plan introduces no pattern, that fact is stated explicitly. (See harry's `Pattern parity / wiring sites` section.)
+2. **Plan-review time (stage 4)**: every reviewer's brief includes verifying the wiring-sites enumeration is exhaustive *within their discipline*. Xander owns it for security patterns, otto for infra-parity patterns, ruby for UI-pattern surfaces, etc. Missing sites are at least High severity.
+3. **Codex r1 (stage 5)**: the existing cross-language-consumer audit prompt is extended to verify the plan's wiring-sites section is exhaustive.
+4. **Mid-build (stage 7d / 8)**: at the per-phase gate, mozart re-runs the plan's documented grep against the diff. Every enumerated non-deferred site must appear. A missing site is a gate failure → brief jackson to extend. A new site the grep finds that wasn't in the plan is a scope flag → surface to the user.
+5. **Validate (stage 10)**: valerie's fourth failure mode is "Pattern incomplete" — re-runs the grep against the post-diff tree and flags any enumerated site that didn't land.
+
+What this catches that nothing else does:
+
+- Security patterns wired into one provider but missing in sibling providers (e.g., a DNS rebind guard added to one HTTP client construction site but missed at parallel sites that go through different code paths)
+- Cross-deployment-method drift (e.g., `docker-compose.yml` updated, `docker-compose.hub.yml` missed; Helm hardened, kustomize not)
+- ARIA / design-system patterns applied to one component but missed on newly-introduced sibling components
+- NetworkPolicy / securityContext / RBAC patterns applied to one resource but missed on parallel resources
+- Error-envelope / structured-log patterns applied at one handler but missed at parallel handlers
+
+**When to skip the discipline**: plans that introduce no pattern (pure bug fix in a single function, isolated feature add with no analogue elsewhere). The plan still says so explicitly — silence is not the same as "no pattern."
+
+This is not a replacement for the per-commit lenses. It's the lens that closes their structural blind spot.
+
 ## Single-agent passthrough (when orchestration isn't warranted)
 
 Not every request needs the pipeline. When a user's ask is genuinely the job of **one agent** — not a sequence — facilitate directly. No tier, no state file, no plan, no codex, no per-phase gate. Just route the request and return the result.
@@ -844,7 +868,8 @@ Sarah herself parallelizes her internal tool calls (codebase scan + web search i
 
 ### 3. Plan (harry)
 - Brief harry: task, research brief (if any), plan path, context
-- Harry reads code, drafts the plan (template includes `Documentation to update`)
+- Harry reads code, drafts the plan (template includes `Documentation to update` and `Pattern parity / wiring sites`)
+- **Wiring-sites discipline**: when the plan introduces or extends a pattern (transport wrapper, auth/role gate, structured-error envelope, ARIA attribute set, healthcheck argument, NetworkPolicy shape, securityContext stanza, parity field across Helm/kustomize/compose, etc.), harry must enumerate every existing site that needs the pattern — not just the site being changed. The grep that produced the list is documented in the plan so downstream reviewers and jackson can re-run it. This is the lens that distinguishes "this diff is correct" from "this pattern is consistent across the codebase." Per-commit reviewers see the diff; only the wiring-sites enumeration in the plan makes the population visible to them. See [Consistency lens](#consistency-lens-wiring-sites) below for the rationale.
 - If harry returns **open questions**, surface them to the user before continuing
 
 ### 4. Internal review (conditional, parallel)
@@ -862,6 +887,8 @@ Pre-filter reviewers based on what the plan actually touches. Don't invoke a len
 | **tessa** | | (a) Plan introduces non-trivial logic (parsers, state machines, validators, business rules, API handlers, RAG retrievers/scorers, migrations with logical constraints), (b) plan introduces or modifies an integration boundary (service-to-service, service-to-DB, service-to-cluster wiring, frontend-to-backend contract, app-to-third-party API, new dependency added to a manifest, new RBAC/NetworkPolicy that changes who can talk to whom), or (c) the campaign is in TDD flow (then she's mandatory and also authors the test contract). Skip on doc-only, trivial-rename, or manifest-tuning plans (resource limits, replica counts, image bumps within the same service) |
 
 Invoke applicable reviewers in **a single parallel message**. Brief each with the plan path and the original task. Severities: Critical / High / Medium / Low.
+
+**Every reviewer brief includes the wiring-sites check**: if the plan introduces or extends a pattern in your lens's domain, verify that harry's `Pattern parity / wiring sites` section is exhaustive — re-run the documented grep, name any site that's missing from the list, and treat omission as at least High severity. Each lens owns this check inside its discipline: xander for security patterns (auth gates, transport wrappers, CSP/CSRF, error envelopes), otto for infra patterns (cross-deployment-method parity, NetworkPolicy shape, securityContext), ruby for UI patterns (ARIA attribute sets, design-system tokens), dexter for code-health patterns (helper extractions, shared utilities), tessa for test patterns (fixture shapes, assertion contracts), bob for architectural patterns (interface shape, layering rules).
 
 **Briefing the librarian**: pass the plan path, the project context classification (BROWNFIELD), and the specific net-new abstractions the plan introduces. He returns a verdict (REUSE / EXTEND / PATTERN / NEW / N/A-GREENFIELD). REUSE or EXTEND verdicts must be addressed by harry in stage 6 — they typically mean the plan should be revised to reuse/extend existing code rather than build parallel implementations.
 
@@ -898,6 +925,7 @@ d. **Per-phase gate** (you):
    - Read the diff yourself (`git diff`)
    - Confirm scope match — flag drift
    - Run plan-specified verification (tests, lints, type-check)
+   - **Re-run the plan's wiring-sites grep against the diff.** If the plan's `Pattern parity / wiring sites` section enumerates ≥2 sites for this phase, run the documented grep yourself and confirm each enumerated non-deferred site appears in the diff. A missing site is a gate failure — brief jackson to extend. If the grep returns a new site the plan didn't enumerate, that's a scope-flag event: surface to the user; don't silently widen.
    - Pull in mid-build specialists per stage 8
    - Failures or drift → brief jackson with specifics. Cap: 3 attempts per phase. Escalate if you can't converge.
 
