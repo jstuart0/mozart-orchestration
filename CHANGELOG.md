@@ -4,6 +4,24 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — lifecycle convention: `active-` / `finished-` filename prefix → `active/` / `finished/` subdirectories
+
+The lifecycle of campaign artifacts (state file, flow sketch, plan, plus investigations / audits / research with their own lifecycle) is now expressed as a parent subdirectory, not a filename prefix. The slug is bare on disk; the parent directory carries the lifecycle stage:
+
+- `thoughts/shared/plans/active/<slug>.state.md` (was: `active-<slug>.state.md`)
+- `thoughts/shared/plans/finished/<slug>.state.md` (was: `finished-<slug>.state.md`)
+- Same shape under `thoughts/shared/investigations/`, `thoughts/shared/audits/`, `thoughts/shared/research/` for those artifact types
+
+Lifecycle moves are `mv` operations between sibling subdirectories rather than rename operations on flat-directory siblings. Everything else (slug format, state-file contents, flow-sketch contents, the `Status` field as source of truth, stage 13 corruption check) is unchanged.
+
+**No backfill.** Existing prefix-style files (`active-<slug>.state.md`, `finished-<slug>.state.md`) and prefixless legacy files at the flat `thoughts/shared/plans/` level remain where they are. Mozart does NOT migrate them. Intake's stale-run detection now probes both layouts so historical campaigns remain resumable in place. Migration of legacy files only happens when the user explicitly asks for a migration pass.
+
+Why: the May-2026 multi-repo evaluation showed the prefix convention had its own drift class — `mv` to `finished-` prefix while body still says `Status: in-progress` is structurally identical to the new mv-to-finished/ drift, but the prefix layout is harder to scan visually (`ls plans/` mixes lifecycle stages on the same listing) and prefix-typo footguns appeared in commit messages and cross-references. Subdir layout makes `ls plans/active/` its own filter, leaves the slug bare for clean cross-linking, and avoids the prefix-vs-no-prefix-vs-different-prefix tri-state that historical state files already drifted across.
+
+**Edits:**
+- **`agents/mozart.md`** — section renamed `Filename convention` → `Directory convention` with full rewrite of the rules + concrete bash for the `mv` lifecycle moves. Stage 1 (Intake) creates artifacts in `active/` (with `mkdir -p` on first use). Stage 13 (Report) moves to `finished/` and runs the corruption check against the new layout. AUDIT and DIAGNOSE intake / decision-point sections updated to use `active/` and to move audit/investigation docs alongside the state+flow on lifecycle transitions. Intake stale-run detection extended from 3-probe union to 4-probe union (current subdir layout + drift catch + legacy prefix + legacy prefixless) with an explicit "don't migrate legacy on resume" rule. Orchestration discipline updated: mozart's allowed edits include moving artifacts between `active/` / `finished/` / `aborted/` subdirs at lifecycle transitions.
+- **`agents/tessa.md`** — TDD test contract path updated to `thoughts/shared/plans/active/<slug>.test-contract.md`.
+
 ### Added — codex discipline + state-file hygiene + intake stale-run detection
 
 A multi-repo evaluation across four agentpulse / os-project-athena / sourcebridge / ai-meeting (97 state files + 65 flow sketches, May 2026) surfaced one dominant pattern: **mozart frequently false-skips codex** — asserting unavailability without probing, conflating Task-tool absence with codex-CLI absence, reading codex stdout instead of the target findings file, and never updating the state-file `Paths` block after codex actually runs. The state-file `Codex r1: not yet run` template literal then misleads future-mozart on resume, compounding the skip.
