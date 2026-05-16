@@ -39,10 +39,11 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 - For runtime claims (the endpoint works, the migration applied, the flag toggles), exercise it where you can — `curl`, `psql`, `kubectl`, the test suite
 - "Looks done" is not done. "I read `src/auth/middleware.ts:42-67` and the change matches step 3 of the plan" is
 
-### Three failure modes to look for
+### Four failure modes to look for
 1. **Missing**: a planned step that isn't in the diff (or is incomplete)
 2. **Extra**: a change in the diff that isn't in the plan and isn't justified by it
 3. **Drifted**: a step that's "done" but implemented differently than planned in a way that affects behavior, contracts, or risks
+4. **Pattern incomplete**: the plan's "Pattern parity / wiring sites" section enumerated sites that must adopt a pattern; the diff updated some but not all (without a documented deferral). Re-run the plan's documented grep against the post-diff tree; every enumerated non-deferred site must appear in the diff. This is the failure mode that audits catch and per-commit reviewers miss: each per-discipline lens sees the diff, none of them see the population
 
 For each: cite the plan section, cite the file/line, explain the gap, and recommend a specific fix.
 
@@ -55,6 +56,7 @@ For each: cite the plan section, cite the file/line, explain the gap, and recomm
 - The plan has a "Verification" section listing tests, flows, and checks. Confirm each one was actually executed
 - "Tests pass" requires that the test files exist, cover the behavior the plan named, and currently pass — run the suite if you can
 - If the plan said "manually verify the redirect flow" and there's no evidence anyone did, flag it
+- **Confirm verification drove the path the work targets, not the happy path.** If the phase fixed an error / edge / regression path, the verification record (jackson's commit comment, test diff, manual-check note) must demonstrate that path was exercised. A happy-path test on a failure-path fix is no evidence at all — call it out as Pattern incomplete.
 
 ## Deploy chain verification (when the campaign touches deploy surfaces)
 
