@@ -1,6 +1,6 @@
 # INTEGRATION.md
 
-Mozart is pluggable for two surfaces: **ticketing** and **documentation**. You configure both by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default.
+Mozart is pluggable for three surfaces: **ticketing**, **documentation**, and **code retrieval**. You configure them by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default.
 
 This file is the contract. Copy the appropriate stanza into your repo's `CLAUDE.md`, fill in the values, and the plugin adapts.
 
@@ -240,6 +240,30 @@ github_wiki: disabled
 external_wiki:
   system: none
 ```
+
+---
+
+## 3. Code retrieval (optional)
+
+Every code-reading agent carries a **"Code retrieval: prefer a code-aware index"** gate. The gate is product-neutral: if the consuming repo declares a code-aware retrieval tool, agents route source-code reads through it (symbol search, file outlines, symbol-source fetch, reference/call-hierarchy lookups) ahead of `Grep`/`Read`, falling back to native search only for non-code files, byte-exact pre-`Edit` reads, tiny known-offset reads, or plan-mandated greps. Code-aware indexes typically cut retrieval token usage by 80-95% on source.
+
+**If you don't configure one, nothing changes** — agents use native `Read`/`Grep`/`Glob`.
+
+**To enable it**, do both:
+
+1. **Declare the tool** in your repo's `CLAUDE.md` so agents know it exists and is authoritative:
+
+   ```markdown
+   ## Code retrieval
+
+   This repo is indexed by a code-aware retrieval tool: <tool name>.
+   Prefer it over raw Grep/Read for source files. Resolve the repo at
+   session start; if indexed, it is the first-choice retrieval tool.
+   ```
+
+2. **Grant the tool to the agents.** A subagent can only call tools in its `tools:` frontmatter allow-list. The shipped agents intentionally do **not** list any MCP server (the plugin stays tool-agnostic). To wire one in, append its tool pattern to the `tools:` line of each code-reading agent in your install — e.g. `, mcp__<server>__*`. Agents whose `tools:` omits the MCP can't use it regardless of the `CLAUDE.md` declaration.
+
+**Reference implementation:** [`jcodemunch`](https://github.com) — a tree-sitter-indexed MCP server exposing `resolve_repo`, `search_symbols`, `get_file_outline`, `get_symbol_source`, `find_references`, `get_call_hierarchy`, `find_importers`, `get_dependency_graph`. Wiring it in means adding `mcp__jcodemunch__*` to each agent's `tools:` line and the `## Code retrieval` stanza above. Any LSP, IDE symbol index, or AST-backed MCP that offers equivalent operations works the same way.
 
 ---
 
