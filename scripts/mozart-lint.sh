@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# mozart-lint.sh — hygiene linter for mozart campaign artifacts.
+#
+# Mechanizes the state-file invariants that prose discipline demonstrably fails
+# to hold (May + July 2026 evaluations): status-vs-location drift, paths-vs-
+# checkbox drift, duplicate stage lines, unclosed stage lists in complete
+# campaigns, stale active campaigns, stranded sibling artifacts, and stale
+# active/ path references inside finished state files.
+#
+# Usage: mozart-lint.sh [repo-root]     (default: current directory)
+# Exit:  0 = clean, 1 = findings, 2 = nothing to lint
+#
+# Covers both the current subdir convention (plans/active/, plans/finished/)
+# and the legacy prefix convention (active-*.state.md, finished-*.state.md).
+# Legacy prefixless flat files are checked for staleness/limbo only.
+
+set -u
+
+ROOT="${1:-.}"
+PLANS="$ROOT/thoughts/shared/plans"
+FINDINGS=0
+STALE_DAYS=7
+
+if [ ! -d "$PLANS" ]; then
+  echo "mozart-lint: no $PLANS — nothing to lint"
+  exit 2
+fi
+
+finding() {
+  FINDINGS=$((FINDINGS + 1))
+  printf 'LINT %-22s %s\n' "[$1]" "$2"
+}
+
+# Status field, lowercased. Handles the template form (**Status**: x) and
+# tolerates freeform bodies by falling back to any "Status:" line.
+status_of() {
+  local s
+  s=$(grep -m1 -E '^\*\*Status\*\*:' "$1" 2>/dev/null | sed -E 's/^\*\*Status\*\*:[[:space:]]*//')
+  [ -z "$s" ] && s=$(grep -m1 -iE '^status:' "$1" 2>/dev/null | sed -E 's/^[Ss]tatus:[[:space:]]*//')
+  printf '%s' "$s" | tr '[:upper:]' '[:lower:]'
+}
+
+is_terminal() { # complete or aborted (including freeform "CAMPAIGN COMPLETE — SHIPPED")
+  case "$1" in *complete*|*aborted*) return 0 ;; *) return 1 ;; esac
+}
+
+# --- Check A/B: status vs location -----------------------------------------
+for f in "$PLANS"/active/*.state.md "$PLANS"/active-*.state.md; do
+  [ -f "$f" ] || continue
+  s=$(status_of "$f")
+  if is_terminal "$s"; then
+    finding "status-location" "$f — Status '$s' but file lives in an active location (closeout never moved it)"
+  fi
+done
+
+for f in "$PLANS"/finished/*.state.md "$PLANS"/finished-*.state.md; do
+  [ -f "$f" ] || continue
+  s=$(status_of "$f")
+  if [ -n "$s" ] && ! is_terminal "$s"; then
+    finding "status-location" "$f — in a finished location but Status is '$s' (moved without closing, or never actually completed)"
+  fi
+done
+
+# --- Check C: paths-vs-checkbox codex drift ---------------------------------
+for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md "$PLANS"/[0-9]*.state.md; do
+  [ -f "$f" ] || continue
+  if grep -qE '^\- \[x\] 5\. Codex' "$f" && grep -E '^\- Codex r1' "$f" | grep -q 'not yet run'; then
+    finding "codex-drift" "$f — stage 5 checkbox ticked but Paths says codex r1 'not yet run'"
+  fi
+  if grep -qE '^\- \[x\] 9\. Codex' "$f" && grep -E '^\- Codex r2' "$f" | grep -q 'not yet run'; then
+    finding "codex-drift" "$f — stage 9 checkbox ticked but Paths says codex r2 'not yet run'"
+  fi
+done
+
+# --- Check D: duplicate stage lines -----------------------------------------
+for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md "$PLANS"/[0-9]*.state.md; do
+  [ -f "$f" ] || continue
+  dupes=$(grep -oE '^\- \[.\] [0-9]+\.' "$f" | grep -oE '[0-9]+' | sort -n | uniq -d | tr '\n' ' ')
+  if [ -n "$dupes" ]; then
+    finding "duplicate-stages" "$f — stage number(s) $dupes appear more than once (append-instead-of-edit; a resuming mozart can't tell which line is true)"
+  fi
+done
+
+# --- Check E: bare [ ] stages in terminal-status files ----------------------
+for f in "$PLANS"/finished/*.state.md "$PLANS"/finished-*.state.md; do
+  [ -f "$f" ] || continue
+  s=$(status_of "$f")
+  is_terminal "$s" || continue
+  n=$(grep -cE '^\- \[ \] [0-9]+\.' "$f")
+  if [ "$n" -gt 0 ]; then
+    finding "unclosed-stages" "$f — Status terminal but $n stage line(s) still bare '[ ]' (should be [x] or '[-] skipped: <rationale>')"
+  fi
+done
+
+# --- Check F: stale active campaigns ----------------------------------------
+for f in $(find "$PLANS"/active "$PLANS" -maxdepth 1 \( -name '*.state.md' -o -name 'active-*.state.md' \) -mtime +"$STALE_DAYS" 2>/dev/null | sort -u); do
+  [ -f "$f" ] || continue
+  # flat-dir sweep: only flag files that are actually non-terminal
+  s=$(status_of "$f")
+  is_terminal "$s" && continue
+  finding "stale-active" "$f — Status '$s', untouched >${STALE_DAYS} days (needs a disposition: resume / stopped / aborted)"
+done
+
+# --- Check G: finished state files still referencing plans/active/ ----------
+for f in "$PLANS"/finished/*.state.md; do
+  [ -f "$f" ] || continue
+  if grep -q 'plans/active/' "$f"; then
+    finding "stale-paths" "$f — internal references still point at plans/active/ (closeout didn't rewrite the Paths block)"
+  fi
+done
+
+# --- Check H: sibling artifacts stranded in active/ for finished slugs ------
+for f in "$PLANS"/finished/*.state.md; do
+  [ -f "$f" ] || continue
+  slug=$(basename "$f" .state.md)
+  stranded=$(ls "$PLANS"/active/"$slug".* 2>/dev/null | tr '\n' ' ')
+  if [ -n "$stranded" ]; then
+    finding "stranded-artifacts" "$slug — state is in finished/ but sibling artifact(s) remain in active/: $stranded"
+  fi
+done
+
+# --- Summary -----------------------------------------------------------------
+if [ "$FINDINGS" -eq 0 ]; then
+  echo "mozart-lint: clean ($PLANS)"
+  exit 0
+else
+  echo "mozart-lint: $FINDINGS finding(s) — each needs a disposition before it compounds"
+  exit 1
+fi
