@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — configuration-layer fixes: gate model bumps, identity preflights, hygiene linter, real-path seam rule
+
+Follow-up to the July-2026 evaluation, targeting the issue classes that trace to agent *configuration* rather than runtime discipline:
+
+- **Model assignments on the single-point-of-failure gates**: valerie (final validation gate) and bob (the always-on plan reviewer) bumped `sonnet` → `opus`. The evaluation's "codex catches what the panel missed" gap was partly a config artifact — every internal reviewer ran on sonnet while codex is a frontier-class external agent. Wide parallel fan-out lenses stay on sonnet for cost. Mozart's stage 8 now requests a model override to opus for ian on HEAVY phases when the spawn tool supports one.
+- **jackson: Workspace identity preflight** (new section) — before first edit and before any commit, verify `pwd` / `git rev-parse --show-toplevel` / `git branch --show-current` against the briefed worktree and campaign branch (evidence: phase commits landed on local `main`; 4 of 12 checkouts sat on branches unrelated to their directory names). Before any test run, verify the interpreter/venv resolves inside the current worktree and record the identity in verification evidence (evidence: a false "7103 passed / 0 failed" from a venv contaminated by a concurrent campaign's worktree).
+- **mozart: runtime environments are shared resources** (multi-campaign discipline) — worktrees isolate files, not interpreters. Rather than resource-heavy per-worktree duplicate installs, the rule is identity-verification + serialization: briefs name the expected env, jackson's preflight proves it, and concurrent campaigns never run suites against the same interpreter/env simultaneously.
+- **`scripts/mozart-lint.sh`** (new) — mechanizes the state-file invariants prose has twice failed to hold: status-vs-location drift (both subdir and legacy prefix layouts), paths-vs-checkbox codex drift, duplicate stage lines, unclosed stage lists in terminal campaigns, stale actives (>7 days), stale `active/` refs inside finished files, and sibling artifacts stranded in `active/` for finished slugs. Exit 1 on findings. Wired into mozart's intake (preferred over the manual probes) and closeout (final machine check). First-run calibration: 140 findings on ai-meeting, 87 on sourcebridge, clean on this repo.
+- **tessa: binding one-real-path-per-seam rule** — every integration seam a plan or phase introduces/modifies requires at least one test exercising the real dependency, or an explicit written waiver naming the substitute (periodic smoke / query replay / contract pin). Mocked-only coverage at a seam is a High finding minimum; a green mocked suite at a seam is *no* evidence (evidence: "NON-FUNCTIONAL in production despite 6,590 passing tests").
+
 ### Added — July-2026 field-evaluation fixes: hang-proof codex, atomic closeout, cross-checkout resume safety
 
 A July-2026 evaluation of ~285 campaigns across 12 repos (ai-meeting's 78-campaign corpus — 100% mozart-run — plus sourcebridge's 67 and ten smaller corpora) found the pipeline's rigor sound (codex r2 repeatedly caught Criticals no internal lens saw) but its bookkeeping and hang-handling leaky. Fixes:

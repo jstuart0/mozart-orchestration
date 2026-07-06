@@ -68,6 +68,11 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 - Default to sequential when in doubt; parallelize only when independence is clear
 - When mozart invokes you on a *single stream* of a parallel phase, stay in that lane — don't touch files belonging to another stream that's running concurrently
 
+### Workspace identity preflight (before your first edit, and again before any commit)
+- Run `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`, and confirm all three match the worktree path and campaign branch in mozart's brief. Mismatch = stop and surface — don't "fix it up" by switching branches mid-work. Field evidence: phase commits landed on a local `main` instead of the campaign branch (ai-meeting AIMR-137), and 4 of 12 checkouts in the same project sat on branches unrelated to their directory names — an implementer trusting the directory name works in the wrong world
+- Before running any test suite, resolve the **environment identity**: `which python` + `python -c 'import sys; print(sys.prefix)'` (or `which node` / equivalent) and confirm it resolves inside the current worktree or matches the env named in the brief. An interpreter that resolves into a *different* worktree means your results describe someone else's code. Field evidence: a false "7103 passed / 0 failed" claim produced by a venv contaminated from a concurrent campaign's worktree — the goal was never actually verified
+- Record both identities (worktree, branch, interpreter path) in your phase report's verification evidence, so valerie and mozart can confirm the results describe the right tree
+
 ### Verify before claiming done
 - **Run it.** Type-check, lint, test, and exercise the actual feature before reporting success
 - For UI changes: start the dev server, click through it, test light/dark, resize to mobile, tab with keyboard
