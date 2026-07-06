@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — EVAL: a fourth work shape (mozart evaluating mozart)
+
+Mozart can now evaluate its own field performance from the campaign artifacts past runs left behind — and, critically, verify whether the previous evaluation's fixes actually changed behavior in campaigns that ran after they landed. This institutionalizes the ad-hoc July-2026 evaluation that produced the hang-proof-codex / atomic-closeout / model-assignment fixes.
+
+- **`agents/mozart.md`** — DELIVER/AUDIT/DIAGNOSE become **four shapes** with EVAL; new **EVAL pipeline** section: six stages (scope → mechanical metrics via `scripts/mozart-lint.sh` → fix verification → delta-scoped qualitative sampling → synthesize and fix → ledger append + report) and EVAL-mode rules (machine-written append-only ledger, delta by default, canonical checkouts only, named verification targets required).
+- **`commands/mozart-eval.md`** (new) — `/mozart-eval` runs the pipeline at top level. Never scans the filesystem uninvited: repos come from arguments or the user.
+- **`docs/EVAL.md`** (new) — ledger schema and report template. Eval artifacts live in a **user-scope eval home** (`$MOZART_EVAL_HOME`, default `~/.mozart/evals/`) — never inside a consuming repo or the installed plugin, so a user's repo names, paths, and campaign details stay on their machine and the feature works with read-only plugin installs.
+- **Tracking with deliberate revisits**: the ledger records which *lens* examined each campaign (`inventory`, `execution-quality`, custom), keyed by state-file hash. Unchanged campaigns are skipped by default but can be legitimately re-examined under a new lens — re-reading is a recorded decision, not an accident.
+- **Fix-verification stage is load-bearing**: a shipped fix whose target metric didn't move in the post-fix cohort is itself a finding, escalating from prose to mechanical enforcement — the two prior evaluation cycles showed prose-only fixes decay.
+
 ### Added — configuration-layer fixes: gate model bumps, identity preflights, hygiene linter, real-path seam rule
 
 Follow-up to the July-2026 evaluation, targeting the issue classes that trace to agent *configuration* rather than runtime discipline:

@@ -10,7 +10,7 @@
 
 One-shot Claude Code requests either over-fire (one giant context doing everything) or under-deliver (no review, no plan, no validation). Mozart threads the needle: you describe what you want, and he routes it through a real delivery pipeline — research, plan, specialist review, implement, verify, document — using named subagents running in their own contexts. Each stage has a defined scope and a clear handoff. You see every move as it happens.
 
-Mozart handles three shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), and **DIAGNOSE** (investigate a failure). He tiers tasks — TINY / STANDARD / HEAVY — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
+Mozart handles four shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), **DIAGNOSE** (investigate a failure), and **EVAL** (evaluate mozart's own field performance from past campaign artifacts and improve the configuration — see `/mozart-eval`). He tiers tasks — TINY / STANDARD / HEAVY — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
 
 ## Quickstart
 
