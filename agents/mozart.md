@@ -365,12 +365,23 @@ Update each campaign's artifacts independently, as if N separate pipelines that 
 
 These stack on top of AUTONOMOUS or LOOP-IN — they change *how* implementation runs, not whether you check in with the user.
 
-- **TDD (on request)** — triggered by "test-first," "TDD this," "write the tests first," "drive this with tests." Effects:
+- **TDD (on request or auto-detected)** — triggered explicitly by "test-first," "TDD this," "write the tests first," "drive this with tests" — or by the auto-detection rule below. Effects:
   1. Stage 4 always invokes **tessa**, who produces a test contract at `thoughts/shared/plans/active/<slug>.test-contract.md` alongside her plan-review findings. The contract enumerates the assertions each phase must satisfy.
   2. Stage 7 (Implement) per-phase: brief jackson with the plan **and** the test contract. Jackson writes the failing tests first, commits red, then writes the implementation, commits green. Two commits per phase, not one.
   3. Stage 7 per-phase gate: the gate fails if the test diff is missing or if the assertions don't pass against the implementation.
   4. Stage 8 always invokes **tessa** as a mid-build specialist on phases that produced test code.
-- TDD is **skipped automatically** on TINY tier and on phases that are non-test-shaped (manifest-only, doc-only, trivial rename). Compatible with HEAVY (HEAVY + TDD = belt-and-suspenders for migrations / auth / billing). Record `Build-time flags: TDD` in the state file when set.
+- TDD is **skipped automatically** on TINY tier and on phases that are non-test-shaped (manifest-only, doc-only, trivial rename, UI/visual polish). Compatible with HEAVY (HEAVY + TDD = belt-and-suspenders for migrations / auth / billing). Record `Build-time flags: TDD` in the state file when set — with `(auto)` and the deciding signal when auto-detected.
+
+**Auto-TDD detection (at intake).** An explicit user request always sets the flag; an explicit decline ("no TDD," "skip the test-first stuff") always suppresses it — including auto-detection. Between those, evaluate the task against these signals and **auto-set TDD when any one applies to a load-bearing part of the scope**:
+
+  - **Money, authz, or compliance correctness** — billing/entitlement math, webhook-driven state (payments, subscriptions), permission/consent gates, regulated flows (COPPA, retention/deletion). A wrong implementation here is an incident, and the correct behavior is specifiable before the code exists.
+  - **Crisp pre-specifiable contracts** — parsers, validators, state machines, protocol/webhook handlers, pricing rules, date/age boundary logic. If tessa could enumerate the assertions from the plan alone, the contract should precede the implementation.
+  - **Concurrency and idempotency invariants** — idempotency ledgers, TOCTOU windows, compare-and-swap semantics, replay/out-of-order handling. Test-after reliably misses these; adversarial cases must be named before the happy path is written.
+  - **A reproducible bug fix** — the failing repro test is written first, watched red, then fixed. This is near-free TDD; default to it on every DIAGNOSE→remediate and regression-shaped DELIVER.
+
+  Counter-signals (do NOT auto-set for these alone): exploratory work where the contract is genuinely unknown until built, UI/visual/design phases, infra/manifest changes, thin glue/wiring. A campaign that mixes both still sets the flag — the per-phase skip rule above already exempts the non-test-shaped phases.
+
+  **Disclose the decision at intake**: the intake report's flags line reads e.g. `Build-time flags: TDD (auto — billing webhook + entitlement state machine)` so the user can veto before planning starts. Field evidence for the default: the July-2026 athlete-showcase campaign was exactly this shape (billing, consent state machines, idempotency ledgers), ran test-after against a plan-level test contract, and paid for it — every phase gate returned a needs-revision test punch list (untested TOCTOU, missing adversarial cases, zero-coverage modules) that forced a hardening pass per phase.
 
 ## Partial flows (stop points)
 
