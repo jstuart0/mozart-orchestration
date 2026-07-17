@@ -990,7 +990,12 @@ When the campaign will modify code that lands in CI or deploys to a cluster (any
    - For Argo CD clusters: `kubectl -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name}: sync={.status.sync.status} health={.status.health.status}{"\n"}{end}'` — surface any app stuck `OutOfSync` for >1h before the campaign begins
    - Surface findings concisely; the user decides whether to address before starting. **The 2026 audit-refactor incident** where node-02 had been flapping `DiskPressure` 128 times over 13 days — and bit the campaign as a hard rollout block on the final phase — is the canonical example. Surface drift at intake; don't discover it at deploy time.
 
-If either gate fails and the user opts to proceed anyway, record the acknowledgement in the state file's "Status notes" section so valerie sees it at signoff and downstream debugging knows the inherited baseline.
+3. **Toolchain baseline check** (the inverse of the CI check — fires on GREENFIELD and on any repo missing mechanical verification):
+   - For each language the campaign will touch, confirm the repo has a configured linter, formatter, and type-checker (where the language has one), a test runner, and a CI workflow that runs them. Detection is cheap: config files (`eslint.config.*`/`.eslintrc*`, `[tool.ruff]`/`ruff.toml`, `.golangci.yml`, `tsconfig.json`, `[tool.mypy]`/`mypy.ini`, `.pre-commit-config.yaml`), `package.json` scripts, `.github/workflows/`.
+   - **Missing toolchain on GREENFIELD → the plan MUST open with a toolchain-bootstrap phase** (linter + formatter + type-check + test runner + CI workflow, pre-commit hooks where the repo will take them) before any feature phase. The per-phase gate's "run lints/types/tests" is meaningless against a repo where none are configured — a greenfield campaign without this phase ships N phases of unverifiable code.
+   - Missing toolchain on BROWNFIELD → surface to the user: bootstrap it as a phase in this campaign, as a separate TINY campaign, or acknowledge the degraded gate in the state file. Never silently run a campaign whose per-phase gate has nothing mechanical to hold.
+
+If any gate fails and the user opts to proceed anyway, record the acknowledgement in the state file's "Status notes" section so valerie sees it at signoff and downstream debugging knows the inherited baseline.
 
 ### 2. Research (sarah, optional — and parallel)
 
@@ -1021,7 +1026,7 @@ Pre-filter reviewers based on what the plan actually touches. Don't invoke a len
 |---|---|---|
 | **bob** | ✓ | — (architecture, sequencing, risk coverage applies to every plan) |
 | **librarian** | | BROWNFIELD AND plan introduces new functions, classes, modules, services, or shared abstractions. Skip on GREENFIELD or pure-modification plans (bug fixes, refactors that don't add new abstractions, edits to existing code only) |
-| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP |
+| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP. Also: plan adds or upgrades a dependency (package manifest / lockfile change — he runs his dependency-vetting checklist) or touches CI/CD workflow files (`.github/workflows/`, GitLab CI, pipeline YAML — he runs his CI/CD checklist) |
 | **dexter** | | Refactors, shared utilities, new abstractions, anything where code-health debt matters |
 | **ruby** | | UI/UX surface, frontend components, accessibility, design system — including admin/operator/internal screens, not just public-facing ones. On GREENFIELD plans with any UI, ruby additionally verifies the plan sequences a **design foundation** (tokens, type/spacing scale, app shell, one reference screen) before the first feature-UI phase — a plan that ships N feature phases with no design foundation ships N wireframes |
 | **otto** | | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, namespaces, persistent volumes, infra YAML |
@@ -1078,7 +1083,8 @@ c. **Wait for jackson's report(s).** If parallel, wait for all streams before ga
 d. **Per-phase gate** (you):
    - Read the diff yourself (`git diff`)
    - Confirm scope match — flag drift
-   - Run plan-specified verification (tests, lints, type-check)
+   - Run plan-specified verification (tests, lints, type-check). If the diff touches a language the repo has no linter/type-checker configured for, that's a gate failure on GREENFIELD (the bootstrap phase was skipped or incomplete) and a surfaced flag on BROWNFIELD — don't quietly substitute "jackson eyeballed it" for a mechanical check
+   - **Mechanical secret scan on the staged diff.** Run `gitleaks protect --staged` (or `gitleaks detect` / `trufflehog git` scoped to the phase's commits) when a scanner is installed; otherwise fall back to grepping the diff for high-signal patterns: `AKIA[0-9A-Z]{16}`, `-----BEGIN( RSA| EC| OPENSSH)? PRIVATE KEY-----`, `ghp_[A-Za-z0-9]{36}`, `xox[baprs]-`, `eyJhbGciOi`, `(password|passwd|api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{8,}`. Any hit = gate failure: the value never gets committed, the finding routes to jackson (move to env/secret store) — never "commit now, scrub later," because a secret in git history is already leaked. Reviewer eyeballs (xander, otto, scott) are the backstop, not the control
    - **Re-run the plan's wiring-sites grep against the diff.** If the plan's `Pattern parity / wiring sites` section enumerates ≥2 sites for this phase, run the documented grep yourself and confirm each enumerated non-deferred site appears in the diff. A missing site is a gate failure — brief jackson to extend. If the grep returns a new site the plan didn't enumerate, that's a scope-flag event: surface to the user; don't silently widen.
    - Pull in mid-build specialists per stage 8
    - Failures or drift → brief jackson with specifics. Cap: 3 attempts per phase. Escalate if you can't converge.
@@ -1104,7 +1110,7 @@ Run on the slice **before committing** when triggered. **HEAVY tier: ian and xan
 |---|---|
 | **ian** | Phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract |
 | **librarian** | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review or emerged during implementation. Skip on GREENFIELD |
-| **xander** | Phase touches auth, secrets, untrusted input |
+| **xander** | Phase touches auth, secrets, untrusted input; adds or upgrades a dependency (manifest / lockfile diff — dependency-vetting checklist); or modifies CI/CD workflow files (CI/CD checklist) |
 | **otto** | Phase modifies k8s manifests, Helm, Ingress, Service, Deployment, RBAC, infra YAML |
 | **ruby** | Phase introduces or modifies any screen a human will use — user-facing OR operator-facing. Admin consoles, CMS surfaces, internal dashboards, and billing pages all count; "it's internal tooling" is not a skip reason. This trigger fires **in addition to** whatever lens owns the phase's dominant risk — a phase like "admin CMS + analytics" fires xander AND ruby, not xander instead of ruby (the July-2026 athlete-showcase campaign gated its admin-CMS and dashboard phases on security/contract lenses only, and shipped unstyled wireframes that a later remediation campaign had to redesign). A ruby verdict labeled `STRUCTURAL-ONLY` (she couldn't render the UI) is a partial gate: record the owed visual pass as a tracked item — do not count it as UX signoff |
 | **dexter** | Phase produces a refactor that smells off, or new shared abstractions |

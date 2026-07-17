@@ -95,7 +95,7 @@ Support agents (tool specialists, not personas):
 |---|---|
 | bob | always |
 | librarian | BROWNFIELD AND plan introduces new functions, classes, modules, services, or shared abstractions. Skip on GREENFIELD or pure-modification plans |
-| xander | auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP |
+| xander | auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP; dependency manifest/lockfile changes (dependency vetting); CI/CD workflow changes |
 | dexter | refactors, shared utilities, new abstractions, code-health debt |
 | ruby | UI/UX surface, frontend components, accessibility, design system |
 | otto | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, infra YAML |
@@ -106,7 +106,7 @@ Support agents (tool specialists, not personas):
 |---|---|
 | ian | public API, exported symbol, function signature, schema, shared utility, behavior contract |
 | librarian | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review. Skip on GREENFIELD |
-| xander | auth, secrets, untrusted input. **HEAVY: always** |
+| xander | auth, secrets, untrusted input; dependency manifest/lockfile diffs; CI/CD workflow changes. **HEAVY: always** |
 | otto | k8s manifests, Helm, infra YAML |
 | ruby | UI flows |
 | dexter | refactor smells, new shared abstractions |

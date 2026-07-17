@@ -4,6 +4,19 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — coding-practice gap closures: toolchain bootstrap gate, dependency vetting, mechanical secret scan, observability + error-handling standards, CI/CD workflow review
+
+A best-practices audit of the agent roster found the pipeline strong on planning, review, and verification discipline, but with six unowned practices — most of them variants of one meta-gap: the system mechanizes enforcement of its own state files (`mozart-lint.sh`) but not of the code it ships. Closures:
+
+- **`agents/mozart.md` — pre-flight gate 3: toolchain baseline check.** The per-phase gate's "run lints/types/tests" silently assumed the repo *has* a linter, formatter, type-checker, and CI. New intake gate: missing toolchain on GREENFIELD forces a toolchain-bootstrap phase before any feature phase; on BROWNFIELD it forces a surfaced triage decision (bootstrap here, separate TINY campaign, or acknowledged degraded gate). The per-phase gate now fails when a diff touches a language with no configured mechanical check on GREENFIELD.
+- **`agents/mozart.md` — mechanical secret scan at the per-phase gate.** `gitleaks`/`trufflehog` when installed, high-signal grep fallback otherwise (AWS keys, private-key blocks, `ghp_`/`xox`-prefixed tokens, JWT prefixes, inline password/api-key assignments). Any hit is a gate failure routed to jackson — never "commit now, scrub later." Reviewer eyeballs demoted from control to backstop.
+- **`agents/xander.md` — dependency vetting checklist** (new section): provenance/typosquat, maintenance health, advisories against the resolved version, license, transitive footprint + install scripts, pinning + lockfile-in-same-diff. Scaled: patch bumps get advisories+pinning only; new dependencies get all six. Plus a **CI/CD pipelines** checklist item (unpinned actions, over-broad workflow token permissions, `${{ }}` injection of attacker-controlled context, `pull_request_target` + PR-head checkout, fork-PR secret exposure, cache poisoning). Both wired as stage-4 and stage-8 triggers in `mozart.md` and `PIPELINE.md` (manifest/lockfile diffs and workflow-file diffs now summon xander).
+- **`agents/jackson.md` — Observability and Error handling sections** (new): structured logs with level discipline, correlation-ID propagation, no secrets/PII in logs, health+metrics surfaces on new long-running services ("a service that can fail silently is unfinished"); one error idiom per codebase, wrap-with-context across layers, structured domain errors vs loud unexpected failures, log-once-where-handled, user-facing messages say what to do next. Gives dexter's "inconsistent error handling" anti-pattern a positive spec to enforce against.
+- **`agents/otto.md` — observability wiring** added to operational hygiene: new long-running services ship with the documented monitoring stack (scrape annotations / ServiceMonitor) and at least one down/crash-loop alert — the silent month-long Argo sync failure is the canonical incident.
+- **`agents/harry.md` — toolchain-before-features sequencing rule** + self-review checklist item: GREENFIELD plans open with a toolchain-bootstrap phase.
+
+Deliberately not changed: no numeric coverage floor (tessa's coverage-as-proof position stands) and no style-nit review lens (that's the bootstrapped linter's job — which is exactly why the toolchain gate exists).
+
 ### Added — EVAL: a fourth work shape (mozart evaluating mozart)
 
 Mozart can now evaluate its own field performance from the campaign artifacts past runs left behind — and, critically, verify whether the previous evaluation's fixes actually changed behavior in campaigns that ran after they landed. This institutionalizes the ad-hoc July-2026 evaluation that produced the hang-proof-codex / atomic-closeout / model-assignment fixes.

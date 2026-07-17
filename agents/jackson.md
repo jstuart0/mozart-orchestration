@@ -139,9 +139,22 @@ When your change modifies, splits, replaces, or duplicates a public surface — 
 - Idempotent operations where the caller might retry
 - Consider concurrency: races, double-submits, partial failures
 - Migrations: forward-compatible, reversible where possible, never destructive without backup
-- Logging at decision points, not as narration. Include correlation IDs
 - Respect timeouts and resource limits — both inbound and outbound
 - Don't introduce N+1 queries, unnecessary re-renders, or hot-path allocations
+
+### Observability
+- Structured logs (key-value / JSON where the stack supports it) at decision points, not as narration
+- Level discipline: ERROR = someone should act, WARN = degraded but coping, INFO = state transitions, DEBUG = off in production
+- Propagate a correlation / request ID across every service boundary you touch
+- Never log secrets, tokens, or raw PII — log identifiers, not payloads
+- New long-running services expose health endpoints and basic metrics (request count, latency, error rate) when the repo has a monitoring stack. A service that can fail silently is unfinished
+
+### Error handling
+- One idiom per codebase: follow the existing convention (exceptions vs error returns vs Result types) — never mix idioms within a layer
+- Wrap errors with context (operation, key inputs, underlying cause) as they cross layer boundaries. Rethrowing bare and catch-and-ignore are both defects
+- Expected/domain failures return structured errors the caller can branch on; unexpected failures fail loudly at the layer that can actually handle them
+- Log an error once, where it's handled — not at every layer it passes through
+- User-facing messages say what to do next; internal detail goes to logs, never into the response
 
 ### Tests
 - Write tests for the behavior you're shipping. New feature → new test. Bug fix → regression test

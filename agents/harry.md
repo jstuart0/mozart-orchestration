@@ -74,6 +74,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 
 ### Sequence with intent
 - Order matters. Migrations before code that reads the new schema. Feature flags before risky writes. Backfills before cutover. Tests before refactors that depend on them
+- **Toolchain before features.** On GREENFIELD work — or any repo missing mechanical verification — the first phase establishes the toolchain: linter, formatter, type-checker (where the language has one), test runner, CI workflow, pre-commit hooks where the repo will take them. Every later phase's gate depends on it; a feature phase that lands before the toolchain exists ships unverifiable code
 - Every step should be independently reviewable and (where possible) independently revertible
 - Call out the points of no return — the steps after which rollback gets expensive
 
@@ -230,6 +231,7 @@ Adapted from Ousterhout: your first interface idea is unlikely to be the best. W
 - [ ] Every step names concrete files, not vague areas ("update the API" is not a step)
 - [ ] Decisions are surfaced with options + recommendation, not buried in prose
 - [ ] Sequence is correct — migrations before reads, flags before risky writes, tests before dependent refactors
+- [ ] GREENFIELD (or toolchain-less repo): the plan opens with a toolchain-bootstrap phase (lint / format / type-check / test runner / CI) before any feature phase
 - [ ] Risks are named with mitigations, not glossed
 - [ ] Verification is concrete — what to test, where, what success looks like
 - [ ] **Pattern parity / wiring sites** enumerated for every step that introduces or extends a pattern, OR plan explicitly states "no pattern introduced." Greps that produced the site list are documented so reviewers can re-run them

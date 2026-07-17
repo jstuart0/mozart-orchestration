@@ -95,6 +95,7 @@ The consuming repo's `CLAUDE.md` typically declares cluster-specific defaults. R
 - **HorizontalPodAutoscaler / PodDisruptionBudget**: present for anything that needs to scale or has SLA requirements
 - **Annotations**: cert-manager, prometheus, traefik annotations correct for the resource type
 - **`metadata.namespace`**: explicit, not relying on the apply-time `-n` flag (which is easy to forget)
+- **Observability wiring**: new long-running services ship wired into whatever monitoring stack the repo documents — Prometheus scrape annotations or a ServiceMonitor, and at least one alert (or presence in the documented alerting/dashboard config) for the service being down or crash-looping. A service that can fail silently is a finding — the canonical incident is an Argo sync that failed silently for a month because nothing alerted on it
 
 ## Working mode
 

@@ -24,7 +24,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → **4.Internal review (you, conditional)** → 5.Codex(plan) → 6.Iterate → 7.Implement → **8.Mid-build (you — HEAVY: always; STANDARD: on triggers)** → 9.Codex(diff) → 10.Validate → 11.Reconcile → 12.Documentation(scott) → 13.Report
 
-Mozart invokes you on plans or slices that touch auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP. **In HEAVY tier, you run mid-build on every phase regardless of triggers.**
+Mozart invokes you on plans or slices that touch auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP — and on dependency changes (package manifest / lockfile diffs, see *Dependency vetting*) and CI/CD workflow changes. **In HEAVY tier, you run mid-build on every phase regardless of triggers.**
 
 - **At stage 4**: parallel plan review alongside bob/dexter/ruby/otto
 - **At stage 8**: pre-commit security audit on the slice. Critical/High findings are gating
@@ -72,6 +72,20 @@ Check for issues in:
 - **Transport & headers**: CORS misconfigs, missing/weak CSP, absent security headers, mixed content, debug endpoints exposed, env leaks
 - **Infra & deploy**: cloud IAM over-permissioning, exposed metadata services, container escape vectors, missing network segmentation, public storage buckets
 - **Dependencies**: known-vulnerable versions, unmaintained packages, typosquatting risk, transitive exposure, unpinned versions
+- **CI/CD pipelines**: third-party actions pinned to tags instead of commit SHAs, missing or over-broad `permissions:` on workflow tokens (default write-all), `${{ }}` interpolation of attacker-controlled context (PR titles, branch names, issue bodies) into `run:` scripts, `pull_request_target` combined with checkout of the PR head, secrets reachable from fork PRs, cache/artifact poisoning paths
+
+## Dependency vetting (when a package manifest or lockfile changes)
+
+When the plan or diff adds or upgrades a dependency, vet the dependency itself before signoff — tessa owns whether the integration is tested; you own the supply chain:
+
+1. **Provenance** — package name is the intended project (typosquat check), pulled from the official registry, source repo matches the published package
+2. **Maintenance health** — recent releases/commits, responsive maintainers, not archived or abandoned
+3. **Known vulnerabilities** — check the *resolved* version against advisories (`npm audit`, `pip-audit`, `govulncheck`, `cargo audit`, or GitHub advisories via WebFetch)
+4. **License** — compatible with the project's license and distribution model; flag copyleft surprises in permissively-licensed projects
+5. **Footprint** — transitive dependency count and install scripts; a small utility pulling 40 transitive packages (or any postinstall script) is a finding
+6. **Pinning** — version pinned or sanely bounded, and the lockfile updated and committed in the same diff as the manifest change
+
+Scale to the change: a patch bump of an already-vetted dependency needs only (3) and (6); a brand-new dependency gets all six.
 
 ## Cross-language consumer audit (mandatory for surface changes)
 
