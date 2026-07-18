@@ -56,6 +56,35 @@ Semantics:
 
 Trend vs previous run: <deltas, or "baseline — no comparison">
 
+## Pipeline economics (scripts/mozart-metrics.sh)
+
+| Repo | Campaigns (by tier) | Catches (C/H fixed) | Top stages | Top lenses | FP rate | Escapes | DRE | Catches/campaign by tier |
+|---|---|---|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+
+Source: each campaign's state-file `## Findings ledger` (one row per dispositioned
+finding: stage, lens, severity, fixed/rejected/accepted-risk) and `## Escapes`
+block (`Traces-to:` links written when a later DIAGNOSE or audit finds a defect
+the campaign shipped). What the columns decide:
+
+- **Catches by stage** — a stage whose catches nothing upstream found is earning
+  its keep; a stage that only re-derives upstream findings is a candidate to demote.
+- **FP rate by lens** — a lens with zero catches and a high rejected share over a
+  meaningful sample (≥10 triggered runs) gets its trigger tightened; findings-noise
+  taxes iteration rounds.
+- **DRE** (catches ÷ (catches + escapes)) — the honest bottom line; trend it across
+  runs. A dropping DRE means the gates are decaying — the escaping categories name
+  which lens to strengthen.
+- **Catches/campaign by tier** — validates the tiering: TINY should be near zero
+  (that's why it skips gates); STANDARD/HEAVY materially above it.
+
+Caveats the report must carry: catch counts are a **lower bound** on pipeline value
+(plan review also prevents defects from being *written*, which no ledger row records),
+and only dispositioned-fixed findings count as catches — raw finding volume is
+Goodhart-able, dispositions are valerie-confirmed.
+
+Trend vs previous run: <deltas, or "baseline — no comparison">
+
 ## Fix verification (previous run's targets)
 
 For each verification target the previous report named:

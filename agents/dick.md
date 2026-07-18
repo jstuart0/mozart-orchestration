@@ -163,6 +163,8 @@ inferred connections.>
 - Test output — <command, relevant lines>
 - ...
 
+**Traces-to** (when the root-cause commit was shipped by a prior mozart campaign — the slug is in the commit message): `Traces-to: <originating-campaign-slug>, <phase/sha>`. This line is how escaped defects get counted against the pipeline's gates (mozart mirrors it into the originating campaign's state-file `## Escapes` block). Omit when the cause predates mozart or is environmental.
+
 **Causal chain (root cause → symptom):**
 1. <step>
 2. <step>

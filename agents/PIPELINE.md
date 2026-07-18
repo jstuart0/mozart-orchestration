@@ -37,16 +37,18 @@ When mozart briefs another agent, he carries this standard forward — he does n
 | **mozart** | Conductor — orchestrates the pipeline | opus |
 | **harry** | Planning architect — drafts the plan | opus |
 | **sarah** | Researcher — finds prior art + best practices | sonnet |
-| **bob** | Architectural plan reviewer | sonnet |
+| **bob** | Architectural plan reviewer | opus |
 | **dexter** | Code-health auditor | sonnet |
 | **xander** | Security reviewer (adversarial) | sonnet |
-| **ruby** | UI/UX designer + frontend reviewer | sonnet |
+| **ruby** | UI/UX designer + frontend reviewer | opus |
 | **otto** | Infra / k8s / ops reviewer | sonnet |
+| **tessa** | Test-strategy and test-quality reviewer | sonnet |
+| **percy** | Performance engineer (measurement-first) | sonnet |
 | **librarian** | Code archaeologist — does this already exist? | sonnet |
 | **ian** | Change-impact analyst | sonnet |
 | **jackson** | Senior software engineer (implementer) | sonnet |
-| **dick** | Bug investigator (DIAGNOSE lead) | opus |
-| **valerie** | Plan-vs-reality validator | sonnet |
+| **dick** | Bug investigator (DIAGNOSE lead) | sonnet |
+| **valerie** | Plan-vs-reality validator | opus |
 | **scott** | Technical writer | sonnet |
 | **codex** (CLI) | External senior architect (second opinion) | external |
 
@@ -65,11 +67,11 @@ Support agents (tool specialists, not personas):
 1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file + flow sketch
 2.  Research        — sarah (+ codebase-pattern-finder, web-search-researcher) in parallel — OPTIONAL, skipped in TINY
 3.  Plan            — harry drafts → thoughts/shared/plans/<slug>.md
-4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto (conditional, parallel)
+4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto/tessa/percy (conditional, parallel)
 5.  Codex on plan   — codex CLI external review → <slug>.codex-r1-plan.md
 6.  Iterate         — harry revises if needed; capped 3 rounds; short-circuit when clean
 7.  Implement       — jackson, phase by phase (parallel streams when independent)
-8.  Mid-build gate  — mozart per-phase gate + conditional specialists (librarian / ian / xander / otto / ruby / dexter / bob)
+8.  Mid-build gate  — mozart per-phase gate + conditional specialists (librarian / ian / xander / otto / ruby / dexter / tessa / percy / bob)
                        HEAVY tier: ian + xander mandatory on every phase
                        LOOP-IN mode: setup + user signoff before commit
 9.  Codex on diff   — codex CLI external review of final diff (HEAVY mandatory; STANDARD optional; TINY skip)
@@ -96,6 +98,8 @@ Support agents (tool specialists, not personas):
 | bob | always |
 | librarian | BROWNFIELD AND plan introduces new functions, classes, modules, services, or shared abstractions. Skip on GREENFIELD or pure-modification plans |
 | xander | auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP; dependency manifest/lockfile changes (dependency vetting); CI/CD workflow changes |
+| tessa | non-trivial logic (parsers, state machines, validators, business rules, API handlers); new/modified integration boundaries; mandatory in TDD flow (authors the test contract) |
+| percy | DB schema/query shapes, caching, pagination of unbounded collections, hot-path endpoints, bundle-affecting frontend changes, stated performance goals — reviews the plan's performance budgets |
 | dexter | refactors, shared utilities, new abstractions, code-health debt |
 | ruby | UI/UX surface, frontend components, accessibility, design system |
 | otto | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, infra YAML |
@@ -107,6 +111,8 @@ Support agents (tool specialists, not personas):
 | ian | public API, exported symbol, function signature, schema, shared utility, behavior contract |
 | librarian | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review. Skip on GREENFIELD |
 | xander | auth, secrets, untrusted input; dependency manifest/lockfile diffs; CI/CD workflow changes. **HEAVY: always** |
+| tessa | test files modified; new logic or integration boundary with no test diff; mandatory in TDD flow |
+| percy | queries in loops / new query shapes (runs EXPLAIN), bundle-affecting frontend deps (measures delta), new caches, pagination of growing collections, budgeted endpoints |
 | otto | k8s manifests, Helm, infra YAML |
 | ruby | UI flows |
 | dexter | refactor smells, new shared abstractions |
@@ -131,7 +137,7 @@ Support agents (tool specialists, not personas):
 | Best-practices refactor | dexter, bob | librarian (duplicate functionality is a top refactor target), xander / ruby / otto if relevant |
 | Security audit | xander | bob, dexter |
 | UX / accessibility | ruby | xander if auth flows |
-| Performance / scaling | bob, dexter | — |
+| Performance / scaling | percy | bob (structure), dexter (code-health) |
 | Code-health / tech debt | dexter, librarian | bob |
 | Infra / k8s posture | otto | bob, xander |
 | Documentation coverage | scott | dexter if doc duplication, bob if architectural docs are wrong |
