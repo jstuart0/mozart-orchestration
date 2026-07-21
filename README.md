@@ -10,7 +10,7 @@
 
 One-shot Claude Code requests either over-fire (one giant context doing everything) or under-deliver (no review, no plan, no validation). Mozart threads the needle: you describe what you want, and he routes it through a real delivery pipeline — research, plan, specialist review, implement, verify, document — using named subagents running in their own contexts. Each stage has a defined scope and a clear handoff. You see every move as it happens.
 
-Mozart handles four shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), **DIAGNOSE** (investigate a failure), and **EVAL** (evaluate mozart's own field performance from past campaign artifacts and improve the configuration — see `/mozart-eval`). He tiers tasks — TINY / STANDARD / HEAVY — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
+Mozart handles five shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), **DIAGNOSE** (investigate a failure), **OPERATE** (change or debug a live system — installs, config changes, infra mutations, applied straight to the running cluster/host rather than through a git pipeline), and **EVAL** (evaluate mozart's own field performance from past campaign artifacts and improve the configuration — see `/mozart-eval`). He tiers tasks — TINY / STANDARD / HEAVY — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
 
 ## Quickstart
 
@@ -62,15 +62,16 @@ Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional st
 
 *AUDIT and DIAGNOSE flows are shorter — see [PIPELINE.md](agents/PIPELINE.md) for the full reference.*
 
-## Three orchestration shapes
+## Orchestration shapes
 
 | Shape | When | Output |
 |---|---|---|
 | **DELIVER** | "build X", "ship Y", "fix Z" | Working code, verified against the plan, documented |
 | **AUDIT** | "review X", "audit Y for Z" | Findings document; optional remediation flow |
 | **DIAGNOSE** | "why is X broken?", "investigate Y" | Findings document with symptom / repro / root cause / remediation options |
+| **OPERATE** | "install X", "apply this manifest", "the pod is crashlooping" | Verified live-system change with a recorded snapshot + rollback command |
 
-Bug-shaped DELIVER on STANDARD/HEAVY auto-promotes to DIAGNOSE first.
+Bug-shaped DELIVER on STANDARD/HEAVY auto-promotes to DIAGNOSE first. A DIAGNOSE or AUDIT whose fix is a live-system change (not a code change) flows into OPERATE.
 
 ## Task tiers
 

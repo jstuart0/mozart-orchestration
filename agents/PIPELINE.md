@@ -24,7 +24,7 @@ When mozart briefs another agent, he carries this standard forward — he does n
 
 - **Default mode**: AUTONOMOUS (mozart runs end-to-end without pausing)
 - **Loop-in mode**: per-phase user gate with explicit test instructions (triggered by "keep me in the loop," "step me through it," etc.)
-- **Three work shapes**: DELIVER (build/ship), AUDIT (review-with-goal), DIAGNOSE (investigate-a-failure)
+- **Five work shapes**: DELIVER (build/ship code), AUDIT (review-with-goal), DIAGNOSE (investigate-a-failure), OPERATE (change/debug a live system), EVAL (mozart evaluates its own field performance)
 - **Project context**: GREENFIELD (skip librarian) or BROWNFIELD (librarian runs at plan review and mid-build for new shared abstractions). Default BROWNFIELD when uncertain.
 - **Multi-campaign mode**: mozart can drive 2–4 campaigns concurrently, each with its own slug, state file, plan, ticket, and (typically) git worktree.
 - **Partial flows (early exit)**: FULL (default), PLAN-ONLY, RESEARCH-ONLY, INVESTIGATE-ONLY, AUDIT-ONLY, VALIDATE-ONLY.
@@ -41,7 +41,8 @@ When mozart briefs another agent, he carries this standard forward — he does n
 | **dexter** | Code-health auditor | sonnet |
 | **xander** | Security reviewer (adversarial) | sonnet |
 | **ruby** | UI/UX designer + frontend reviewer | opus |
-| **otto** | Infra / k8s / ops reviewer | sonnet |
+| **otto** | Infra / k8s / ops reviewer (+ OPERATE change-plan author) | sonnet |
+| **hank** | Ops executor — applies changes to live infrastructure (OPERATE) | sonnet |
 | **tessa** | Test-strategy and test-quality reviewer | sonnet |
 | **percy** | Performance engineer (measurement-first) | sonnet |
 | **librarian** | Code archaeologist — does this already exist? | sonnet |
@@ -162,6 +163,36 @@ Bug-shaped DELIVER requests ("fix this bug," "X is broken") on STANDARD/HEAVY ti
 - Don't diagnose and fix in the same pass. Investigation → decision point → remediation are distinct phases.
 - One ticket per investigation. If multiple distinct issues emerge, dick documents them but creates separate tickets per actionable issue.
 
+## OPERATE pipeline
+
+For changing or debugging a **live system** directly — installs, config changes, infra mutations, hands-on debugging of running k8s / hosts / storage / DBs. The artifact is a state change to running infrastructure, not a git diff; verification is empirical (curl, logs, `get`), not CI; rollback is a recorded command against a snapshot, not `git revert`. That's why it's a distinct shape, not a DELIVER tier. **hank** is the only agent that mutates live state.
+
+**DELIVER-vs-OPERATE boundary:** change reaches the system through a git/CI/Argo pipeline → DELIVER (otto reviews, jackson writes, the pipeline deploys). Change lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, in-place config edit, restart) → OPERATE (otto plans, hank applies, verified empirically). Prefer the GitOps/DELIVER path when one exists.
+
+```
+1. Intake+pin  — mozart restates change, PINS the target (context/ns/host), classifies mode+tier,
+                 runs the drift sanity check; creates state file + flow sketch (Shape: OPERATE)
+2. Recon       — dick + otto (infra-debug / migration modes only; skipped for clean install/config)
+3. Change plan — otto AUTHORS the plan: exact commands, per-step dry-run, snapshot step,
+                 rollback procedure, blast radius/ramifications (+ ian on HEAVY for code-side consumers)
+4. Pre-flight  — hank runs dry-runs + takes snapshots (records them BEFORE applying);
+                 HEAVY adds xander (security surface) + otto (immutable-field/server-dry-run) + codex on the plan
+5. Apply       — hank executes one step at a time, confirming each before the next
+6. Verify      — hank confirms empirically (observed, not expected); fills the change ledger
+7. Record      — scott writes the runbook + rollback record to repo docs / wiki
+                  └─ OPERATE-PLAN-ONLY: stop after stage 3; otto's change plan is the deliverable
+```
+
+**Modes:** install / config-change / infra-debug / migration (migration is always HEAVY).
+**Tiers:** TINY (single reversible change — full loop, but skip otto's separate plan + xander/codex gate) / STANDARD (default) / HEAVY (storage, RBAC, secrets, live DB schema, production-stateful, resource-recreation — full pre-flight gate + user sign-off on irreversible steps).
+
+**Operate-mode rules:**
+- Never mutate without a snapshot and a recorded rollback command — TINY is no exception.
+- Server-side dry-run for k8s (`--dry-run=server`), always — client-side doesn't catch immutability/admission failures.
+- Pin the target; check every mutating command against it. A context mismatch is a stop, never a silent switch.
+- Observed, not expected — every "it works" carries the evidence behind it.
+- Irreversible or out-of-authority steps escalate before apply.
+
 ## Output paths
 
 - Plan: `thoughts/shared/plans/<slug>.md`
@@ -172,6 +203,7 @@ Bug-shaped DELIVER requests ("fix this bug," "X is broken") on STANDARD/HEAVY ti
 - Codex round 2 (diff): `thoughts/shared/plans/<slug>.codex-r2-diff.md`
 - Audit report (AUDIT shape): `thoughts/shared/audits/<slug>.md`
 - Investigation (DIAGNOSE shape): `thoughts/shared/investigations/<slug>.md`
+- Change plan (OPERATE shape): `thoughts/shared/plans/<slug>.md`; snapshots: `thoughts/shared/plans/<slug>.snapshots/` (rollback state captured before apply, referenced by the change ledger in the state file)
 
 ## Flow control: passthrough, stop, entry points
 
@@ -188,6 +220,8 @@ When a request is genuinely one agent's job, mozart routes it directly and retur
 | Architectural critique (no fix) | bob |
 | UI/UX review (no fix) | ruby |
 | Infra / k8s posture review (no fix) | otto |
+| "Just apply this manifest" / "restart the pod" (single reversible live change) | hank (runs the full verify→dry-run→snapshot→apply→verify loop) |
+| "Install X" / "make this infra change" / "debug the live system" (multi-step) | OPERATE pipeline (not passthrough) |
 | Change-impact analysis on a diff | ian |
 | Plan-vs-diff validation (no fix) | valerie (FULL mode) |
 | Research / "how should we do X" | sarah |
@@ -210,6 +244,7 @@ A passthrough can graduate to a flow if the user follows up with "now fix it" or
 | **RESEARCH-ONLY** | "just research," "find out what we should use" | Stage 2 |
 | **INVESTIGATE-ONLY** | "investigate X," "diagnose Y," "why is Z broken" | DIAGNOSE stage 3 (decision point) |
 | **AUDIT-ONLY** | AUDIT shape, user picks "report only" at decision point | AUDIT stage 5 |
+| **OPERATE-PLAN-ONLY** | "plan the change but don't apply it," "give me the change plan + rollback" | OPERATE stage 3 (change plan) |
 | **VALIDATE-ONLY** | "validate this branch against the plan" | Stage 10 only |
 
 ### Entry points (resume / pick up)

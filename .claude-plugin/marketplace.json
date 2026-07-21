@@ -9,7 +9,7 @@
     {
       "name": "mozart-orchestration",
       "source": ".",
-      "description": "Mozart-conducted multi-agent orchestration: DELIVER, AUDIT, DIAGNOSE. Pluggable ticketing and documentation.",
+      "description": "Mozart-conducted multi-agent orchestration: DELIVER, AUDIT, DIAGNOSE, OPERATE, EVAL. Pluggable ticketing and documentation.",
       "version": "0.1.0",
       "category": "agents",
       "tags": [
