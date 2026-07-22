@@ -24,7 +24,7 @@ When mozart briefs another agent, he carries this standard forward — he does n
 
 - **Default mode**: AUTONOMOUS (mozart runs end-to-end without pausing)
 - **Loop-in mode**: per-phase user gate with explicit test instructions (triggered by "keep me in the loop," "step me through it," etc.)
-- **Five work shapes**: DELIVER (build/ship code), AUDIT (review-with-goal), DIAGNOSE (investigate-a-failure), OPERATE (change/debug a live system), EVAL (mozart evaluates its own field performance)
+- **Six work shapes**: DELIVER (build/ship code), AUDIT (review-with-goal), DIAGNOSE (investigate-a-failure), INCIDENT (respond to a live outage — mitigate-first, parallel, timeline + post-mortem), OPERATE (change/debug a live system), EVAL (mozart evaluates its own field performance)
 - **Project context**: GREENFIELD (skip librarian) or BROWNFIELD (librarian runs at plan review and mid-build for new shared abstractions). Default BROWNFIELD when uncertain.
 - **Multi-campaign mode**: mozart can drive 2–4 campaigns concurrently, each with its own slug, state file, plan, ticket, and (typically) git worktree.
 - **Partial flows (early exit)**: FULL (default), PLAN-ONLY, RESEARCH-ONLY, INVESTIGATE-ONLY, AUDIT-ONLY, VALIDATE-ONLY.
@@ -193,6 +193,36 @@ For changing or debugging a **live system** directly — installs, config change
 - Observed, not expected — every "it works" carries the evidence behind it.
 - Irreversible or out-of-authority steps escalate before apply.
 
+## INCIDENT pipeline
+
+For responding to a **live outage** — service is down or badly degraded *right now*. The time-critical form of DIAGNOSE: it **inverts** DIAGNOSE's "don't fix in the same pass" rule — mitigate first to restore service, root-cause in parallel, then durable-fix. mozart is the **incident commander (IC)**; no new agent — responders reused (dick, hank, otto, xander, percy, scott).
+
+**Reconciles speed vs. rigor by splitting it across two phases:** mitigation runs gates-relaxed (`accepted-risk (incident)`, logged with rollback); the durable fix runs full gates (DELIVER/OPERATE, repro-test-first). You sequence rigor, you don't choose it globally.
+
+**Parallelism discipline:** read-only investigation parallelizes freely; **live mutation serializes** through the IC (one hand — hank). Concurrent writers to a broken system turn SEV2 into SEV1.
+
+```
+0. Declare+triage — SEV1/2/3, scope, open the timeline; observability gate (warn if recovery can't be measured)
+1. Stabilize      — fastest safe restore (rollback/failover/scale/restart/flag). hank, SERIAL. Logged accepted-risk. ─┐ concurrent
+2. Race hypotheses— parallel lanes: what-changed / dependency / resource / traffic-data / security / perf. First-to-confirm. ─┘
+3. Converge       — confirm root cause; distinguish MITIGATED from FIXED
+4. Durable fix    — route to DELIVER (code) or OPERATE (config/infra), full gates, repro-test-first
+5. Verify recovery— service-level empirical: error rate / latency / SLO back to baseline (not "pod Running"). IC calls all-clear
+6. Post-mortem    — scott: blameless timeline + root cause + action items → follow-up campaigns; Traces-to if it traces to a shipped campaign
+                     └─ MITIGATE-ONLY: stop after stage 3 + 5; durable fix is a tracked follow-up
+```
+
+**SEV tiers** (INCIDENT's tier axis): SEV1 (total outage / data-loss / breach — all hands, mandatory post-mortem, HEAVY durable fix) / SEV2 (major degradation) / SEV3 (minor/contained — degrades toward a fast DIAGNOSE→OPERATE). When unsure, pick the higher.
+
+**Incident-mode rules:**
+- Mitigate first, understand second — a known-good rollback beats a perfect diagnosis when service is down.
+- One hand on the live system (hank); investigators parallelize read-only.
+- Verify each mitigation before stacking another; roll back what didn't help.
+- Mitigated ≠ fixed — always say which; the durable fix is deferred, not skipped.
+- The timeline is the source of truth — append at every state change.
+- Blameless post-mortem on SEV1/2 — output is action items, not attribution.
+- Don't over-declare: service up but slow/wrong is DIAGNOSE, not INCIDENT.
+
 ## Output paths
 
 - Plan: `thoughts/shared/plans/<slug>.md`
@@ -204,6 +234,7 @@ For changing or debugging a **live system** directly — installs, config change
 - Audit report (AUDIT shape): `thoughts/shared/audits/<slug>.md`
 - Investigation (DIAGNOSE shape): `thoughts/shared/investigations/<slug>.md`
 - Change plan (OPERATE shape): `thoughts/shared/plans/<slug>.md`; snapshots: `thoughts/shared/plans/<slug>.snapshots/` (rollback state captured before apply, referenced by the change ledger in the state file)
+- Incident timeline (INCIDENT shape): `thoughts/shared/incidents/<slug>.timeline.md` (append-only spine); post-mortem: `thoughts/shared/incidents/<slug>.postmortem.md` (+ external wiki if configured)
 
 ## Flow control: passthrough, stop, entry points
 
@@ -222,6 +253,7 @@ When a request is genuinely one agent's job, mozart routes it directly and retur
 | Infra / k8s posture review (no fix) | otto |
 | "Just apply this manifest" / "restart the pod" (single reversible live change) | hank (runs the full verify→dry-run→snapshot→apply→verify loop) |
 | "Install X" / "make this infra change" / "debug the live system" (multi-step) | OPERATE pipeline (not passthrough) |
+| "Prod is down" / "returning 500s" / "users can't X" / "SEV1" / active outage | INCIDENT pipeline (not passthrough) |
 | Change-impact analysis on a diff | ian |
 | Plan-vs-diff validation (no fix) | valerie (FULL mode) |
 | Research / "how should we do X" | sarah |
@@ -245,6 +277,7 @@ A passthrough can graduate to a flow if the user follows up with "now fix it" or
 | **INVESTIGATE-ONLY** | "investigate X," "diagnose Y," "why is Z broken" | DIAGNOSE stage 3 (decision point) |
 | **AUDIT-ONLY** | AUDIT shape, user picks "report only" at decision point | AUDIT stage 5 |
 | **OPERATE-PLAN-ONLY** | "plan the change but don't apply it," "give me the change plan + rollback" | OPERATE stage 3 (change plan) |
+| **MITIGATE-ONLY** | "just get it back up," "stop the bleeding, fix it properly later" | INCIDENT stages 0–3 + 5 (durable fix deferred; post-mortem still runs) |
 | **VALIDATE-ONLY** | "validate this branch against the plan" | Stage 10 only |
 
 ### Entry points (resume / pick up)

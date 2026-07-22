@@ -1,7 +1,7 @@
 {
   "name": "mozart-orchestration",
   "version": "0.1.0",
-  "description": "Multi-agent orchestration pipeline for Claude Code: DELIVER (build), AUDIT (review), DIAGNOSE (investigate), OPERATE (change live infra), EVAL (self-evaluate). Conducts 16 specialist subagents through research, plan, review, implement, verify, document with live narration.",
+  "description": "Multi-agent orchestration pipeline for Claude Code: DELIVER (build), AUDIT (review), DIAGNOSE (investigate), INCIDENT (outage response), OPERATE (change live infra), EVAL (self-evaluate). Conducts 16 specialist subagents through research, plan, review, implement, verify, document with live narration.",
   "homepage": "https://github.com/jstuart0/mozart-orchestration",
   "repository": "https://github.com/jstuart0/mozart-orchestration",
   "bugs": "https://github.com/jstuart0/mozart-orchestration/issues",

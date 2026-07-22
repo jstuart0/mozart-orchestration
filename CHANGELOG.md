@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — INCIDENT (sixth work shape): outage response with mitigate-first sequencing, parallel hypothesis racing, and a blameless post-mortem
+
+The pipeline could investigate a failure (DIAGNOSE) and change a live system (OPERATE), but had no shape for an *active outage* — where the rules invert. DIAGNOSE's core discipline is "don't diagnose and fix in the same pass"; that's exactly wrong when service is down. INCIDENT is DIAGNOSE's time-critical sibling: **mitigate first to restore service, root-cause in parallel, then durable-fix.** Zero new agents — mozart is the incident commander; responders (dick, hank, otto, xander, percy, scott) are all reused.
+
+- **`agents/mozart.md` — `## INCIDENT pipeline`** (new section): 7 stages (declare+triage → stabilize ‖ race hypotheses → converge → durable fix → verify recovery → blameless post-mortem), **SEV1/2/3** tiers (the INCIDENT tier axis, replacing TINY/STANDARD/HEAVY), and a `MITIGATE-ONLY` partial flow ("just get it back up").
+- **Speed vs. rigor is *sequenced*, not chosen** — the whole reason it's a distinct shape. Mitigation runs gates-relaxed and logged `accepted-risk (incident)` with a rollback command; the durable fix runs full gates (DELIVER/OPERATE, repro-test-first, codex/ian/xander) once service is back.
+- **Parallelism discipline** (the part that goes wrong): read-only investigation parallelizes into hypothesis lanes (what-changed / dependency / resource / traffic-data / security / perf, first-to-confirm); **live mutation serializes** through the IC (one hand — hank). Concurrent writers to a broken system turn SEV2 into SEV1.
+- **`## Timeline`** state-file block (append-only, timestamped) — the incident spine; survives crashes like the OPERATE change ledger, and makes the post-mortem honest. Mitigations reuse the change ledger tagged `accepted-risk (incident)`.
+- **Observability gate at declare-time** — if the repo's `CLAUDE.md` documents no monitoring/SLO stack, mozart surfaces that recovery can't be measured objectively (the all-clear will be manual) and recommends an observability follow-up campaign; the gap becomes a post-mortem action item.
+- **Persona touch-ups**: dick gains an INCIDENT mode (time-boxed, single parallel hypothesis lane, report-to-timeline, don't block restore on perfect root cause); hank gains the *one* sanctioned exception to "never mutate without a snapshot" (restore-service can outrank snapshot under a declared incident — but rollback-command, context-verify, serialize, and verify-before-stacking still hold); scott owns the blameless post-mortem (action items, not attribution). Real-world outages are recorded as `Traces-to:` escapes — the highest-signal defects EVAL can measure.
+- **Docs/metadata synced**: `agents/PIPELINE.md` (six shapes, INCIDENT pipeline section, passthrough/partial-flow/output-path additions), `commands/mozart.md`, `README.md`, both plugin manifests (six shapes). Agent count stays 16 (no new agent).
+
 ### Added — OPERATE (fifth work shape) + hank (ops executor): mozart changes live systems, not just repos
 
 The pipeline could plan and review infra (otto) but never *apply* it. Every existing shape operates on a git repository and produces a diff gated by CI; ops work operates on a running system and produces a state change gated empirically, reversed by a recorded rollback, not `git revert`. Shoehorning that into DELIVER misfires every DELIVER gate (codex-on-diff, valerie-against-plan, per-phase tests) on work that has no diff and no tests. So it's a distinct shape — with **one** new agent, the rest of the roster reused.
