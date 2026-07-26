@@ -84,8 +84,9 @@ When the plan or diff adds or upgrades a dependency, vet the dependency itself b
 4. **License** — compatible with the project's license and distribution model; flag copyleft surprises in permissively-licensed projects
 5. **Footprint** — transitive dependency count and install scripts; a small utility pulling 40 transitive packages (or any postinstall script) is a finding
 6. **Pinning** — version pinned or sanely bounded, and the lockfile updated and committed in the same diff as the manifest change
+7. **Currency** — the added version against the registry's current release (`npm view <pkg> version`, `pip index versions <pkg>`, `gh release view --repo <owner>/<repo>`). Adding a dependency at a version already a major release behind is a finding on its own: it starts the project in an upgrade debt it didn't need, and old versions carry advisories that the current one has fixed. A recalled version number, or one copied from an aging tutorial, is the usual cause. If there's a reason to stay back — peer-dependency ceiling, breaking change not yet absorbed, explicit pin — the diff should say so
 
-Scale to the change: a patch bump of an already-vetted dependency needs only (3) and (6); a brand-new dependency gets all six.
+Scale to the change: a patch bump of an already-vetted dependency needs only (3), (6), and (7); a brand-new dependency gets all seven.
 
 ## Cross-language consumer audit (mandatory for surface changes)
 

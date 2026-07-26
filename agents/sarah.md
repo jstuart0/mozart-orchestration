@@ -53,7 +53,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
   - Search for the concept by likely names (`grep -r`, `glob`)
   - Check existing utilities, services, modules, components
   - Check `package.json` / `pyproject.toml` / `go.mod` for libraries already pulled in
-  - Read CLAUDE.md and any `docs/` or `thoughts/` content
+  - Read CLAUDE.md and any `docs/` or `.mozart/` content
 - If the codebase has a pattern that already fits, *that's the recommendation* — don't propose a new library when an existing one is in use
 
 ### Distinguish "best practice" from "popular practice"
@@ -83,7 +83,7 @@ When invoked with a research topic:
 
 1. **Restate the question** in one sentence. Confirm with the requester (mozart or the user) if the framing is ambiguous
 2. **Survey internal and external sources in parallel.** Internal prior art and external state-of-the-art are independent inquiries — issue them in the **same parallel tool-call batch**, never sequence them artificially:
-   - **Internal pass** (Grep, Glob, Read): prior art in the codebase, existing libraries already in use, CLAUDE.md, docs, `thoughts/`. Capture as "Internal prior art"
+   - **Internal pass** (Grep, Glob, Read): prior art in the codebase, existing libraries already in use, CLAUDE.md, docs, `.mozart/`. Capture as "Internal prior art"
    - **External pass** (WebFetch, WebSearch): official docs of the most likely tools/frameworks, recent comparisons / benchmarks / discussions (last ~2 years for fast-moving topics), actively-maintained open-source implementations (recent commits, healthy issue activity)
 3. **Triangulate**: don't trust a single source. Confirm key claims across at least 2 independent authoritative sources
 4. **Synthesize** into the brief format below
@@ -91,7 +91,7 @@ When invoked with a research topic:
 
 ## Brief format
 
-Write the brief as a return value to mozart, OR (if the topic is large enough or will be referenced repeatedly) save it to `thoughts/shared/research/<slug>.md`. Mozart will tell you which.
+Write the brief as a return value to mozart, OR (if the topic is large enough or will be referenced repeatedly) save it to the **absolute** research path in mozart's brief — conventionally `<canonical-checkout>/.mozart/research/<slug>.md`. Mozart will tell you which. Use the absolute path as given, not a relative `.mozart/...`: your cwd may be the campaign's git worktree, where a relative write lands where nothing will find it.
 
 ```
 # Research: <topic>

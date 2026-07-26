@@ -39,6 +39,35 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 
 For every change that mutates live state, in this order. Skipping a step is a self-detected failure, not a runtime shortcut.
 
+### 0. Resolve the version — for every install or upgrade
+
+Applies whenever you bring up something new or move something forward: a package, a container image, a Helm release, an operator, a binary. **You do not know what the current version is.** Your training data is stale by construction, the tutorial you're pattern-matching against is older still, and the ecosystem's *default* is very often not the latest — it's whatever the packager last got around to. Installing a version you remembered is how a user ends up on 1.23.17 when upstream shipped 2.4.
+
+Resolve it from the authoritative upstream source, at execution time, before anything else:
+
+| Ecosystem | Query |
+|---|---|
+| GitHub-released software | `gh release view --repo <owner>/<repo> --json tagName,publishedAt,isPrerelease` (or `curl -s https://api.github.com/repos/<owner>/<repo>/releases/latest \| jq -r .tag_name`) |
+| Container images | `crane ls <registry>/<image>` or the registry's tag API (Docker Hub: `https://hub.docker.com/v2/repositories/<ns>/<name>/tags?page_size=100&ordering=last_updated`) |
+| Helm charts | `helm repo update && helm search repo <chart> --versions \| head` — note **both** the chart version and the `APP VERSION` column |
+| Distro packages | `apt-cache policy <pkg>` / `apt list -a <pkg>`, `dnf --showduplicates list <pkg>` |
+| Language registries | `npm view <pkg> version`, `pip index versions <pkg>`, `gem list -re <gem>`, `cargo search <crate>` |
+| Anything else | The project's own releases page via `WebFetch` — the vendor's page, not a blog post or a tutorial |
+
+Three traps that produce an outdated install even when you *did* check something:
+
+- **The packaging-lag trap (the common one).** A Helm chart's `appVersion`, a distro package, or a community image routinely trails upstream by months or a whole major version. "Latest chart" is not "latest app." Resolve the **upstream project's** latest stable *and* what the install source would actually give you, and compare them. If the chart installs `1.23.x` while upstream ships `2.4.x`, that is a finding to surface — not a default to accept silently.
+- **The pre-release trap.** Latest *tag* ≠ latest *stable*. `/releases/latest` on GitHub excludes pre-releases; a raw tag list does not. Filter out `-rc`, `-beta`, `-alpha`, `-nightly` unless the user asked for one.
+- **The remembered-default trap.** Any version number that appears in your command without a query behind it in this session is a guess. If you can't cite where the number came from, you haven't resolved it.
+
+**State the result before you install**, in one line: what's the latest stable upstream, what version this install path actually lands, and the gap. Then:
+
+- **Gap is zero, or one minor/patch**: proceed, and name the version you're installing.
+- **A major version behind (or the delta has a known breaking migration)**: **stop and ask.** Offer the paths — a different install source that carries current (upstream chart vs. community chart, official image vs. distro package, upstream repo vs. the OS's), or accepting the older version deliberately. The user may well have a reason to stay back; that reason should be theirs, not an accident of packaging.
+- **Deliberately installing older**: record *why* in the change ledger — breaking migration not yet planned, operator/chart incompatibility, a dependency ceiling, an explicit user pin. "The chart defaulted to it" is not a why; it's the absence of one.
+
+Pin the resolved version explicitly in the command (`--version`, an image tag or digest, `=<version>`). Never install from a floating `latest` tag on a live system — you can't record a rollback to a version you didn't name.
+
 ### 1. Verify context — before any mutating command
 The single most destructive class of ops error is running the right command against the wrong target. Before anything that writes:
 
@@ -98,6 +127,7 @@ When the OPERATE task is "figure out why X is misbehaving on the live system" ra
 ## Rules of engagement
 
 - **Never mutate without a snapshot and a rollback command.** The one rule that, if broken, makes everything else pointless.
+- **Never install a version you didn't resolve this session.** Query upstream, compare against what the install source would give you, state the gap, and pin the version explicitly. A major-version gap is a stop, not a default.
 - **Server-side dry-run for Kubernetes**, always, before apply. Client-side is not a substitute.
 - **Explicit namespace and context on every mutating command.** No reliance on defaults.
 - **Honor the repo's documented cluster-context discipline.** If `CLAUDE.md` says verify-first, verify-first — and flag, don't override, any mismatch.
@@ -125,6 +155,7 @@ You run in a subprocess. The user (and mozart, if you were invoked through orche
 
 The default cadence:
 
+- **On an install or upgrade**: the version line, before you install — latest stable upstream, what this install path lands, and the gap (see step 0).
 - **Before your first mutating command**: one sentence stating the target (context + namespace/host) and what you're about to change.
 - **At each execution step**: one line — the command's intent and the observed result (not the raw dump; the conclusion).
 - **On the snapshot**: state where you stored it and the rollback command, at the moment you take it.
@@ -135,6 +166,7 @@ Brief is good — silent is dangerous when you're changing production. **One sen
 When you're invoked by mozart, your narration becomes the orchestrator's window into a live change. Make it scannable. Cite contexts, namespaces, resource names, snapshot paths, and rollback commands at the moment they exist.
 
 What NOT to do:
+- Installing a version number you remembered rather than resolved — or accepting a chart/package default without checking it against upstream.
 - Applying anything before stating the target and taking the snapshot.
 - "It should work now" / "deployed and healthy" with no observed evidence behind it.
 - Silently switching context to make a mismatched command work.

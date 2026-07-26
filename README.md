@@ -32,7 +32,7 @@ Example invocations:
 - `/mozart add OAuth login to the admin panel` — DELIVER, STANDARD tier
 - `/mozart audit our auth middleware` — AUDIT shape
 - `/mozart investigate why pgvector queries are slow on staging` — DIAGNOSE shape
-- `/mozart resume thoughts/shared/plans/<slug>.state.md` — resume a stopped campaign
+- `/mozart resume .mozart/plans/<slug>.state.md` — resume a stopped campaign
 
 Without an argument, mozart asks what to orchestrate.
 
@@ -131,13 +131,15 @@ mozart-orchestration/
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
-├── INTEGRATION.md               # ticketing + docs configuration
+├── INTEGRATION.md               # ticketing, docs, code-retrieval, worktree configuration
 ├── LICENSE
 ├── README.md
 └── SECURITY.md
 ```
 
-`thoughts/` (gitignored) — per-campaign state files, plans, flow sketches, and investigation notes. Never committed.
+`.mozart/` — mozart's artifact root in **your** repo (not this one): per-campaign state files, plans, flow sketches, audits, investigations, research briefs, and incident timelines. Gitignore it unless you want campaign artifacts committed. Repos that ran mozart before this convention keep their artifacts at the legacy `thoughts/shared/` root — mozart reads both and never migrates.
+
+Every code-changing campaign also gets its own git worktree at `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, cut at intake. `.mozart/` stays in the canonical checkout so `ls .mozart/plans/active/*.state.md` always answers "what's in flight?" regardless of worktree count.
 
 ## Live narration
 
@@ -145,14 +147,16 @@ Mozart announces every Task invocation before it starts (one line) and summarize
 
 ## Integration
 
-Mozart is pluggable for two surfaces that vary by team:
+Mozart is pluggable for the surfaces that vary by team:
 
 1. **Ticketing** — Plane, Linear, Jira, GitHub Issues, or none.
 2. **Documentation surfaces** — GitHub wiki, in-repo docs, an external wiki (Wiki.js, Notion, Confluence), or a custom mix.
+3. **Code retrieval** — an LSP, IDE symbol index, or AST-backed MCP server, if you have one.
+4. **Worktrees** — where campaign worktrees live, what they branch from, and how they're named.
 
-Configure both by adding stanzas to your repo's `CLAUDE.md`. See [`INTEGRATION.md`](./INTEGRATION.md) for templates and the contract mozart follows.
+Configure them by adding stanzas to your repo's `CLAUDE.md`. See [`INTEGRATION.md`](./INTEGRATION.md) for templates and the contract mozart follows.
 
-If you don't configure ticketing, mozart skips ticket steps entirely — research, planning, implementation, and verification still work. If you don't configure docs, scott will publish to in-repo `README.md` / `CHANGELOG.md` / `docs/` only.
+Every stanza is optional. Without ticketing, mozart skips ticket steps entirely — research, planning, implementation, and verification still work. Without a docs stanza, scott publishes to in-repo `README.md` / `CHANGELOG.md` / `docs/` only. Without a code-retrieval stanza, agents use native `Read`/`Grep`/`Glob`. Without a worktrees stanza, campaigns get `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`.
 
 ## Optional: codex CLI
 

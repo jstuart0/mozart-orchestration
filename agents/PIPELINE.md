@@ -26,7 +26,7 @@ When mozart briefs another agent, he carries this standard forward — he does n
 - **Loop-in mode**: per-phase user gate with explicit test instructions (triggered by "keep me in the loop," "step me through it," etc.)
 - **Six work shapes**: DELIVER (build/ship code), AUDIT (review-with-goal), DIAGNOSE (investigate-a-failure), INCIDENT (respond to a live outage — mitigate-first, parallel, timeline + post-mortem), OPERATE (change/debug a live system), EVAL (mozart evaluates its own field performance)
 - **Project context**: GREENFIELD (skip librarian) or BROWNFIELD (librarian runs at plan review and mid-build for new shared abstractions). Default BROWNFIELD when uncertain.
-- **Multi-campaign mode**: mozart can drive 2–4 campaigns concurrently, each with its own slug, state file, plan, ticket, and (typically) git worktree.
+- **Multi-campaign mode**: mozart can drive 2–4 campaigns concurrently, each with its own slug, state file, plan, ticket, and git worktree.
 - **Partial flows (early exit)**: FULL (default), PLAN-ONLY, RESEARCH-ONLY, INVESTIGATE-ONLY, AUDIT-ONLY, VALIDATE-ONLY.
 - **Three DELIVER tiers**: TINY / STANDARD / HEAVY — mozart classifies at intake to right-size gates
 
@@ -65,9 +65,10 @@ Support agents (tool specialists, not personas):
 ## DELIVER pipeline
 
 ```
-1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file + flow sketch
+1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file + flow sketch;
+                      cuts the campaign worktree (../<repo>-worktrees/<slug>, branch campaign/<slug>)
 2.  Research        — sarah (+ codebase-pattern-finder, web-search-researcher) in parallel — OPTIONAL, skipped in TINY
-3.  Plan            — harry drafts → thoughts/shared/plans/<slug>.md
+3.  Plan            — harry drafts → .mozart/plans/<slug>.md
 4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto/tessa/percy (conditional, parallel)
 5.  Codex on plan   — codex CLI external review → <slug>.codex-r1-plan.md
 6.  Iterate         — harry revises if needed; capped 3 rounds; short-circuit when clean
@@ -125,7 +126,7 @@ Support agents (tool specialists, not personas):
 1. Intake     — mozart confirms goal, scope, report-only-or-remediate; creates state file + flow sketch
 2. Discovery  — mozart surveys subject (codebase / deployed site)
 3. Audit      — specialists fan out in parallel (picked by goal)
-4. Synthesize — mozart consolidates → thoughts/shared/audits/<slug>.md
+4. Synthesize — mozart consolidates → .mozart/audits/<slug>.md
 5. Decision   — user picks: report only, or remediate
                   └─ Remediate: hand audit to harry, enter DELIVER at stage 3 (Plan); stage 2 (Research) is skipped
 ```
@@ -150,7 +151,7 @@ For investigating a specific failure (bug, regression, test failure, performance
 
 ```
 1. Intake     — mozart restates symptom, captures evidence, identifies scope; creates state file + flow sketch
-2. Investigate— dick reproduces, isolates, identifies root cause → thoughts/shared/investigations/<slug>.md
+2. Investigate— dick reproduces, isolates, identifies root cause → .mozart/investigations/<slug>.md
 3. Decision   — user picks: report only, or remediate
                   └─ Remediate: enter DELIVER at stage 3 (Plan) with findings as harry's brief;
                      stage 2 (Research) is typically skipped — dick's investigation covers it
@@ -171,7 +172,8 @@ For changing or debugging a **live system** directly — installs, config change
 
 ```
 1. Intake+pin  — mozart restates change, PINS the target (context/ns/host), classifies mode+tier,
-                 runs the drift sanity check; creates state file + flow sketch (Shape: OPERATE)
+                 runs the drift sanity check, RESOLVES THE VERSION on install/upgrade;
+                 creates state file + flow sketch (Shape: OPERATE)
 2. Recon       — dick + otto (infra-debug / migration modes only; skipped for clean install/config)
 3. Change plan — otto AUTHORS the plan: exact commands, per-step dry-run, snapshot step,
                  rollback procedure, blast radius/ramifications (+ ian on HEAVY for code-side consumers)
@@ -188,6 +190,7 @@ For changing or debugging a **live system** directly — installs, config change
 
 **Operate-mode rules:**
 - Never mutate without a snapshot and a recorded rollback command — TINY is no exception.
+- **Resolve versions, never recall them.** Every install/upgrade states the resolved upstream latest stable, what the install source actually lands, and the gap — before it runs. Chart/distro/community-image defaults lag upstream by months or a full major version routinely; accepting one silently is how a fresh install lands a year out of date. A major-version gap without a stated reason is a stop.
 - Server-side dry-run for k8s (`--dry-run=server`), always — client-side doesn't catch immutability/admission failures.
 - Pin the target; check every mutating command against it. A context mismatch is a stop, never a silent switch.
 - Observed, not expected — every "it works" carries the evidence behind it.
@@ -225,16 +228,16 @@ For responding to a **live outage** — service is down or badly degraded *right
 
 ## Output paths
 
-- Plan: `thoughts/shared/plans/<slug>.md`
-- **State file**: `thoughts/shared/plans/<slug>.state.md` (durable pipeline state — survives crashes, sessions, context resets)
-- **Flow sketch**: `thoughts/shared/plans/<slug>.flow.md` (Mermaid diagram + chronological stage trace + agent participation summary)
-- Research brief: `thoughts/shared/research/<slug>.md` (when substantial)
-- Codex round 1 (plan): `thoughts/shared/plans/<slug>.codex-r1-plan.md`
-- Codex round 2 (diff): `thoughts/shared/plans/<slug>.codex-r2-diff.md`
-- Audit report (AUDIT shape): `thoughts/shared/audits/<slug>.md`
-- Investigation (DIAGNOSE shape): `thoughts/shared/investigations/<slug>.md`
-- Change plan (OPERATE shape): `thoughts/shared/plans/<slug>.md`; snapshots: `thoughts/shared/plans/<slug>.snapshots/` (rollback state captured before apply, referenced by the change ledger in the state file)
-- Incident timeline (INCIDENT shape): `thoughts/shared/incidents/<slug>.timeline.md` (append-only spine); post-mortem: `thoughts/shared/incidents/<slug>.postmortem.md` (+ external wiki if configured)
+- Plan: `.mozart/plans/<slug>.md`
+- **State file**: `.mozart/plans/<slug>.state.md` (durable pipeline state — survives crashes, sessions, context resets)
+- **Flow sketch**: `.mozart/plans/<slug>.flow.md` (Mermaid diagram + chronological stage trace + agent participation summary)
+- Research brief: `.mozart/research/<slug>.md` (when substantial)
+- Codex round 1 (plan): `.mozart/plans/<slug>.codex-r1-plan.md`
+- Codex round 2 (diff): `.mozart/plans/<slug>.codex-r2-diff.md`
+- Audit report (AUDIT shape): `.mozart/audits/<slug>.md`
+- Investigation (DIAGNOSE shape): `.mozart/investigations/<slug>.md`
+- Change plan (OPERATE shape): `.mozart/plans/<slug>.md`; snapshots: `.mozart/snapshots/<slug>/` (rollback state captured before apply, referenced by the change ledger in the state file)
+- Incident timeline (INCIDENT shape): `.mozart/incidents/<slug>.timeline.md` (append-only spine); post-mortem: `.mozart/incidents/<slug>.postmortem.md` (+ external wiki if configured)
 
 ## Flow control: passthrough, stop, entry points
 
@@ -292,11 +295,31 @@ A passthrough can graduate to a flow if the user follows up with "now fix it" or
 
 ### State persistence
 
-Every run writes `thoughts/shared/plans/<slug>.state.md` with `Status: in-progress` and updates it at every stage transition. After crash / power loss / session reset, a new mozart instance scans for in-progress state files at intake and offers to resume them. Status values: `in-progress`, `stopped` (user pause), `complete`, `aborted`. State files persist as audit trail after terminal status.
+Every run writes `.mozart/plans/<slug>.state.md` with `Status: in-progress` and updates it at every stage transition. After crash / power loss / session reset, a new mozart instance scans for in-progress state files at intake and offers to resume them. Status values: `in-progress`, `stopped` (user pause), `complete`, `aborted`. State files persist as audit trail after terminal status.
+
+## Worktree isolation
+
+**Every code-changing campaign gets its own git worktree and branch, cut at intake** — a single campaign in a single session included, TINY included. Default layout is a sibling directory: `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, cut from the repo's documented base branch. A repo's own established convention (a different sibling dir, `~/wt/<repo>/`, a `hack/create_worktree.sh`, a ticket-derived branch scheme) wins over this default.
+
+| Shape / flow | Worktree? |
+|---|---|
+| DELIVER FULL, any tier | Yes — at intake |
+| AUDIT / DIAGNOSE flowing into remediation | Yes — when remediation is committed to |
+| VALIDATE-ONLY | No — validates a branch the user already has; a fresh worktree would validate the wrong tree |
+| AUDIT-ONLY, INVESTIGATE-ONLY, RESEARCH-ONLY, PLAN-ONLY | No — nothing is modified |
+| OPERATE | No — changes land on live systems, not the repo |
+| INCIDENT | No — the clock is the enemy; a post-incident durable fix is a DELIVER campaign and gets one |
+| EVAL | No — read-only over artifacts |
+
+**`.mozart/` stays in the canonical checkout, never in the worktree.** That keeps `ls .mozart/plans/active/*.state.md` a complete answer to "what's in flight?" regardless of worktree count; agent briefs cite artifact paths **absolutely** because the agent's cwd is the worktree. Every brief also names the worktree path + branch, which is what makes jackson's workspace-identity preflight possible.
+
+Worktrees isolate files, not runtimes — venvs, `node_modules`, ports, and DBs stay shared (see *Multi-campaign mode*). Disposition (`merged` / `squash-merged` / `intentionally-unmerged` / `abandoned`) is recorded in the state file at closeout; unmerged worktrees are left in place and named in the final report, never force-removed.
+
+See `mozart.md` *Worktree isolation* for the full playbook.
 
 ## Multi-campaign mode
 
-Mozart can hold multiple in-flight campaigns simultaneously and progress them in parallel where work is independent. Each campaign has its own slug, state file, flow sketch, plan, ticket, and (typically) git worktree.
+Mozart can hold multiple in-flight campaigns simultaneously and progress them in parallel where work is independent. Each campaign has its own slug, state file, flow sketch, plan, ticket, and git worktree.
 
 ### When to use
 
@@ -306,7 +329,7 @@ Multi-campaign activates when the user wants 2–4 campaigns run concurrently �
 
 | Strategy | When | Notes |
 |---|---|---|
-| **Git worktrees (preferred)** | Two or more campaigns may touch the same files | Each campaign gets its own worktree; agents receive the worktree path in their brief; no interference |
+| **Git worktrees (default — already cut)** | Always, for code-changing campaigns | Each campaign already has its own worktree from intake (see *Worktree isolation*); multi-campaign inherits that isolation rather than introducing it |
 | **Same-branch serialization** | Campaigns are confirmed non-overlapping | Fragile; only viable for genuinely orthogonal touch surfaces |
 | **Refuse and serialize** | Overlap can't be confirmed and worktrees unavailable | Surface reason; run sequentially |
 
@@ -340,13 +363,13 @@ A plan or diff reviewed only by agents in the same conversation context has corr
 
 ```bash
 # Stage 5 — review the plan
-codex exec --skip-git-repo-check "Read CLAUDE.md and thoughts/shared/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. Write findings to thoughts/shared/plans/<slug>.codex-r1-plan.md as severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block."
+codex exec --skip-git-repo-check "Read CLAUDE.md and .mozart/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. Write findings to .mozart/plans/<slug>.codex-r1-plan.md as severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block."
 
 # Stage 9 — review the diff
-codex exec --skip-git-repo-check "Read CLAUDE.md, thoughts/shared/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Write findings to thoughts/shared/plans/<slug>.codex-r2-diff.md."
+codex exec --skip-git-repo-check "Read CLAUDE.md, .mozart/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git -C <worktree-path> diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Write findings to .mozart/plans/<slug>.codex-r2-diff.md."
 ```
 
-Output lands in `thoughts/shared/plans/` alongside the plan and state files.
+Output lands in `.mozart/plans/` alongside the plan and state files.
 
 ### Tier policy
 
@@ -379,4 +402,4 @@ Mozart **cannot** (without user confirmation, even mid-pipeline):
 - The bundled `mozart.md` — full orchestrator playbook (operating manual; this file is the reference summary)
 - Each bundled agent's `<name>.md` — persona + "Where you fit" placement
 - `CLAUDE.md` — repo-specific conventions and constraints (always passed to codex)
-- Each campaign's flow sketch — `thoughts/shared/plans/<slug>.flow.md` (Mermaid diagram + chronological trace + agent participation summary)
+- Each campaign's flow sketch — `.mozart/plans/<slug>.flow.md` (Mermaid diagram + chronological trace + agent participation summary)

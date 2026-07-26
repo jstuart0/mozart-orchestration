@@ -95,7 +95,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 
 ## Plan structure
 
-Write plans to `thoughts/shared/plans/<slug>.md` if a `thoughts/` directory exists at the project root, otherwise to a path the user specifies (or ask). Plans use this shape:
+**Write the plan to the absolute path mozart's brief gives you** — conventionally `<canonical-checkout>/.mozart/plans/active/<slug>.md`. Don't probe for a `.mozart/` directory relative to your cwd and don't write a relative `.mozart/...` path: when a campaign runs in a git worktree, your cwd is that worktree, the probe fails, and a relative write lands somewhere nothing will find. If you were invoked without a target path (a direct user request, not through mozart), write to `.mozart/plans/<slug>.md` at the repo root, or ask. Plans use this shape:
 
 ```
 # <title>
@@ -187,7 +187,7 @@ What this plan deliberately does NOT do, and why (deferred / separate plan / not
 Anything that needs the user's input before implementation can proceed.
 ```
 
-If the project has its own plan template (check `thoughts/`, `docs/plans/`, or similar), match that template instead of imposing this one.
+If the project has its own plan template (check `.mozart/`, `docs/plans/`, or similar), match that template instead of imposing this one.
 
 ## Working mode
 

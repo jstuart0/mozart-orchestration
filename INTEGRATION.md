@@ -1,6 +1,6 @@
 # INTEGRATION.md
 
-Mozart is pluggable for three surfaces: **ticketing**, **documentation**, and **code retrieval**. You configure them by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default.
+Mozart is pluggable for four surfaces: **ticketing**, **documentation**, **code retrieval**, and **worktrees**. You configure them by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default.
 
 This file is the contract. Copy the appropriate stanza into your repo's `CLAUDE.md`, fill in the values, and the plugin adapts.
 
@@ -267,9 +267,31 @@ Every code-reading agent carries a **"Code retrieval: prefer a code-aware index"
 
 ---
 
+## 4. Worktrees (stanza optional)
+
+Mozart cuts a git worktree for every code-changing campaign at intake — this happens whether or not you declare anything; only the *configuration* is optional. **If you declare nothing, the default applies**: a sibling directory `../<repo>-worktrees/<slug>`, branch `campaign/<slug>`, cut from the repo's documented base branch (falling back to the current branch when none is declared — mozart surfaces the branch it's cutting from if it looks unexpected).
+
+Declare a `## Worktrees` stanza when your repo has its own convention — a different location, a base branch that isn't what's checked out, a branch-naming scheme tied to your ticketing system, or a setup script that must run:
+
+```markdown
+## Worktrees
+
+- root: ../myrepo-worktrees        # or ~/wt/myrepo, .worktrees/, etc.
+- base branch: deploy/staging      # cut campaign branches from this, not from HEAD
+- branch pattern: campaign/<slug>  # or ENG-<ticket>-<slug>, feature/<slug>, ...
+- setup: ./hack/create_worktree.sh # optional; run instead of raw `git worktree add`
+- enabled: true                    # false = never cut one; work in the main checkout
+```
+
+Every field is optional; omitted fields fall back to the default. `enabled: false` turns the behavior off entirely for repos where a worktree is the wrong unit of work (a single-branch deploy repo, a repo whose build can't run outside its original path).
+
+**Artifacts never move into the worktree.** `.mozart/` stays at the root of the canonical checkout regardless of this stanza — that's what makes a single `ls .mozart/plans/active/*.state.md` a complete view of in-flight campaigns.
+
+---
+
 ## How agents read these stanzas
 
-Mozart resolves both stanzas at intake (DELIVER stage 1, AUDIT stage 1, DIAGNOSE stage 1) and writes the resolved values into the state file:
+Mozart resolves the stanzas at intake (DELIVER stage 1, AUDIT stage 1, DIAGNOSE stage 1) and writes the resolved values into the state file:
 
 ```yaml
 ticketing:
@@ -280,6 +302,9 @@ docs:
   in_repo: [...]
   github_wiki: <enabled|disabled>
   external_wiki: <name or none>
+worktree:
+  path: <resolved worktree path, or n/a — <reason>>
+  branch: <campaign branch>
 ```
 
 Specialists read the state file rather than re-resolving:

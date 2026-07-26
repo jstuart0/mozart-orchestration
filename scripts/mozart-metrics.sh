@@ -16,29 +16,37 @@
 # Usage: mozart-metrics.sh [repo-root]     (default: current directory)
 # Exit:  0 = table printed, 2 = no state files / no ledger data found
 #
-# Covers the current subdir convention (plans/active/, plans/finished/) and
-# the legacy prefix + prefixless flat layouts.
+# Covers both artifact roots — .mozart/ (current) and thoughts/shared/ (legacy)
+# — and within each, the current subdir convention (plans/active/,
+# plans/finished/) plus the legacy prefix + prefixless flat layouts.
 
 set -u
 
 ROOT="${1:-.}"
-PLANS="$ROOT/thoughts/shared/plans"
 
-if [ ! -d "$PLANS" ]; then
-  echo "mozart-metrics: no $PLANS — nothing to aggregate"
+ROOTS=""
+for candidate in "$ROOT/.mozart/plans" "$ROOT/thoughts/shared/plans"; do
+  [ -d "$candidate" ] && ROOTS="$ROOTS $candidate"
+done
+
+if [ -z "$ROOTS" ]; then
+  echo "mozart-metrics: no $ROOT/.mozart/plans (or legacy $ROOT/thoughts/shared/plans) — nothing to aggregate"
   exit 2
 fi
 
-# Union of all state-file layouts (same probes as mozart-lint.sh / intake).
-FILES=$( { ls "$PLANS"/active/*.state.md 2>/dev/null
-           ls "$PLANS"/finished/*.state.md 2>/dev/null
-           ls "$PLANS"/aborted/*.state.md 2>/dev/null
-           ls "$PLANS"/active-*.state.md 2>/dev/null
-           ls "$PLANS"/finished-*.state.md 2>/dev/null
-           ls "$PLANS"/[0-9]*.state.md 2>/dev/null; } | sort -u )
+# Union of all state-file layouts across both roots (same probes as
+# mozart-lint.sh / intake).
+FILES=$(for PLANS in $ROOTS; do
+          ls "$PLANS"/active/*.state.md 2>/dev/null
+          ls "$PLANS"/finished/*.state.md 2>/dev/null
+          ls "$PLANS"/aborted/*.state.md 2>/dev/null
+          ls "$PLANS"/active-*.state.md 2>/dev/null
+          ls "$PLANS"/finished-*.state.md 2>/dev/null
+          ls "$PLANS"/[0-9]*.state.md 2>/dev/null
+        done | sort -u )
 
 if [ -z "$FILES" ]; then
-  echo "mozart-metrics: no state files under $PLANS — nothing to aggregate"
+  echo "mozart-metrics: no state files under$ROOTS — nothing to aggregate"
   exit 2
 fi
 

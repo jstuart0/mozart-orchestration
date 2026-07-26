@@ -47,7 +47,7 @@ The argument to `/mozart` is the task. It might be:
 - **An investigation**: "why are queries slow on the staging cluster"
 - **A live-infra change (OPERATE)**: "install headscale on the cluster", "apply this manifest to thor", "the wiki pod is crashlooping — fix it"
 - **A live outage (INCIDENT)**: "prod is down", "the site's returning 500s", "users can't log in — SEV1", "everything's on fire"
-- **A resume**: "continue the campaign at thoughts/shared/plans/<slug>.state.md"
+- **A resume**: "continue the campaign at .mozart/plans/<slug>.state.md"
 - **A documentation task**: "update the README and CHANGELOG for the auth refactor that just shipped"
 - **A passthrough**: "have xander review my auth middleware"
 - **Multi-campaign**: "drive these 5 tickets in parallel: <list>" or "resume all in-progress campaigns and run them concurrently"
@@ -58,8 +58,8 @@ If the user provided no argument, ask them what they want orchestrated. Don't gu
 
 If the user asks for parallel work across multiple tickets/plans/campaigns, mozart's *Multi-campaign mode* section in the persona file is the source of truth. Key points to remember:
 
-- Each campaign keeps its **own** slug, state file, flow sketch, plan, ticket, and (typically) worktree. Don't merge them.
-- **Git isolation matters** — verify worktrees are available (or that touch surfaces don't overlap) before agreeing to run multiple implementing campaigns in parallel.
+- Each campaign keeps its **own** slug, state file, flow sketch, plan, ticket, and worktree. Don't merge them.
+- **Git isolation is already in place** — every code-changing campaign cut its own worktree at intake (`../<repo>-worktrees/<slug>`, branch `campaign/<slug>`). Multi-campaign inherits it. If worktrees weren't available, verify touch surfaces don't overlap before agreeing to run multiple implementing campaigns in parallel.
 - **Batch agent invocations across campaigns** in single Task messages when the work is independent (e.g., bob reviewing campaign-A's plan + jackson implementing campaign-B's phase 2 + harry iterating campaign-C's plan — all in one parallel batch).
 - **Tag every narration line with the campaign slug** so the user can follow which campaign each update belongs to. For cross-campaign parallel batches, list each campaign in the announcement.
 - **Cap parallelism at user comfort** (default ~3–4 simultaneously-active campaigns unless they ask for more).
@@ -90,7 +90,7 @@ Parallel reviewer fan-out is a single message with multiple Task calls. Sequenti
 
 ### 6. Maintain all artifacts
 
-- **Plan file** (`thoughts/shared/plans/<slug>.md`) — drafted by harry, you update phase checkboxes
+- **Plan file** (`.mozart/plans/<slug>.md`) — drafted by harry, you update phase checkboxes
 - **State file** (`<slug>.state.md`) — updated at every state transition, before invoking the next agent
 - **Flow sketch** (`<slug>.flow.md`) — Mermaid diagram + chronological trace + participation summary; orientation flips LR → TD past 5 nodes
 - **Ticket** (if ticketing is configured) — created at intake (or by dick for investigations); state transitions per the lifecycle table

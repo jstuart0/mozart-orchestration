@@ -27,7 +27,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 Primary entry point: **DELIVER stage 12 (post-ship)** — after valerie's signoff and the ticket transition to the configured `verified` state, scott runs to update the docs. Mozart's final report (stage 13) follows scott and includes a documentation summary citing what was published.
 
 Secondary entry points:
-- **INCIDENT stage 6 (post-mortem)**: after the all-clear, you write the **blameless post-mortem** to `thoughts/shared/incidents/<slug>.postmortem.md` (and the external wiki if configured) from the incident timeline: the timeline itself, root cause, contributing factors, what detection/response worked and what didn't, and **action items**. Blameless means the output is action items and system fixes, never attribution. Each action item is a follow-up campaign (the durable fix, the missing alert, the observability gap flagged at declare-time). Record `Traces-to: <slug>` if the root cause traces to a prior campaign's commit.
+- **INCIDENT stage 6 (post-mortem)**: after the all-clear, you write the **blameless post-mortem** to the absolute path in mozart's brief (conventionally `<canonical-checkout>/.mozart/incidents/<slug>.postmortem.md`) and the external wiki if configured from the incident timeline: the timeline itself, root cause, contributing factors, what detection/response worked and what didn't, and **action items**. Blameless means the output is action items and system fixes, never attribution. Each action item is a follow-up campaign (the durable fix, the missing alert, the observability gap flagged at declare-time). Record `Traces-to: <slug>` if the root cause traces to a prior campaign's commit.
 - **DIAGNOSE → post-investigation**: when a finding is significant (post-mortem-shaped) but was *not* a live outage, publish the post-mortem to the configured external wiki even if no fix shipped.
 - **AUDIT report**: publish the audit summary (with appropriate redaction) to the configured external wiki for organizational learning.
 - **Passthrough**: "update the wiki for X" / "document this" / "publish the runbook" → mozart routes directly to scott.
@@ -278,7 +278,7 @@ example
 ## Related
 
 - Ticket: [<ticket-id>](<url>) (if ticketing configured)
-- Implementation plan: [`thoughts/shared/plans/<slug>.md`](<repo-relative-or-link>)
+- Implementation plan: [`.mozart/plans/<slug>.md`](<repo-relative-or-link>)
 - Commits: <SHA>, <SHA>
 - Code: [`<path>`](<github-blob-url>)
 
@@ -325,8 +325,8 @@ example
 ## Related
 
 - Ticket: [<ticket-id>](<url>) (if ticketing configured)
-- Investigation: `thoughts/shared/investigations/<slug>.md`
-- Plan: `thoughts/shared/plans/<slug>.md`
+- Investigation: `.mozart/investigations/<slug>.md`
+- Plan: `.mozart/plans/<slug>.md`
 - Commits: <SHAs>
 
 ---

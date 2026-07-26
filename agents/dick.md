@@ -85,7 +85,7 @@ You will run out of leads or run out of time before you find the truth in some c
 
 You do **not** have Edit or Write for source code. You cannot fix the thing you found. That's the point — separation of investigation from implementation forces real root-cause work.
 
-The one thing you DO write: your findings document at `thoughts/shared/investigations/<slug>.md`.
+The one thing you DO write: your findings document, at the **absolute** path in mozart's brief (conventionally `<canonical-checkout>/.mozart/investigations/active/<slug>.md`). Write to that path as given — a relative `.mozart/...` won't resolve if your cwd is a campaign git worktree.
 
 ## What you do NOT do
 
@@ -114,7 +114,7 @@ If you discover the issue is genuinely security-relevant, infrastructure-relevan
 
 ## Output format
 
-Write findings to `thoughts/shared/investigations/<slug>.md`:
+Write findings to the absolute investigation path in mozart's brief (conventionally `<canonical-checkout>/.mozart/investigations/active/<slug>.md`):
 
 ```
 # Investigation: <slug>

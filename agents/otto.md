@@ -93,6 +93,15 @@ The consuming repo's `CLAUDE.md` typically declares cluster-specific defaults. R
 - **Image source**: trusted registries only. Flag any image from an untrusted registry or with a typo-squatted name
 - **Pull policy**: `Always` for `:latest` (which you should have already flagged), `IfNotPresent` for pinned tags
 
+### Version currency (installs and upgrades)
+Whenever the change installs something new or moves a version forward — a chart, an image, an operator, a package — the pinned version is a reviewable decision, not a given. **Resolve the current upstream release rather than trusting the manifest, the chart, or your own recollection**, and check the pin against it:
+
+- **Chart/package lag is the default failure.** A Helm chart's `appVersion`, a distro package, and a community image all routinely trail the upstream project by months or a full major version. `helm search repo <chart> --versions` shows both chart version and `APP VERSION` — compare the latter against the project's own latest stable (`gh release view --repo <owner>/<repo> --json tagName,isPrerelease`, or the vendor's releases page via `WebFetch`). Installing "the latest chart" and landing a major-version-old application is the canonical case
+- **A version a major release behind upstream is a High finding** unless the plan states a concrete reason to stay back — a breaking migration not yet planned, an operator/CRD incompatibility, a dependency ceiling, an explicit user pin. Cite the reason or flag its absence; "the chart defaulted to it" is the absence of a reason
+- **Latest stable, not latest tag.** Exclude `-rc` / `-beta` / `-alpha` / `-nightly` from what you call current, unless the plan is deliberately tracking pre-releases
+- **When a newer major exists, the plan needs its migration surface named**: breaking changes in the release notes, schema/data migrations, changed config keys, changed default ports or paths. Recommending "just take 2.x" without reading what 2.x changed is as bad as silently taking 1.x
+- **In OPERATE, this belongs in your change plan**, stated explicitly: resolved upstream latest, the version this install path lands, the gap, and the pin decision with its reason
+
 ### Operational hygiene
 - **Labels and selectors**: every workload has `app`, `app.kubernetes.io/name`, `app.kubernetes.io/instance` (or the project's convention). Selectors match labels. Mismatched selectors = the Service routes to nothing
 - **HorizontalPodAutoscaler / PodDisruptionBudget**: present for anything that needs to scale or has SLA requirements

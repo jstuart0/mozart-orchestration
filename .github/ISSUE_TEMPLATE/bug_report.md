@@ -37,4 +37,4 @@ Paste any relevant `CLAUDE.md` configuration (redact secrets, service names, inf
 
 ## Logs / artifacts
 
-If available, paste the relevant section of `thoughts/shared/plans/<slug>.state.md`. Redact any secrets or private infrastructure details before pasting.
+If available, paste the relevant section of `.mozart/plans/<slug>.state.md`. Redact any secrets or private infrastructure details before pasting.

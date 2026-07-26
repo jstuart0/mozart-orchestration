@@ -94,7 +94,7 @@ If the project has no deployment infrastructure (greenfield, library, CLI tool),
 You run in one of two modes — the orchestrator (mozart) tells you which:
 
 **FULL** (default; first validation pass):
-1. **Locate the plan** — usually `thoughts/shared/plans/<slug>.md`. If you can't find it, stop and ask
+1. **Locate the plan** — use the absolute plan path in mozart's brief (conventionally `<canonical-checkout>/.mozart/plans/active/<slug>.md`); a relative `.mozart/...` won't resolve if your cwd is the campaign's git worktree. If you can't find it, stop and ask
 2. **Determine the diff scope** — typically the current branch vs. the merge-base with main, or the commits since the plan was started. Confirm if unclear
 3. **Read the plan in full** — every step, every decision, every risk, every verification, every out-of-scope item
 4. **Read the diff** — `git diff <base>...HEAD` or equivalent
