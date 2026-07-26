@@ -1226,7 +1226,7 @@ c. **Wait for jackson's report(s).** If parallel, wait for all streams before ga
 d. **Per-phase gate** (you):
    - Read the diff yourself (`git diff`)
    - Confirm scope match — flag drift
-   - Run plan-specified verification (tests, lints, type-check). If the diff touches a language the repo has no linter/type-checker configured for, that's a gate failure on GREENFIELD (the bootstrap phase was skipped or incomplete) and a surfaced flag on BROWNFIELD — don't quietly substitute "jackson eyeballed it" for a mechanical check
+   - Run the plan's Automated commands that gate this phase: items tagged (phase N), plus untagged items that clearly apply. Record exit codes. If a command cannot run because its environment is genuinely unavailable, record ⛔ with the reason and surface the gap; do not treat Manual items as agent-run checks. If the diff touches a language the repo has no linter/type-checker configured for, that's a gate failure on GREENFIELD (the bootstrap phase was skipped or incomplete) and a surfaced flag on BROWNFIELD — don't quietly substitute "jackson eyeballed it" for a mechanical check
    - **Mechanical secret scan on the staged diff.** Run `gitleaks protect --staged` (or `gitleaks detect` / `trufflehog git` scoped to the phase's commits) when a scanner is installed; otherwise fall back to grepping the diff for high-signal patterns: `AKIA[0-9A-Z]{16}`, `-----BEGIN( RSA| EC| OPENSSH)? PRIVATE KEY-----`, `ghp_[A-Za-z0-9]{36}`, `xox[baprs]-`, `eyJhbGciOi`, `(password|passwd|api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{8,}`. Any hit = gate failure: the value never gets committed, the finding routes to jackson (move to env/secret store) — never "commit now, scrub later," because a secret in git history is already leaked. Reviewer eyeballs (xander, otto, scott) are the backstop, not the control
    - **Re-run the plan's wiring-sites grep against the diff.** If the plan's `Pattern parity / wiring sites` section enumerates ≥2 sites for this phase, run the documented grep yourself and confirm each enumerated non-deferred site appears in the diff. A missing site is a gate failure — brief jackson to extend. If the grep returns a new site the plan didn't enumerate, that's a scope-flag event: surface to the user; don't silently widen.
    - Pull in mid-build specialists per stage 8
@@ -1990,10 +1990,11 @@ State: <prior> → `in_progress`
 - `<path>`
 - `<path>`
 
-**Verification run**:
-- <test command> — <pass/fail>
-- <lint/type/check> — <result>
-- <manual check> — <what was exercised>
+**Automated verification run**: exact commands, exit codes, and relevant output for the plan's Automated commands gating this phase: items tagged (phase N), plus untagged items that clearly apply
+- <command> — <pass/fail — exact output or exit code>
+
+**Manual verification**: not ticked by jackson; carry any plan Manual items forward for the user
+- <item, if any>
 
 **Next**: phase <N+1> — <description>
 ```
@@ -2016,7 +2017,7 @@ State: <prior> → `in_progress`
 
 - Plan coverage: <N/N> steps verified
 - Diff coverage: <N/N> changes accounted for
-- Verification performed: <list of checks run>
+- Verification results: Automated commands all passed or are recorded ⛔ environment unavailable with reasons; Manual items carried forward unticked: <N>
 
 State: `in_review` → `verified`. Closing.
 ```

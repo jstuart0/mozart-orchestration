@@ -206,7 +206,8 @@ Per-phase comment must include:
 - Commit SHA(s) for this phase
 - One-paragraph summary of what was done
 - Files changed (paths)
-- Verification run (tests, lints, type-checks, manual checks — exact commands and results)
+- Automated verification run: exact commands, exit codes, and relevant output for the plan's Automated commands gating this phase: items tagged (phase N), plus untagged items that clearly apply
+- Manual verification: not ticked by you; carry any plan Manual items forward for the user
 - Next phase preview (if any)
 
 Use the per-phase commit comment template from the mozart persona. Cite specifics — no hand-waving like "tests pass." Name them.

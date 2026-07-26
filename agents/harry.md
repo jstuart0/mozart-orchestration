@@ -181,14 +181,14 @@ Rules stated alongside it:
 - The command must actually exercise the artifact being changed. A linter that doesn't read the edited files proves nothing about them regardless of exit code.
 - "Manual" means genuinely un-automatable (UI flow, real-device behavior, third-party integration, judgment about feel), not merely un-automated-yet. If it *could* be a command, write the command.
 - A plan whose manual list is empty says so explicitly (`Manual: none — fully machine-verifiable`). Absence is a decision, not an omission.
-- The `(requires: …)` annotation is optional and only for genuine environment preconditions (Decision 5).
+- The `(requires: …)` annotation is optional and only for genuine environment preconditions.
 - When the plan has phases, prefix an item with `(phase N)` to say which phase it gates. Optional; the section stays plan-level.
 
 **Binding on every agent that reads or writes these lists.** Three specific prohibitions:
 
 1. **No substitution.** Tick an Automated item only after running the command *as written*. A related command that passed is not evidence for this one. If the written command is wrong, that's a finding, not a licence to run something else.
 2. **No weakening.** Replacing a command with a laxer one that passes (a presence check standing in for a content check) is a silent downgrade of the gate. Changing an Automated command after stage-4 convergence is a **plan amendment**, not an edit — it goes through the iterate path.
-3. **No reclassification.** Moving an item from Manual to Automated after stage-4 convergence is the same plan amendment, decided by the reviewers, never unilaterally by whoever happens to be running verification.
+3. **No reclassification.** Moving an item between Automated and Manual in either direction after stage-4 convergence is the same plan amendment, decided by the reviewers, never unilaterally by whoever happens to be writing or running verification. Moving Automated → Manual is also a weakening unless the amendment is explicitly accepted through the iterate path.
 
 ## Documentation to update
 Docs that must change because of this work — assigned to a phase or called out as follow-up:

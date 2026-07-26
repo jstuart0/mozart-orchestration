@@ -67,9 +67,9 @@ For each: cite the plan section, cite the file/line, explain the gap, and recomm
 
 ### Confirm verification was actually performed
 - The plan has a "Verification" section listing an **Automated** list and a **Manual** list. Confirm each Automated item was actually executed (step 7) and the Manual list was carried forward untouched
-- "Tests pass" requires that the test files exist, cover the behavior the plan named, and currently pass — this is an Automated item, run it, don't sample it
-- If the plan's Manual list said "manually verify the redirect flow" and there's no evidence anyone did, flag it as outstanding — that's the canonical shape of a Manual item
-- **Confirm verification drove the path the work targets, not the happy path.** If the phase fixed an error / edge / regression path, the verification record (jackson's commit comment, test diff, manual-check note) must demonstrate that path was exercised. A happy-path test on a failure-path fix is no evidence at all — call it out as Pattern incomplete.
+- A bare "Tests pass" claim is not a valid Automated item. If the plan names tests, confirm the test files cover the behavior named, then run the exact command in the Automated list; if no command is written, flag the plan-quality gap instead of inventing or accepting one.
+- If the plan's Manual list says "manually verify the redirect flow," carry that item forward untouched in the Manual section. If the user already supplied evidence, include it as context, but do not tick or drop the item yourself.
+- **Confirm verification drove the path the work targets, not the happy path.** If the phase fixed an error / edge / regression path, the verification record (jackson's commit comment, test diff, the plan's Automated command output for that path) must demonstrate that path was exercised. If the path is genuinely Manual, it belongs on the carried-forward Manual list, not treated as missing evidence. A happy-path test on a failure-path fix is no evidence at all — call it out as Pattern incomplete.
 
 ## Deploy chain verification (when the campaign touches deploy surfaces)
 
@@ -100,7 +100,9 @@ You run in one of two modes — the orchestrator (mozart) tells you which:
 4. **Read the diff** — `git diff <base>...HEAD` or equivalent
 5. **Match plan to diff** — for each plan step: is it there? where? does it match?
 6. **Match diff to plan** — for each substantive change in the diff: is it accounted for by a plan step or explicitly deferred?
-7. **Run the plan's Automated verification** — every command, exit codes recorded. This list is not optional and not sampled; a command you skipped is a gap, not a pass. Where a command cannot run because its environment is genuinely unavailable (no cluster, no network, no credential), record it as `⛔ <command> — environment unavailable: <reason>` — never silently, never as a pass, and always after actually attempting it. Carry the plan's **Manual** list forward untouched into your report — you do not tick manual items, and you do not convert one into an automated pass because a related command happened to succeed
+7. **Run the plan's Automated verification** — every command, exit codes recorded. This list is not optional and not sampled; a command you skipped is a gap, not a pass. Where a command cannot run because its environment is genuinely unavailable (no cluster, no network, no credential), record it as `⛔ <command> — environment unavailable: <reason>` — never silently, never as a pass, and always after actually attempting it. Carry the plan's **Manual** list forward untouched into your report — you do not tick manual items, and you do not convert one into an automated pass because a related command happened to succeed. The binding verification-list rule in harry's plan template applies here: no substitution, no weakening, and no reclassification after stage-4 convergence; any violation is FIXES REQUIRED unless it went through the iterate path as an explicit plan amendment.
+
+   If the plan predates the Automated/Manual split and carries one undifferentiated Verification section, do not infer pass/fail silently. Report FIXES REQUIRED: the plan requires a verification-split amendment before validation — unless the user explicitly authorizes a one-time compatibility pass, which records every legacy item as unmapped and never counts a missing command as passed.
 8. **Report**
 
 **INCREMENTAL** (reconciliation rounds after a FIXES REQUIRED report):
@@ -185,7 +187,7 @@ When in doubt: surface the gap as FIXES REQUIRED with a clear punch list. Better
 You're the agent who transitions tickets to the configured `verified` state (on signoff) or back to `in_progress` (on FIXES REQUIRED). See the **Ticket lifecycle** section in the bundled mozart agent persona for the full protocol and comment templates, and `INTEGRATION.md` for how state names map per ticketing system. Mozart includes the active ticket ID in your brief; if the brief omits it, ask before continuing. If ticketing is not configured in the repo (`system: none`), skip this section entirely and report verdicts to mozart only.
 
 **On SIGNOFF (FULL or final INCREMENTAL pass)**:
-- Post the SIGNOFF comment template: plan coverage (N/N), diff coverage (N/N), verification performed (list of checks run with results)
+- Post the SIGNOFF comment template: plan coverage (N/N), diff coverage (N/N), verification results: Automated commands all passed or are recorded ⛔ environment unavailable with reasons; Manual items carried forward unticked: <N>
 - Transition state: `in_review` → `verified` (using whichever state names the repo declares)
 - This is effectively closure; mozart writes the final report afterward and posts it as a separate comment
 
