@@ -166,10 +166,29 @@ The canonical failure mode this section closes: a security fix wires a defense i
 - (one bullet per material risk; "none" is rarely the right answer)
 
 ## Verification
-How jackson will know each step worked:
-- Tests to add or run
-- Manual flows to exercise
-- Logs / metrics / DB state to check
+How jackson and valerie will know the work is done. Two lists, both required.
+
+**Automated** — a command an agent can run and read the exit code of:
+- [ ] <what it proves>: `<exact command>` (requires: <cluster access | network | paid API>)
+
+**Manual** — requires a human; an agent cannot tick these:
+- [ ] <what to exercise, and what "correct" looks like>
+
+Rules stated alongside it:
+
+- An automated item is a **command**, not a description. "Tests pass" is not an automated item; `make test-auth` is.
+- **A command whose result is the same whether or not the work landed is not verification.** It must fail when the thing being verified is wrong. A presence check that a bare heading satisfies is theater. Prefer negative checks (`grep` that must return nothing) and content checks over existence checks.
+- The command must actually exercise the artifact being changed. A linter that doesn't read the edited files proves nothing about them regardless of exit code.
+- "Manual" means genuinely un-automatable (UI flow, real-device behavior, third-party integration, judgment about feel), not merely un-automated-yet. If it *could* be a command, write the command.
+- A plan whose manual list is empty says so explicitly (`Manual: none — fully machine-verifiable`). Absence is a decision, not an omission.
+- The `(requires: …)` annotation is optional and only for genuine environment preconditions (Decision 5).
+- When the plan has phases, prefix an item with `(phase N)` to say which phase it gates. Optional; the section stays plan-level.
+
+**Binding on every agent that reads or writes these lists.** Three specific prohibitions:
+
+1. **No substitution.** Tick an Automated item only after running the command *as written*. A related command that passed is not evidence for this one. If the written command is wrong, that's a finding, not a licence to run something else.
+2. **No weakening.** Replacing a command with a laxer one that passes (a presence check standing in for a content check) is a silent downgrade of the gate. Changing an Automated command after stage-4 convergence is a **plan amendment**, not an edit — it goes through the iterate path.
+3. **No reclassification.** Moving an item from Manual to Automated after stage-4 convergence is the same plan amendment, decided by the reviewers, never unilaterally by whoever happens to be running verification.
 
 ## Documentation to update
 Docs that must change because of this work — assigned to a phase or called out as follow-up:
@@ -233,7 +252,7 @@ Adapted from Ousterhout: your first interface idea is unlikely to be the best. W
 - [ ] Sequence is correct — migrations before reads, flags before risky writes, tests before dependent refactors
 - [ ] GREENFIELD (or toolchain-less repo): the plan opens with a toolchain-bootstrap phase (lint / format / type-check / test runner / CI) before any feature phase
 - [ ] Risks are named with mitigations, not glossed
-- [ ] Verification is concrete — what to test, where, what success looks like
+- [ ] Verification is split into **Automated** (exact runnable commands) and **Manual** (explicitly requires a human), with "none" stated where a list is empty. Every automated command **fails when the thing it verifies is wrong** — a check that returns the same result either way is theater, not verification. An automated item that isn't a command is a manual item in disguise
 - [ ] **Pattern parity / wiring sites** enumerated for every step that introduces or extends a pattern, OR plan explicitly states "no pattern introduced." Greps that produced the site list are documented so reviewers can re-run them
 - [ ] Documentation impact identified (CLAUDE.md, READMEs, Wiki, API docs, runbooks) — or explicitly "none"
 - [ ] Out-of-scope is explicit

@@ -1157,6 +1157,7 @@ Sarah herself parallelizes her internal tool calls (codebase scan + web search i
 - Brief harry: task, research brief (if any), the **absolute** plan path to write to, the worktree path + campaign branch, context
 - Harry reads code, drafts the plan (template includes `Documentation to update` and `Pattern parity / wiring sites`)
 - **Wiring-sites discipline**: when the plan introduces or extends a pattern (transport wrapper, auth/role gate, structured-error envelope, ARIA attribute set, healthcheck argument, NetworkPolicy shape, securityContext stanza, parity field across Helm/kustomize/compose, etc.), harry must enumerate every existing site that needs the pattern — not just the site being changed. The grep that produced the list is documented in the plan so downstream reviewers and jackson can re-run it. This is the lens that distinguishes "this diff is correct" from "this pattern is consistent across the codebase." Per-commit reviewers see the diff; only the wiring-sites enumeration in the plan makes the population visible to them. See [Consistency lens](#consistency-lens-wiring-sites) below for the rationale.
+- **Plan-acceptance criterion**: harry's `## Verification` section must carry both an Automated list and a Manual list (or an explicit "Manual: none — fully machine-verifiable"); a plan with an undifferentiated list, or a hedge in place of one of the two, is not accepted — send it back.
 - If harry returns **open questions**, surface them to the user before continuing
 
 ### 4. Internal review (conditional, parallel)
@@ -1293,6 +1294,7 @@ Codex's Critical/High findings on the diff feed into reconciliation alongside va
 - Valerie returns SIGNOFF or FIXES REQUIRED
 - **A SIGNOFF must state the disposition of every open codex r2 Critical/High** — resolved (with the commit), or explicitly accepted by the user. Plan-conformance SIGNOFF while codex correctness findings sit open is the observed rubber-stamp mode (one campaign: SIGNOFF issued while codex still held six production-killing bugs; reconciliation then ran six more rounds). If codex r2 hasn't converged yet, valerie's FULL pass waits for it.
 - **Mechanism drift is in scope**: valerie checks that the shipped HOW matches the plan's HOW, not just that the checklist of WHATs landed. Observed miss: plan said registry-embed-at-load, shipped code did lazy-embed-per-request, signoff said "all plan steps landed." If the mechanism diverged, that's FIXES REQUIRED or an explicit user-accepted deviation — not a silent pass.
+- **Verification is exhaustive-or-⛔**: valerie's Automated list must show every plan command run and passed, or recorded `⛔ environment unavailable` with a reason — a skipped command with no `⛔` record is FIXES REQUIRED, not an oversight to wave through.
 
 ### 11. Reconcile (jackson + valerie incremental)
 

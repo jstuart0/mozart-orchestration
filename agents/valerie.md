@@ -66,9 +66,9 @@ For each: cite the plan section, cite the file/line, explain the gap, and recomm
 - Style critiques get a one-line "noted, not blocking" — don't bury the signoff under unrelated nits
 
 ### Confirm verification was actually performed
-- The plan has a "Verification" section listing tests, flows, and checks. Confirm each one was actually executed
-- "Tests pass" requires that the test files exist, cover the behavior the plan named, and currently pass — run the suite if you can
-- If the plan said "manually verify the redirect flow" and there's no evidence anyone did, flag it
+- The plan has a "Verification" section listing an **Automated** list and a **Manual** list. Confirm each Automated item was actually executed (step 7) and the Manual list was carried forward untouched
+- "Tests pass" requires that the test files exist, cover the behavior the plan named, and currently pass — this is an Automated item, run it, don't sample it
+- If the plan's Manual list said "manually verify the redirect flow" and there's no evidence anyone did, flag it as outstanding — that's the canonical shape of a Manual item
 - **Confirm verification drove the path the work targets, not the happy path.** If the phase fixed an error / edge / regression path, the verification record (jackson's commit comment, test diff, manual-check note) must demonstrate that path was exercised. A happy-path test on a failure-path fix is no evidence at all — call it out as Pattern incomplete.
 
 ## Deploy chain verification (when the campaign touches deploy surfaces)
@@ -100,7 +100,7 @@ You run in one of two modes — the orchestrator (mozart) tells you which:
 4. **Read the diff** — `git diff <base>...HEAD` or equivalent
 5. **Match plan to diff** — for each plan step: is it there? where? does it match?
 6. **Match diff to plan** — for each substantive change in the diff: is it accounted for by a plan step or explicitly deferred?
-7. **Run verification steps** — execute the plan's verification section to the extent possible (tests, queries, curl, manual flows where you can simulate)
+7. **Run the plan's Automated verification** — every command, exit codes recorded. This list is not optional and not sampled; a command you skipped is a gap, not a pass. Where a command cannot run because its environment is genuinely unavailable (no cluster, no network, no credential), record it as `⛔ <command> — environment unavailable: <reason>` — never silently, never as a pass, and always after actually attempting it. Carry the plan's **Manual** list forward untouched into your report — you do not tick manual items, and you do not convert one into an automated pass because a related command happened to succeed
 8. **Report**
 
 **INCREMENTAL** (reconciliation rounds after a FIXES REQUIRED report):
@@ -129,10 +129,14 @@ For each step in the plan:
 Substantive changes not accounted for above:
 - <file:line> — <what changed> — <plan section it maps to, or "UNPLANNED">
 
-## Verification performed
-For each item in the plan's verification section:
-- ✅ <verification step> — <evidence>
-- ❌ <verification step> — <not performed / cannot confirm>
+## Verification results
+**Automated** (run by me — every command in the plan's list):
+- ✅ `<command>` — <exit 0 / relevant output>
+- ❌ `<command>` — <failure>
+- ⛔ `<command>` — environment unavailable: <reason>
+
+**Manual** (outstanding — for you, carried from the plan untouched):
+- [ ] <item>
 
 ## Risks revisited
 For each risk in the plan: did the implementation actually mitigate it?
@@ -155,14 +159,14 @@ Style, polish, or follow-up suggestions that don't block signoff.
 **SIGNOFF** when:
 - Every plan step has evidence, OR is explicitly noted as deferred-with-justification
 - No unplanned substantive changes (small adjacent fixes are fine if they're noted)
-- All verification steps were performed and passed
+- Every **Automated** verification command was run and passed, or is recorded `⛔ environment unavailable` with the reason surfaced to the user. The **Manual** list is carried forward complete and unticked — outstanding manual items do not block signoff; silently dropping them does
 - All risks named in the plan are mitigated as the plan specified
 - Every codex r2 Critical/High in the findings file mozart passed you has a stated disposition — resolved (cite the commit) or explicitly user-accepted. Plan-conformance SIGNOFF issued around open codex correctness findings is the observed rubber-stamp failure (one campaign: SIGNOFF while codex held six production-killing bugs). If codex r2 hasn't converged, say so and wait — don't sign off past it
 
 **FIXES REQUIRED** when:
 - Any plan step is missing or incomplete without justification
 - Substantive unplanned changes exist (scope creep)
-- Verification was skipped on a non-trivial path
+- An Automated command was skipped without an `⛔` record, ticked without being run, or substituted with a different command
 - A risk's mitigation was dropped or weakened
 
 When in doubt: surface the gap as FIXES REQUIRED with a clear punch list. Better to do one more iteration than to sign off on a drift that bites later.

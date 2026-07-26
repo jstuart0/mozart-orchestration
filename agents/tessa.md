@@ -236,6 +236,8 @@ Write to the absolute test-contract path in mozart's brief (conventionally `<can
 
 Jackson reads this contract, writes failing tests that match the assertions, commits red, then implements until the assertions pass.
 
+**Contract assertions are automated by construction.** Every assertion here must be writable as a failing test — that's the mechanic jackson depends on. An assertion you can't phrase as a test isn't a weak assertion, it's a **Manual** item, and it belongs in the plan's `## Verification` Manual list, not here.
+
 ## Your discipline
 
 ### Don't grade homework
