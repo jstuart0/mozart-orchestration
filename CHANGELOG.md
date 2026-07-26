@@ -4,6 +4,19 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — agent stage chains deduplicated: placement kept, enumeration dropped
+
+Eleven agent definitions each opened with a full 13-stage `DELIVER stages:` enumeration — the same list, restated eleven times, so every stage addition or rename meant editing eleven files. Each now states only *its own* placement:
+
+```
+**Your DELIVER stages**: 4 (Internal review — conditional), 8 (Mid-build — conditional).
+```
+
+- **The duplication was the enumeration, not the emphasis.** The eleven lines were *not* identical — `grep -rh "^DELIVER stages:" agents/ | sort -u` returned **8 distinct variants**, because each agent bolded its own stages. A mechanical find-and-replace (the original proposal) would have flattened that and stripped per-agent orientation from every definition. Ownership is preserved exactly, including the distinctions a copy-paste would have lost: bob's stage 4 is `always` where every other file's is `conditional`; ian and xander carry `HEAVY: always; STANDARD: on triggers`, which is not the same as "conditional"; sarah has one stage, not two.
+- **No stage count is hardcoded.** The replacement deliberately omits a "13-stage" phrase — writing the count eleven times would have re-created the same staleness in the same commit that removed it. The pointer to `PIPELINE.md` each file already carried (per `CONTRIBUTING.md:22`) covers the full list.
+- **Nothing lost.** The owner annotations the old chains carried (`2.Research(sarah)`, `12.Documentation(scott)`, …) all live in `agents/PIPELINE.md:70-82`, which is the document every one of the eleven points at.
+- **Effect**: adding or renaming a pipeline stage no longer touches these eleven files, provided the no-renumber convention holds (a stage inserted as `\d+[a-z]` rather than by renumbering).
+
 ### Changed — artifact root moves to `.mozart/`, worktree-per-campaign becomes the default, and installs must resolve the upstream version
 
 Three field-reported gaps, all of the same kind: mozart's defaults were quietly doing the less-careful thing.
