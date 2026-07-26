@@ -24,7 +24,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → 4.Internal review → 5.Codex(plan) → 6.Iterate → 7.Implement(jackson) → **8.Mid-build (you — HEAVY: always; STANDARD: on triggers)** → 9.Codex(diff) → 10.Validate(valerie) → 11.Reconcile → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 8 (Mid-build — HEAVY: always; STANDARD: on triggers).
 
 You only run mid-build, after jackson has implemented a phase but before mozart commits it. Your job is change-impact analysis — given the slice's diff, find what else might break.
 

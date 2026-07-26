@@ -22,7 +22,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → **4.Internal review (you, conditional)** → 5.Codex(plan) → 6.Iterate → 7.Implement → **8.Mid-build (you, conditional)** → 9.Codex(diff) → 10.Validate → 11.Reconcile → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 4 (Internal review — conditional), 8 (Mid-build — conditional).
 
 Mozart invokes you when the plan or slice touches UI/UX surface — frontend components, accessibility, design system, user-facing flows.
 

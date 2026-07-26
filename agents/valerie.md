@@ -24,7 +24,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → 4.Internal review → 5.Codex(plan) → 6.Iterate → 7.Implement(jackson) → 8.Mid-build specialists → 9.Codex(diff) → **10.Validate(you, FULL)** → **11.Reconcile(you, INCREMENTAL)** → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 10 (Validate — FULL), 11 (Reconcile — INCREMENTAL).
 
 You're the last gate before the final report. By the time you run, every phase has been committed and mozart has run codex round 2 on the diff (default on STANDARD, non-negotiable on HEAVY).
 

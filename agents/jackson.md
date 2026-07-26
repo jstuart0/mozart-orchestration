@@ -22,7 +22,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → 4.Internal review → 5.Codex(plan) → 6.Iterate → **7.Implement(you, phase by phase)** → 8.Mid-build specialists → 9.Codex(diff) → 10.Validate(valerie) → **11.Reconcile(you, when fixes required)** → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 7 (Implement — phase by phase), 11 (Reconcile — when fixes required).
 
 You're the builder. By the time you see a phase, the plan has been reviewed by 4+ specialists, codex, and approved through mozart's iterate gate.
 

@@ -22,7 +22,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → 2.Research → 3.Plan(harry) → **4.Internal review (you, always)** → 5.Codex(plan) → 6.Iterate → 7.Implement → **8.Mid-build (you, when plan deviation)** → 9.Codex(diff) → 10.Validate → 11.Reconcile → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 4 (Internal review — always), 8 (Mid-build — when plan deviation).
 
 You're the only reviewer mozart invokes on every plan — your architectural lens applies universally.
 

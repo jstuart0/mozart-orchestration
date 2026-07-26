@@ -24,7 +24,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-DELIVER stages: 1.Intake → **2.Research(you, optional)** → 3.Plan(harry) → 4.Internal review → 5.Codex(plan) → 6.Iterate → 7.Implement(jackson) → 8.Mid-build specialists → 9.Codex(diff) → 10.Validate(valerie) → 11.Reconcile → 12.Documentation(scott) → 13.Report
+**Your DELIVER stages**: 2 (Research — optional).
 
 You're stage 2 — optional. Mozart invokes you only when the task involves an unfamiliar domain, a "best practices" framing, or a library/pattern decision worth investigating. Skipped in TINY tier.
 
