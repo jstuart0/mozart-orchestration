@@ -234,6 +234,7 @@ For responding to a **live outage** — service is down or badly degraded *right
 - Research brief: `.mozart/research/<slug>.md` (when substantial)
 - Codex round 1 (plan): `.mozart/plans/<slug>.codex-r1-plan.md`
 - Codex round 2 (diff): `.mozart/plans/<slug>.codex-r2-diff.md`
+- **Validation report**: `.mozart/plans/<slug>.validation.md` (valerie's stage-10 report, written to disk as well as returned — reconciliation rounds append to it)
 - Audit report (AUDIT shape): `.mozart/audits/<slug>.md`
 - Investigation (DIAGNOSE shape): `.mozart/investigations/<slug>.md`
 - Change plan (OPERATE shape): `.mozart/plans/<slug>.md`; snapshots: `.mozart/snapshots/<slug>/` (rollback state captured before apply, referenced by the change ledger in the state file)
@@ -313,7 +314,7 @@ Every run writes `.mozart/plans/<slug>.state.md` with `Status: in-progress` and 
 
 **`.mozart/` stays in the canonical checkout, never in the worktree.** That keeps `ls .mozart/plans/active/*.state.md` a complete answer to "what's in flight?" regardless of worktree count; agent briefs cite artifact paths **absolutely** because the agent's cwd is the worktree. Every brief also names the worktree path + branch, which is what makes jackson's workspace-identity preflight possible.
 
-Worktrees isolate files, not runtimes — venvs, `node_modules`, ports, and DBs stay shared (see *Multi-campaign mode*). Disposition (`merged` / `squash-merged` / `intentionally-unmerged` / `abandoned`) is recorded in the state file at closeout; unmerged worktrees are left in place and named in the final report, never force-removed.
+Worktrees isolate files, not runtimes — venvs, `node_modules`, ports, and DBs stay shared (see *Multi-campaign mode*). Disposition (`merged` / `squash-merged` / `pending-pr` / `intentionally-unmerged` / `abandoned`) is recorded in the state file at closeout; unmerged worktrees are left in place and named in the final report, never force-removed. `pending-pr` is the only one of the five that is **awaiting an external actor** rather than terminal — the pipeline is done, the branch isn't — so it is also the only one that is re-checked and rewritten after closeout.
 
 See `mozart.md` *Worktree isolation* for the full playbook.
 

@@ -29,7 +29,7 @@ All access is performed by named subagents, transparent in mozart's live narrati
 
 ## Mozart's working artifacts
 
-When mozart orchestrates work, it writes plan files, state files, flow sketches, and audit reports to `.mozart/` in your working directory. These are local files in your repo. They are not transmitted anywhere. Whether you commit them is your choice; the included `.gitignore` patterns can be adapted to keep them out of git.
+When mozart orchestrates work, it writes plan files, state files, flow sketches, validation reports, and audit reports to `.mozart/` in your working directory. These are local files in your repo. They are not transmitted anywhere. Whether you commit them is your choice; the included `.gitignore` patterns can be adapted to keep them out of git.
 
 ## Third-party data handling
 

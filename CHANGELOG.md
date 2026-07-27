@@ -4,6 +4,24 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — `pending-pr` worktree disposition, and valerie's validation report as a durable artifact
+
+Two records that were wrong in the same way: each described something that had actually happened, and neither had anywhere to be written down.
+
+**`pending-pr` — a fifth worktree disposition.** Closeout recorded one of `merged` / `squash-merged` / `intentionally-unmerged` / `abandoned`. All four are false for "pushed, and a PR is open awaiting a human merge": it isn't merged, and it isn't *intentionally* unmerged or abandoned — those two are decisions, this is a wait on someone else. The evidence is this repo's own history: a campaign closed by writing `disposition: pending-pr` into its state file, a value the enum did not contain, because every legal value would have been a lie. Nothing about it depends on who opened the PR.
+
+- **`agents/mozart.md`**, **`agents/PIPELINE.md`** — the enum gains `pending-pr` in every place it is defined: the prose form, closeout step 1, the remove-or-leave switch, and PIPELINE's backticked form. The value carries the PR number, or the later re-check has nothing to look up.
+- **A non-terminal branch state on a terminal campaign is not a contradiction.** `Status:` describes the pipeline, which reached stage 13; the disposition describes the branch, which hasn't landed. No fifth `Status:` value was added — non-terminal would hold the campaign open in `active/` pending a human action (the zombie population the stale sweep exists to prevent), and terminal would put a non-`complete` status in `finished/` (the drift class the closeout corruption check names). The disposition field already says the thing.
+- **It is the only disposition that resolves after closeout, so it now has a resolution path with a fixed order.** On merge evidence, the disposition line is rewritten to `merged`/`squash-merged` **first**, and only then is the worktree removed — never the reverse. Intake gains a fifth probe surfacing `pending-pr` campaigns older than 14 days for that re-check: probes 1–4 all key on `active/` or a resumable `Status:`, so a finished campaign holding an open branch matched none of them, was invisible at every intake, and its worktree accumulated forever.
+
+**Valerie's validation report is now a file.** Stage 10 produced a returned message and nothing else, while two templates downstream — the final report and the signoff comment — asserted verification facts sourced from that message. A message doesn't survive a context reset, so a resumed mozart published those claims with no source to check them against.
+
+- **`agents/valerie.md`** — she writes her report to the absolute `<slug>.validation.md` path in mozart's brief **and** returns it. Reconciliation rounds append to the same file under a `## Round <N>` heading instead of creating siblings.
+- **`agents/mozart.md`** — the `## Paths` block gains a `Validation report:` line, and stage 10 briefs the path and updates that line on return, matching the stage-exit contract codex already had. Both templates now cite the artifact rather than restating its conclusions.
+- **Every enumeration of mozart's artifacts was updated with it** — PIPELINE's output paths, `commands/mozart.md`'s artifact list, `README.md`'s artifact-root description, and `PRIVACY.md`'s disclosure of what mozart writes to your disk. A completeness claim that silently omits a new durable artifact is wrong in the place a reader trusts it most.
+
+**One closeout bug fixed on the way.** `agents/mozart.md` carried two closeout mechanisms that disagreed. The directory-convention section moved artifacts with `for ext in state.md flow.md md`; the closeout transaction used `mv .mozart/plans/active/${slug}.* …` and explained, 750 lines further down, that "the enumerated three-extension loop is how sibling artifacts get stranded in `active/`." The enumerated loop is **deleted**, not extended to a fourth extension — extending it would have moved the validation report and kept the bug for artifact five. One closeout mechanism in the file now, not two.
+
 ### Changed — plan verification split into Automated and Manual lists
 
 Valerie's FULL-mode step 7 said "execute the plan's verification section *to the extent possible*" — a hedge that was unresolvable, because harry's plan never told her which steps were runnable. Downstream, "SIGNOFF" silently spanned "I ran everything" and "I ran what I could," and the report's verification claims couldn't separate observed-by-machine from assumed.

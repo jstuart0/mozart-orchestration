@@ -137,7 +137,7 @@ mozart-orchestration/
 └── SECURITY.md
 ```
 
-`.mozart/` — mozart's artifact root in **your** repo (not this one): per-campaign state files, plans, flow sketches, audits, investigations, research briefs, and incident timelines. Gitignore it unless you want campaign artifacts committed. Repos that ran mozart before this convention keep their artifacts at the legacy `thoughts/shared/` root — mozart reads both and never migrates.
+`.mozart/` — mozart's artifact root in **your** repo (not this one): per-campaign state files, plans, flow sketches, validation reports, audits, investigations, research briefs, and incident timelines. Gitignore it unless you want campaign artifacts committed. Repos that ran mozart before this convention keep their artifacts at the legacy `thoughts/shared/` root — mozart reads both and never migrates.
 
 Every code-changing campaign also gets its own git worktree at `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, cut at intake. `.mozart/` stays in the canonical checkout so `ls .mozart/plans/active/*.state.md` always answers "what's in flight?" regardless of worktree count.
 

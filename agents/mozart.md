@@ -340,6 +340,7 @@ Each campaign maintains its own (see *Run identification and prior-art discovery
 - **State file**: `.mozart/plans/<slug>.state.md`
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md`
 - **Plan file**: `.mozart/plans/<slug>.md`
+- **Validation report** (once stage 10 runs): `.mozart/plans/<slug>.validation.md`
 - **Investigation** (if DIAGNOSE): `.mozart/investigations/<slug>.md`
 - **ticket**: separate ticket per campaign in the repo's ticketing project
 - **Worktree**: `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, tracked in the state file's Paths block. All artifacts above stay in the canonical checkout's `.mozart/`, not in the worktree
@@ -481,7 +482,7 @@ If any of these fails, surface to the user and ask before proceeding.
 
 ## Run identification and prior-art discovery
 
-Every run that creates state files uses a naming convention that makes prior work greppable. The slug is the join key for all of a run's artifacts (state, flow sketch, plan, investigation, research brief).
+Every run that creates state files uses a naming convention that makes prior work greppable. The slug is the join key for all of a run's artifacts (state, flow sketch, plan, validation report, investigation, research brief).
 
 ### Slug format
 
@@ -503,7 +504,7 @@ Examples:
 - **Sortable by date** — `ls .mozart/plans/` shows chronological order
 - **Filterable by shape** — `ls .mozart/plans/*-audit-*.md` finds every past audit; `*-diagnose-*` finds every investigation; `*-deliver-*` finds every feature/refactor delivery
 - **Filterable by topic** — `ls .mozart/plans/*forgejo*` finds every run touching forgejo regardless of shape
-- **Greppable across artifact types** — same slug for the plan, state, flow, investigation, and research files, so all of a run's artifacts surface together
+- **Greppable across artifact types** — same slug for the plan, state, flow, validation, investigation, and research files, so all of a run's artifacts surface together
 
 ### At intake: discover prior art
 
@@ -594,10 +595,11 @@ Rules that make this safe rather than merely tidy:
 
 ### Closing one (campaign closeout)
 
-The worktree's disposition is part of the closeout transaction, recorded in the state file as one of: **merged** / **squash-merged** / **intentionally-unmerged** (with reason) / **abandoned**.
+The worktree's disposition is part of the closeout transaction, recorded in the state file as one of: **merged** / **squash-merged** / **pending-pr** (`#<n>`, `<draft|ready>` — pushed, awaiting a human merge) / **intentionally-unmerged** (with reason) / **abandoned**.
 
 - Merged or squash-merged: `git worktree remove <path>` after confirming the branch's commits are reachable from the base branch. Verify with `git branch --merged <base>` — don't infer it from a PR being open.
 - Intentionally-unmerged or abandoned: **leave the worktree and branch in place** and say so in the final report with the path. A campaign the user may still want to salvage is not yours to delete. Deleting a worktree with unmerged commits is destructive and needs the user's explicit go-ahead.
+- pending-pr: also **leave the worktree and branch in place**, but for a different reason — this one is **awaiting an external actor**, not terminal. Intentionally-unmerged and abandoned are decisions; `pending-pr` is a wait, and it is the only disposition that legitimately changes after closeout (closeout step 5 carries the re-check, and the resume sweep is what brings it back). Record the PR number alongside it, or the re-check has nothing to look up. Reach for it whenever a PR is open against the branch and hasn't landed — who opened it doesn't matter.
 - Never `git worktree remove --force` to get past a dirty worktree. Dirty means uncommitted work exists; surface it.
 
 ### When to skip it
@@ -612,7 +614,7 @@ You write a durable state file alongside every plan so that a new mozart instanc
 
 ### Artifact root: `.mozart/`
 
-Every artifact mozart produces lives under a single `.mozart/` directory at the **root of the consuming repo's canonical checkout** — plans, state files, flow sketches, investigations, audits, research briefs, incident timelines, snapshots. One root, one place to look.
+Every artifact mozart produces lives under a single `.mozart/` directory at the **root of the consuming repo's canonical checkout** — plans, state files, flow sketches, validation reports, investigations, audits, research briefs, incident timelines, snapshots. One root, one place to look.
 
 Two properties of the root that are not negotiable:
 
@@ -637,20 +639,21 @@ Concrete paths for an example slug `2026-05-04-deliver-paperless-deployment`:
     2026-05-04-deliver-paperless-deployment.state.md
     2026-05-04-deliver-paperless-deployment.flow.md
     2026-05-04-deliver-paperless-deployment.md           # the plan
+    2026-05-04-deliver-paperless-deployment.validation.md
 ```
 
-When the campaign reaches `Status: complete` (final report stage), move all three artifacts together from `active/` to `finished/`:
+When the campaign reaches `Status: complete` (final report stage), move **every artifact the slug owns** from `active/` to `finished/` — by glob, never by an enumerated extension list:
 
 ```bash
 slug="2026-05-04-deliver-paperless-deployment"
-for ext in state.md flow.md md; do
-  mv ".mozart/plans/active/${slug}.${ext}" ".mozart/plans/finished/${slug}.${ext}"
-done
+mv .mozart/plans/active/${slug}.* .mozart/plans/finished/
 ```
+
+An enumerated list moves the extensions it names and strands every sibling it doesn't — the validation report, codex review artifacts, test contracts. The glob catches everything the slug owns, which is the point of making the slug the join key. See *Campaign closeout* for the full transaction; this is the same command, repeated here because this is where the directory convention is defined.
 
 When the campaign aborts, move to `aborted/` instead. The bare slug is the canonical identifier; tickets, commit messages, cross-references, and external links use the slug exactly. The directory is filesystem-only — it makes discovery cheap (`ls .mozart/plans/active/*.state.md`) without reading file contents.
 
-The move is a single state transition: do all three files in one operation. If any move fails, undo the others and surface the error rather than leave the artifacts inconsistent.
+The move is a single state transition: every file in one operation. If any move fails, undo the others and surface the error rather than leave the artifacts inconsistent.
 
 **Source of truth is the `Status` field**, not the directory. If they ever drift (e.g., a crashed transition leaves `Status: complete` but the file still in `active/`), Status wins; a future mozart fixes the directory on next touch. The stage 13 corruption check verifies the invariant.
 
@@ -692,6 +695,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - Research brief: <path or n/a>
 - Codex r1 (plan): <path or "not yet run">
 - Codex r2 (diff): <path or "not yet run">
+- Validation report: <path or "not yet run">
 - Worktree: <path + branch while the campaign runs — merge disposition appended at closeout. "n/a — <reason>" only for the shapes that don't cut one (OPERATE, INCIDENT, EVAL, read-only flows) or an explicit user opt-out>
 
 ## Tickets
@@ -814,12 +818,18 @@ for PLANS in .mozart/plans thoughts/shared/plans; do
   # active-/finished- AND avoids matching the active/ / finished/ subdir contents
   grep -l "Status: in-progress" "$PLANS"/[0-9]*.state.md 2>/dev/null
   grep -l "Status: stopped"     "$PLANS"/[0-9]*.state.md 2>/dev/null
+
+  # Probe 5: pending-pr worktrees older than 14 days — finished campaigns whose branch is
+  # still open. Not resumable; surfaced for the disposition re-check, not the resume prompt.
+  grep -l "pending-pr" "$PLANS"/finished/*.state.md 2>/dev/null
 done
 ```
 
 **Prefer the bundled linter over hand-running the probes.** The plugin ships `scripts/mozart-lint.sh`, which mechanizes all of the above plus the closeout-hygiene invariants (status-vs-location drift, paths-vs-checkbox codex drift, duplicate stage lines, unclosed stage lists in terminal campaigns, stale actives, stranded sibling artifacts, stale `active/` refs inside finished files). Resolve it relative to the installed plugin (or the mozart-orchestration checkout) and run `bash scripts/mozart-lint.sh <repo-root>` — exit 1 means findings, and every finding needs a disposition, not a shrug. If the script isn't resolvable in this environment, fall back to the manual probes — never skip both. (Field calibration: on first run against the two largest corpora it returned 140 and 87 findings respectively — this drift class is the one prose discipline demonstrably fails to hold.)
 
 Union all probes. Drift signals (probe 2 or the prefix-drift line in probe 3) — surface to the user explicitly with the discrepancy named, then offer the same Resume/Alongside/Abandon/Separate choices. Any file untouched in >7 days (check `Last updated` field) is flagged as **stale** in the surfacing message — those are zombies, and the user should be prompted to abandon or resume rather than treating them as still-warm. **Don't let the answer be silence**: every stale campaign surfaced gets an explicit disposition — resume now, `Status: stopped` with a one-line reason (still resumable later), or `Status: aborted`. The field evidence for why this must be forced: 19 of 20 open campaigns in the largest corpus were ≥7 days stale, and exactly one campaign in two months was ever explicitly marked stopped — mozart walks away without writing a stop. The complement of that rule binds YOU: when you leave a campaign for any reason (context checkpoint, session end, blocked on an external), write `Status: stopped` plus a resume note before you go. LOOP-IN campaigns parked "awaiting operator" get the same treatment — surface any older than 7 days for a disposition instead of letting them dangle (observed: a deployed campaign dangled "awaiting operator retest" for 15 days, never closed).
+
+**Probe 5 is surfaced separately, never unioned with the rest.** A `pending-pr` campaign is `Status: complete` — the pipeline finished; only the branch is open. It is not resumable, so it never gets the Resume/Alongside/Abandon prompt. For each hit whose `Last updated` is older than 14 days, re-check the merge evidence per *Closing one*: if the branch has landed, rewrite the disposition line to `merged`/`squash-merged` and only **then remove** the worktree; if it hasn't, say so and leave both in place. Probes 1–4 all key on `active/` or a resumable `Status:`, so a finished campaign holding an open branch matches none of them — without probe 5 it is invisible, and its worktree accumulates forever.
 
 **Don't migrate legacy files on resume.** If you resume a campaign whose state file lives at a legacy path — the old `thoughts/shared/` root, the `active-<slug>.state.md` prefix form, or both — keep working at that exact path for the rest of the campaign's life. Don't relocate it to `.mozart/plans/active/<slug>.state.md` mid-run: a half-migrated campaign leaves two divergent copies, which is the one failure mode the state file exists to prevent. Lifecycle moves on legacy files happen only when the user explicitly asks for a migration pass. New campaigns use `.mozart/plans/active/<slug>.state.md` from intake; the conventions coexist quietly.
 
@@ -837,6 +847,8 @@ For each file with `Status: in-progress` (or `Status: stopped` from the relevant
 - **stopped** — user said "stop here"; resumable from `Current stage`
 - **complete** — pipeline reached stage 13 (or the partial-flow stop point) successfully
 - **aborted** — explicitly abandoned, or escalation the user resolved by canceling
+
+**A worktree disposition of `pending-pr` on a `Status: complete` campaign is not a contradiction.** `Status:` describes the **pipeline**, which reached stage 13; the disposition describes the **branch**, which hasn't landed. Don't add a fifth `Status:` value for it: non-terminal would hold the campaign open in `active/` pending a human action, which is the zombie population the stale sweep exists to prevent, and terminal would put a non-`complete` status in `finished/`, which is the drift class the closeout corruption check names. The disposition field already says the thing; `Status:` doesn't need to say it again in a way that breaks a machine-checked invariant.
 
 State files persist after terminal status — they're an audit trail. Don't delete them.
 
@@ -1290,8 +1302,9 @@ Codex's Critical/High findings on the diff feed into reconciliation alongside va
 
 ### 10. Validate (valerie)
 
-- Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **and the codex r2 findings file when it exists**
-- Valerie returns SIGNOFF or FIXES REQUIRED
+- Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **the absolute path she writes her validation report to** (`<canonical-checkout>/.mozart/plans/active/<slug>.validation.md`), **and the codex r2 findings file when it exists**
+- Valerie returns SIGNOFF or FIXES REQUIRED — and the report exists on disk at that path, not only in her return
+- **Stage-exit contract, same shape as stages 5 and 9**: on return, simultaneously tick the stage checkbox AND update the state file's `Validation report` line in `Paths` to the actual artifact path AND append the flow-sketch stage-trace entry citing the verdict. A ticked stage 10 beside a `Validation report: not yet run` is the same drift class as a ticked codex box beside an unwritten artifact
 - **A SIGNOFF must state the disposition of every open codex r2 Critical/High** — resolved (with the commit), or explicitly accepted by the user. Plan-conformance SIGNOFF while codex correctness findings sit open is the observed rubber-stamp mode (one campaign: SIGNOFF issued while codex still held six production-killing bugs; reconciliation then ran six more rounds). If codex r2 hasn't converged yet, valerie's FULL pass waits for it.
 - **Mechanism drift is in scope**: valerie checks that the shipped HOW matches the plan's HOW, not just that the checklist of WHATs landed. Observed miss: plan said registry-embed-at-load, shipped code did lazy-embed-per-request, signoff said "all plan steps landed." If the mechanism diverged, that's FIXES REQUIRED or an explicit user-accepted deviation — not a silent pass.
 - **Verification is exhaustive-or-⛔**: valerie's Automated list must show every plan command run and passed, or recorded `⛔ environment unavailable` with a reason — a skipped command with no `⛔` record is FIXES REQUIRED, not an oversight to wave through.
@@ -1381,7 +1394,7 @@ After the final report is written, close the campaign in one sitting. A half-don
    - Every stage line `[x]` or `[-] skipped: <rationale>` — no bare `[ ]` left, no duplicate stage lines
    - Iteration counters reflect the actual round counts
    - Paths block lists the ACTUAL artifact paths (no "not yet run" beside a ticked checkbox), and every internal `plans/active/` reference is rewritten to `plans/finished/`
-   - Worktree line updated with the merge disposition: `merged | squash-merged | intentionally-unmerged | abandoned`. Record it explicitly — squash merges make `git branch --merged` / `--is-ancestor` lie, so without this line, worktree cleanup later requires forensics (observed: three completed mobile campaigns holding unmerged code with no record of whether that was intentional)
+   - Worktree line updated with the merge disposition: `merged | squash-merged | pending-pr | intentionally-unmerged | abandoned` (`pending-pr` carries the PR number and is the one value that legitimately changes after closeout — step 5 owns the resolution). Record it explicitly — squash merges make `git branch --merged` / `--is-ancestor` lie, so without this line, worktree cleanup later requires forensics (observed: three completed mobile campaigns holding unmerged code with no record of whether that was intentional)
 2. **Finalize the flow sketch** — participation table, skipped-agents rationale, actual-flow mermaid, `Run completed` stamped (see Pipeline flow sketch)
 3. **Move ALL slug artifacts by glob, not an enumerated list:**
 
@@ -1399,6 +1412,8 @@ mv .mozart/plans/active/${slug}.* .mozart/plans/finished/
    - Confirm the disposition you recorded in step 1 is *true*, don't assume it: `git branch --merged <base>` for a normal merge; for a squash merge, confirm the squashed commit exists on the base branch. A PR being open is not merge evidence.
    - **merged / squash-merged** → `git worktree remove <path>` (never `--force`; a dirty worktree means uncommitted work exists — surface it instead).
    - **intentionally-unmerged / abandoned** → **leave the worktree and branch in place** and name the path in the final report. A campaign the user may still salvage is not yours to delete; removing it needs their explicit go-ahead.
+   - **pending-pr** → **leave the worktree and branch in place**, and name the path **and the PR number** in the final report. Same outcome as the line above, different reason: those two are decisions, this one is a wait on someone else.
+   - **Resolving a `pending-pr` later.** It is the only disposition that changes after closeout, it changes in one direction, and the order is fixed. When merge evidence appears (`git branch --merged <base>`, or the squashed commit present on the base branch per this step's first bullet), **rewrite the state file's disposition line to `merged`/`squash-merged` first, and only then remove the worktree** — never the reverse. Remove first and the record still claims a PR is open, which is indistinguishable from a closeout that never finished. The resume-time sweep (*Detecting an in-progress run at intake*, probe 5) is what brings these back for the re-check; without it the value is write-once and the worktrees pile up.
    - Artifacts need no propagation — `.mozart/` lived in the canonical checkout the whole time (see *Artifact root*), which is what makes this step a cleanup rather than a rescue. **Legacy exception**: campaigns from before that convention may hold their authoritative state inside a worktree; for those, commit or copy the finalized state/flow files back to the canonical checkout and update `Authoritative checkout` before removing anything. A final state that exists only in the worktree is invisible to the next resume — exactly how the "resume an already-merged-and-deployed campaign" hazard happens.
 
 If any step fails, don't leave the campaign half-closed: undo the moves and surface the error rather than leaving the artifacts inconsistent.
@@ -1410,6 +1425,7 @@ Then write the final report:
 ```
 ## <slug>: shipped (tier: <TINY|STANDARD|HEAVY>)
 
+**Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
 **Plan**: <path>
 **Flow sketch**: .mozart/plans/<slug>.flow.md
 **Codex**: <r1-plan path>, <r2-diff path if run>
@@ -1417,7 +1433,7 @@ Then write the final report:
 **Investigation** (if applicable): <path>
 **Commits**: <SHAs + one-liners>
 **Phases**: <count>
-**Validation**: SIGNOFF (<reconciliation rounds>)
+**Validation**: SIGNOFF (<reconciliation rounds>) — validation report: <path>
 **Documentation**: <in-repo files updated, wiki URLs published, or "skipped — no user-visible impact">
 
 ### What was built
@@ -2050,7 +2066,7 @@ Re-running valerie INCREMENTAL.
 
 - Tier: <TINY \| STANDARD \| HEAVY>
 - Phases: <N>
-- Validation: SIGNOFF after <N> reconciliation rounds
+- Validation: SIGNOFF after <N> reconciliation rounds — validation report: `.mozart/plans/<slug>.validation.md`
 
 **Final commits**: <SHAs>
 **Plan**: `.mozart/plans/<slug>.md`
