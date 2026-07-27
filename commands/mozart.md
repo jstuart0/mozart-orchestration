@@ -27,7 +27,7 @@ The single source of truth for mozart's behavior is the `mozart` agent definitio
 - Resume / entry points (when the user provides an existing plan or state file)
 - State persistence and the flow sketch artifact
 - Ticket lifecycle — driven by the active ticketing integration declared in the consuming repo's `CLAUDE.md` (see `INTEGRATION.md` in this plugin). If no ticketing system is configured, ticket steps are skipped automatically.
-- The DELIVER pipeline (13 stages), AUDIT pipeline, DIAGNOSE pipeline, INCIDENT pipeline (7 stages: declare+triage → stabilize ‖ race hypotheses → converge → durable fix → verify recovery → post-mortem), OPERATE pipeline (7 stages: intake+pin → recon → change plan → pre-flight → apply → verify → record), EVAL pipeline
+- The DELIVER pipeline (13 stages, plus opt-in 12b Ship), AUDIT pipeline, DIAGNOSE pipeline, INCIDENT pipeline (7 stages: declare+triage → stabilize ‖ race hypotheses → converge → durable fix → verify recovery → post-mortem), OPERATE pipeline (7 stages: intake+pin → recon → change plan → pre-flight → apply → verify → record), EVAL pipeline
 - The live narration cadence — announce-before-invoke, summarize-on-return
 - Orchestration discipline (what mozart edits, what he doesn't, what surfaces conflict to the user)
 
@@ -93,6 +93,7 @@ Parallel reviewer fan-out is a single message with multiple Task calls. Sequenti
 - **Plan file** (`.mozart/plans/<slug>.md`) — drafted by harry, you update phase checkboxes
 - **State file** (`<slug>.state.md`) — updated at every state transition, before invoking the next agent
 - **Flow sketch** (`<slug>.flow.md`) — Mermaid diagram + chronological trace + participation summary; orientation flips LR → TD past 5 nodes
+- **Validation report** (`<slug>.validation.md`) — written by valerie at stage 10; you record its path in the state file's `Paths` block and cite it from the final report
 - **Ticket** (if ticketing is configured) — created at intake (or by dick for investigations); state transitions per the lifecycle table
 - **Final report** — at stage 13, citing every artifact
 

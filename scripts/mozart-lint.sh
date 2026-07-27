@@ -4,8 +4,12 @@
 # Mechanizes the state-file invariants that prose discipline demonstrably fails
 # to hold (May + July 2026 evaluations): status-vs-location drift, paths-vs-
 # checkbox drift, duplicate stage lines, unclosed stage lists in complete
-# campaigns, stale active campaigns, stranded sibling artifacts, and stale
-# active/ path references inside finished state files.
+# campaigns, stale active campaigns, stranded sibling artifacts, stale active/
+# path references inside finished ## Paths blocks, and active DELIVER campaigns
+# missing their 12b. Ship row.
+#
+# Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
+# re-check) — that stays a manual sweep at intake. See agents/mozart.md.
 #
 # Usage: mozart-lint.sh [repo-root]     (default: current directory)
 # Exit:  0 = clean, 1 = findings, 2 = nothing to lint
@@ -86,7 +90,9 @@ lint_root() {
   # --- Check D: duplicate stage lines ----------------------------------------
   for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md "$PLANS"/[0-9]*.state.md; do
     [ -f "$f" ] || continue
-    dupes=$(grep -oE '^\- \[.\] [0-9]+\.' "$f" | grep -oE '[0-9]+' | sort -n | uniq -d | tr '\n' ' ')
+    # Both greps must accept the optional stage letter. Fixing only the first
+    # lets the second strip it, so a real `12b` duplicate reports as `12`.
+    dupes=$(grep -oE '^\- \[.\] [0-9]+[a-z]?\.' "$f" | grep -oE '[0-9]+[a-z]?' | sort | uniq -d | tr '\n' ' ')
     if [ -n "$dupes" ]; then
       finding "duplicate-stages" "$f — stage number(s) $dupes appear more than once (append-instead-of-edit; a resuming mozart can't tell which line is true)"
     fi
@@ -97,7 +103,7 @@ lint_root() {
     [ -f "$f" ] || continue
     s=$(status_of "$f")
     is_terminal "$s" || continue
-    n=$(grep -cE '^\- \[ \] [0-9]+\.' "$f")
+    n=$(grep -cE '^\- \[ \] [0-9]+[a-z]?\.' "$f")
     if [ "$n" -gt 0 ]; then
       finding "unclosed-stages" "$f — Status terminal but $n stage line(s) still bare '[ ]' (should be [x] or '[-] skipped: <rationale>')"
     fi
@@ -113,10 +119,37 @@ lint_root() {
   done
 
   # --- Check G: finished state files still referencing plans/active/ ---------
+  # Scoped to the ## Paths block. A whole-file grep re-trips on any narrative or
+  # ledger row that merely quotes an active/ path, which is prose, not drift.
   for f in "$PLANS"/finished/*.state.md; do
     [ -f "$f" ] || continue
-    if grep -q 'plans/active/' "$f"; then
-      finding "stale-paths" "$f — internal references still point at plans/active/ (closeout didn't rewrite the Paths block)"
+    if awk '/^## Paths/{p=1;next} /^## /&&p{exit} p' "$f" | grep -q 'plans/active/'; then
+      finding "stale-paths" "$f — Paths block still points at plans/active/ (closeout didn't rewrite it)"
+    fi
+  done
+
+  # --- Check I: DELIVER campaigns missing the 12b. Ship row ------------------
+  # active/ ONLY — never finished/, and never the bare-slug glob.
+  #
+  # A finished campaign's stage list is a record of what ran, not a template to
+  # conform to. A stage introduced after the campaign closed can never appear in
+  # it, and demanding one turns every pre-existing repo's history into lint
+  # findings the moment 12b ships. Checks D and E legitimately read finished/
+  # because they test time-invariant internal consistency (duplicate rows, bare
+  # [ ] in a terminal file); this one tests conformance to the current template,
+  # which is not time-invariant. Do not "make the loops consistent."
+  #
+  # The legacy prefixless glob ("$PLANS"/[0-9]*.state.md) that Checks C and D
+  # include is deliberately omitted: those files predate the subdir convention,
+  # so they predate 12b too, and their lifecycle state isn't knowable from the
+  # path. This check also never consults the ## Pull requests stanza — an
+  # in-flight campaign needs the row present (run or explicitly skipped)
+  # whether or not the repo opted in, because closeout requires every stage
+  # accounted for.
+  for f in "$PLANS"/active/*.state.md "$PLANS"/active-*.state.md; do
+    [ -f "$f" ] || continue
+    if grep -qE '^\- \[[ x-]\] 12\. ' "$f" && ! grep -qE '^\- \[[ x-]\] 12b\.' "$f"; then
+      finding "missing-12b" "$f — has a '12. Documentation' row but no '12b. Ship' row (insert it in place between 12 and 13; run it or mark '[-] 12b. Ship — skipped: <reason>')"
     fi
   done
 

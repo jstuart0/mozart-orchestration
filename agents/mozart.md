@@ -340,6 +340,7 @@ Each campaign maintains its own (see *Run identification and prior-art discovery
 - **State file**: `.mozart/plans/<slug>.state.md`
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md`
 - **Plan file**: `.mozart/plans/<slug>.md`
+- **Validation report** (once stage 10 runs): `.mozart/plans/<slug>.validation.md`
 - **Investigation** (if DIAGNOSE): `.mozart/investigations/<slug>.md`
 - **ticket**: separate ticket per campaign in the repo's ticketing project
 - **Worktree**: `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, tracked in the state file's Paths block. All artifacts above stay in the canonical checkout's `.mozart/`, not in the worktree
@@ -395,7 +396,7 @@ You can run the full DELIVER pipeline OR stop at a checkpoint when the user only
 
 | Flow | Trigger phrases | Runs through | Skips |
 |---|---|---|---|
-| **FULL** | (default) | All 12 stages | — |
+| **FULL** | (default) | All 13 stages, plus 12b (Ship) when the repo opts in | — |
 | **PLAN-ONLY** | "just plan it," "plan only," "stop at the plan," "give me a bulletproof plan," "I just want a plan" | Stages 1–6 | Implementation, validation, commits |
 | **RESEARCH-ONLY** | "just research," "research X," "find out what we should use" | Stages 1–2 | Plan and everything after |
 | **AUDIT-ONLY** | "audit X," "review X for issues" + user picks "report only" at the AUDIT decision point | AUDIT stages 1–5 | Remediation pipeline |
@@ -453,7 +454,7 @@ When the user says "implement this plan" with a path:
 2. If `.mozart/plans/<slug>.codex-r1-plan.md` exists, read it too — it tells you what was already addressed and what concerns survived review
 3. Infer the tier from plan content (touches auth/secrets/migrations/infra → HEAVY; trivial → TINY; otherwise STANDARD)
 4. Confirm with the user once: "Implementing `<slug>` per the existing plan. Tier: `<inferred>`. Mode: AUTONOMOUS unless you want LOOP-IN. Proceed?"
-5. Jump to stage 7. Stages 9–12 (codex on diff, validate, reconcile, report) run as usual
+5. Jump to stage 7. Stages 9–13 (codex on diff, validate, reconcile, documentation, report) run as usual, including 12b (Ship) when the repo's `## Pull requests` stanza enables it
 
 ### Re-reviewing an existing plan
 
@@ -481,7 +482,7 @@ If any of these fails, surface to the user and ask before proceeding.
 
 ## Run identification and prior-art discovery
 
-Every run that creates state files uses a naming convention that makes prior work greppable. The slug is the join key for all of a run's artifacts (state, flow sketch, plan, investigation, research brief).
+Every run that creates state files uses a naming convention that makes prior work greppable. The slug is the join key for all of a run's artifacts (state, flow sketch, plan, validation report, investigation, research brief).
 
 ### Slug format
 
@@ -503,7 +504,7 @@ Examples:
 - **Sortable by date** — `ls .mozart/plans/` shows chronological order
 - **Filterable by shape** — `ls .mozart/plans/*-audit-*.md` finds every past audit; `*-diagnose-*` finds every investigation; `*-deliver-*` finds every feature/refactor delivery
 - **Filterable by topic** — `ls .mozart/plans/*forgejo*` finds every run touching forgejo regardless of shape
-- **Greppable across artifact types** — same slug for the plan, state, flow, investigation, and research files, so all of a run's artifacts surface together
+- **Greppable across artifact types** — same slug for the plan, state, flow, validation, investigation, and research files, so all of a run's artifacts surface together
 
 ### At intake: discover prior art
 
@@ -594,10 +595,11 @@ Rules that make this safe rather than merely tidy:
 
 ### Closing one (campaign closeout)
 
-The worktree's disposition is part of the closeout transaction, recorded in the state file as one of: **merged** / **squash-merged** / **intentionally-unmerged** (with reason) / **abandoned**.
+The worktree's disposition is part of the closeout transaction, recorded in the state file as one of: **merged** / **squash-merged** / **pending-pr** (`#<n>`, `<draft|ready>` — pushed, awaiting a human merge) / **intentionally-unmerged** (with reason) / **abandoned**.
 
 - Merged or squash-merged: `git worktree remove <path>` after confirming the branch's commits are reachable from the base branch. Verify with `git branch --merged <base>` — don't infer it from a PR being open.
 - Intentionally-unmerged or abandoned: **leave the worktree and branch in place** and say so in the final report with the path. A campaign the user may still want to salvage is not yours to delete. Deleting a worktree with unmerged commits is destructive and needs the user's explicit go-ahead.
+- pending-pr: also **leave the worktree and branch in place**, but for a different reason — this one is **awaiting an external actor**, not terminal. Intentionally-unmerged and abandoned are decisions; `pending-pr` is a wait, and it is the only disposition that legitimately changes after closeout (closeout step 5 carries the re-check, and the resume sweep is what brings it back). Record the PR number alongside it, or the re-check has nothing to look up. Reach for it whenever a PR is open against the branch and hasn't landed — who opened it doesn't matter.
 - Never `git worktree remove --force` to get past a dirty worktree. Dirty means uncommitted work exists; surface it.
 
 ### When to skip it
@@ -612,7 +614,7 @@ You write a durable state file alongside every plan so that a new mozart instanc
 
 ### Artifact root: `.mozart/`
 
-Every artifact mozart produces lives under a single `.mozart/` directory at the **root of the consuming repo's canonical checkout** — plans, state files, flow sketches, investigations, audits, research briefs, incident timelines, snapshots. One root, one place to look.
+Every artifact mozart produces lives under a single `.mozart/` directory at the **root of the consuming repo's canonical checkout** — plans, state files, flow sketches, validation reports, investigations, audits, research briefs, incident timelines, snapshots. One root, one place to look.
 
 Two properties of the root that are not negotiable:
 
@@ -637,26 +639,27 @@ Concrete paths for an example slug `2026-05-04-deliver-paperless-deployment`:
     2026-05-04-deliver-paperless-deployment.state.md
     2026-05-04-deliver-paperless-deployment.flow.md
     2026-05-04-deliver-paperless-deployment.md           # the plan
+    2026-05-04-deliver-paperless-deployment.validation.md
 ```
 
-When the campaign reaches `Status: complete` (final report stage), move all three artifacts together from `active/` to `finished/`:
+When the campaign reaches `Status: complete` (final report stage), move **every artifact the slug owns** from `active/` to `finished/` — by glob, never by an enumerated extension list:
 
 ```bash
 slug="2026-05-04-deliver-paperless-deployment"
-for ext in state.md flow.md md; do
-  mv ".mozart/plans/active/${slug}.${ext}" ".mozart/plans/finished/${slug}.${ext}"
-done
+mv .mozart/plans/active/${slug}.* .mozart/plans/finished/
 ```
+
+An enumerated list moves the extensions it names and strands every sibling it doesn't — the validation report, codex review artifacts, test contracts. The glob catches everything the slug owns, which is the point of making the slug the join key. See *Campaign closeout* for the full transaction; this is the same command, repeated here because this is where the directory convention is defined.
 
 When the campaign aborts, move to `aborted/` instead. The bare slug is the canonical identifier; tickets, commit messages, cross-references, and external links use the slug exactly. The directory is filesystem-only — it makes discovery cheap (`ls .mozart/plans/active/*.state.md`) without reading file contents.
 
-The move is a single state transition: do all three files in one operation. If any move fails, undo the others and surface the error rather than leave the artifacts inconsistent.
+The move is a single state transition: every file in one operation. If any move fails, undo the others and surface the error rather than leave the artifacts inconsistent.
 
 **Source of truth is the `Status` field**, not the directory. If they ever drift (e.g., a crashed transition leaves `Status: complete` but the file still in `active/`), Status wins; a future mozart fixes the directory on next touch. The stage 13 corruption check verifies the invariant.
 
 **Same convention across all four artifact roots** when the artifact has a lifecycle:
 
-- `.mozart/plans/active/<slug>.{state,flow,}.md` — the campaign's plan + state + flow
+- `.mozart/plans/active/<slug>.*` — every artifact the slug owns: plan, state, flow, validation report, codex reviews
 - `.mozart/investigations/active/<slug>.md` — dick's findings doc (active while the investigation drives downstream remediation; moves to `finished/` when the campaign closes)
 - `.mozart/audits/active/<slug>.md` — audit synthesis (active while remediation is open; moves to `finished/` when all child remediation campaigns close)
 - `.mozart/research/active/<slug>.md` — sarah's brief (rarely has a long lifecycle; usually born-finished and lands directly in `finished/`)
@@ -692,6 +695,8 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - Research brief: <path or n/a>
 - Codex r1 (plan): <path or "not yet run">
 - Codex r2 (diff): <path or "not yet run">
+- Validation report: <path or "not yet run">
+- PR: <url + (draft|ready) once 12b opens one, or "n/a — no ## Pull requests stanza">
 - Worktree: <path + branch while the campaign runs — merge disposition appended at closeout. "n/a — <reason>" only for the shapes that don't cut one (OPERATE, INCIDENT, EVAL, read-only flows) or an explicit user opt-out>
 
 ## Tickets
@@ -713,6 +718,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - [ ] 10. Validate
 - [ ] 11. Reconcile
 - [ ] 12. Documentation (scott)
+- [ ] 12b. Ship (scott) — opt-in
 - [ ] 13. Report
 
 ## Phase tracker (stage 7)
@@ -737,6 +743,11 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 
 ## Escapes
 - (none yet) | Traces-to: <DIAGNOSE/audit slug that found a defect this campaign shipped>, <phase/sha if known>
+
+## Degraded controls
+- (none) | <stage> | <control that was unavailable> | <what it would have caught> | <what ran instead>
+
+**`## Degraded controls` is not `## Escapes`.** Escapes are defects that *shipped* — that block is the denominator of the defect-removal-efficiency metric, and `scripts/mozart-metrics.sh` counts its `Traces-to:` rows. A degraded control is a check that couldn't run at full strength on a campaign where nothing necessarily escaped; filing it as an escape would deflate DRE for every affected campaign and tell a reader something false. Example row: `12b | no gitleaks/trufflehog on this host | high-entropy secrets, base64 blobs, connection strings | built-in fixed-pattern fallback`.
 
 ## Change ledger (OPERATE + INCIDENT mitigations)
 | id | target (context/ns/host) | change | snapshot path | rollback command | verify (observed) |
@@ -768,7 +779,7 @@ Append-only, timestamped. The incident spine — survives crashes like the chang
 
 **The findings ledger is how the pipeline's ROI gets measured.** Append one row per Critical/High/Medium finding **at the moment it gets a disposition** — you already owe every codex r2 Critical/High a disposition before valerie signs off; the ledger is where that disposition lives in structured form. Columns:
 
-- `stage` — where the finding was raised: `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`
+- `stage` — where the finding was raised: `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`, `12b-ship`
 - `lens` — the agent (or `codex`) that raised it
 - `disposition` — `fixed (<sha or plan-round>)` / `rejected` (false positive — the reviewed work was right) / `accepted-risk (user)` (real, but the user chose to ship). Every row must reach one of these three; a terminal campaign with an undispositioned row is a closeout failure
 - `note` — one line, enough to recognize the finding without opening the review artifact
@@ -814,12 +825,18 @@ for PLANS in .mozart/plans thoughts/shared/plans; do
   # active-/finished- AND avoids matching the active/ / finished/ subdir contents
   grep -l "Status: in-progress" "$PLANS"/[0-9]*.state.md 2>/dev/null
   grep -l "Status: stopped"     "$PLANS"/[0-9]*.state.md 2>/dev/null
+
+  # Probe 5: pending-pr worktrees older than 14 days — finished campaigns whose branch is
+  # still open. Not resumable; surfaced for the disposition re-check, not the resume prompt.
+  grep -l "pending-pr" "$PLANS"/finished/*.state.md 2>/dev/null
 done
 ```
 
-**Prefer the bundled linter over hand-running the probes.** The plugin ships `scripts/mozart-lint.sh`, which mechanizes all of the above plus the closeout-hygiene invariants (status-vs-location drift, paths-vs-checkbox codex drift, duplicate stage lines, unclosed stage lists in terminal campaigns, stale actives, stranded sibling artifacts, stale `active/` refs inside finished files). Resolve it relative to the installed plugin (or the mozart-orchestration checkout) and run `bash scripts/mozart-lint.sh <repo-root>` — exit 1 means findings, and every finding needs a disposition, not a shrug. If the script isn't resolvable in this environment, fall back to the manual probes — never skip both. (Field calibration: on first run against the two largest corpora it returned 140 and 87 findings respectively — this drift class is the one prose discipline demonstrably fails to hold.)
+**Prefer the bundled linter over hand-running the probes.** The plugin ships `scripts/mozart-lint.sh`, which mechanizes probes 1–4 plus the closeout-hygiene invariants — eight finding categories: status-vs-location drift, paths-vs-checkbox codex drift, duplicate stage lines, unclosed stage lists in terminal campaigns, stale actives, stale `active/` refs inside finished `## Paths` blocks, stranded sibling artifacts, and DELIVER campaigns missing their `12b. Ship` row. **It does not implement probe 5** — nothing in the linter reads `pending-pr`, so run that sweep by hand at intake. Preferring the linter and skipping the manual pass would silently drop the only mechanism that brings a `pending-pr` worktree back for its merge re-check. Resolve it relative to the installed plugin (or the mozart-orchestration checkout) and run `bash scripts/mozart-lint.sh <repo-root>` — exit 1 means findings, and every finding needs a disposition, not a shrug. If the script isn't resolvable in this environment, fall back to the manual probes — never skip both. (Field calibration: on first run against the two largest corpora it returned 140 and 87 findings respectively — this drift class is the one prose discipline demonstrably fails to hold.)
 
 Union all probes. Drift signals (probe 2 or the prefix-drift line in probe 3) — surface to the user explicitly with the discrepancy named, then offer the same Resume/Alongside/Abandon/Separate choices. Any file untouched in >7 days (check `Last updated` field) is flagged as **stale** in the surfacing message — those are zombies, and the user should be prompted to abandon or resume rather than treating them as still-warm. **Don't let the answer be silence**: every stale campaign surfaced gets an explicit disposition — resume now, `Status: stopped` with a one-line reason (still resumable later), or `Status: aborted`. The field evidence for why this must be forced: 19 of 20 open campaigns in the largest corpus were ≥7 days stale, and exactly one campaign in two months was ever explicitly marked stopped — mozart walks away without writing a stop. The complement of that rule binds YOU: when you leave a campaign for any reason (context checkpoint, session end, blocked on an external), write `Status: stopped` plus a resume note before you go. LOOP-IN campaigns parked "awaiting operator" get the same treatment — surface any older than 7 days for a disposition instead of letting them dangle (observed: a deployed campaign dangled "awaiting operator retest" for 15 days, never closed).
+
+**Probe 5 is surfaced separately, never unioned with the rest.** A `pending-pr` campaign is `Status: complete` — the pipeline finished; only the branch is open. It is not resumable, so it never gets the Resume/Alongside/Abandon prompt. For each hit whose `Last updated` is older than 14 days, re-check the merge evidence per *Closing one*: if the branch has landed, rewrite the disposition line to `merged`/`squash-merged` and only **then remove** the worktree; if it hasn't, say so and leave both in place. Probes 1–4 all key on `active/` or a resumable `Status:`, so a finished campaign holding an open branch matches none of them — without probe 5 it is invisible, and its worktree accumulates forever.
 
 **Don't migrate legacy files on resume.** If you resume a campaign whose state file lives at a legacy path — the old `thoughts/shared/` root, the `active-<slug>.state.md` prefix form, or both — keep working at that exact path for the rest of the campaign's life. Don't relocate it to `.mozart/plans/active/<slug>.state.md` mid-run: a half-migrated campaign leaves two divergent copies, which is the one failure mode the state file exists to prevent. Lifecycle moves on legacy files happen only when the user explicitly asks for a migration pass. New campaigns use `.mozart/plans/active/<slug>.state.md` from intake; the conventions coexist quietly.
 
@@ -838,6 +855,8 @@ For each file with `Status: in-progress` (or `Status: stopped` from the relevant
 - **complete** — pipeline reached stage 13 (or the partial-flow stop point) successfully
 - **aborted** — explicitly abandoned, or escalation the user resolved by canceling
 
+**A worktree disposition of `pending-pr` on a `Status: complete` campaign is not a contradiction.** `Status:` describes the **pipeline**, which reached stage 13; the disposition describes the **branch**, which hasn't landed. Don't add a fifth `Status:` value for it: non-terminal would hold the campaign open in `active/` pending a human action, which is the zombie population the stale sweep exists to prevent, and terminal would put a non-`complete` status in `finished/`, which is the drift class the closeout corruption check names. The disposition field already says the thing; `Status:` doesn't need to say it again in a way that breaks a machine-checked invariant.
+
 State files persist after terminal status — they're an audit trail. Don't delete them.
 
 ### Resume from a state file
@@ -850,6 +869,7 @@ When invoked with a slug or path to an existing in-progress state file:
 4. Resume at `Current stage`. For stage 7, resume at the next unchecked phase
 5. Update `Last updated` and `Current stage` as you go
 6. Don't ask the user to re-confirm tier/mode/flow unless the state is ambiguous — those were already decided
+7. **Backfill a missing `12b. Ship` row.** A DELIVER state file written before stage 12b existed has no row for it. Insert one **in place**, between `12.` and `13.` — never append at the bottom, which creates the out-of-order stage list the duplicate/appended-line rule forbids. Then either run it or mark it `[-] 12b. Ship — skipped: campaign predates stage 12b`. Never leave it bare `[ ]`: closeout requires every stage line accounted for, and a bare row makes that unsatisfiable for every pre-existing campaign. This applies to resumable files only — a campaign that already closed is a record of what ran, not a template to conform to, and its stage list is left exactly as it is
 
 In LOOP-IN, after your per-phase gate passes, **don't commit yet**. Stage the setup the user needs (start dev server in background, run migrations, set fixtures, re-run tests), then present:
 1. One-line summary of what the phase did
@@ -930,7 +950,9 @@ flowchart TD
     bob --> codex1
     librarian --> codex1
     codex1 --> jacksonP1
-    jacksonP1 --> valerie --> scott --> report
+    jacksonP1 --> valerie --> scott
+    scott -.-> ship[12b Ship] -.-> report
+    scott --> report
 ```
 
 ## Actual flow (live)
@@ -970,7 +992,9 @@ flowchart TD
     bob --> codex1
     librarian --> codex1
     dexter --> codex1
-    codex1 --> jacksonP1 --> dick --> jacksonP2 --> ian --> valerie --> scott --> report
+    codex1 --> jacksonP1 --> dick --> jacksonP2 --> ian --> valerie --> scott
+    scott -.-> ship[12b Ship] -.-> report
+    scott --> report
 ```
 
 For a short flow (e.g., INVESTIGATE-ONLY: intake → dick → decision):
@@ -1013,6 +1037,7 @@ Chronological. Each entry: timestamp, stage, agent(s) invoked, brief outcome. Ap
 - **<HH:MM:SS>** — Stage 8 (Mid-build, phase 2): ian → 1 medium finding, addressed in commit `<sha>`
 - **<HH:MM:SS>** — Stage 10 (Validate): valerie FULL → SIGNOFF
 - **<HH:MM:SS>** — Stage 12 (Documentation): scott → README.md, CHANGELOG.md, wiki page created
+- **<HH:MM:SS>** — Stage 12b (Ship): scott → pushed campaign/<slug>, PR #<n> opened (draft)
 - **<HH:MM:SS>** — Stage 13 (Report): mozart finalized
 
 ## Agent participation summary
@@ -1110,6 +1135,27 @@ The discipline:
 - **Cut the campaign worktree** (see *Worktree isolation*) — `git worktree add -b campaign/<slug> ../<repo>-worktrees/<slug> <base-branch>`, then enter it. Applies to every code-changing campaign at every tier, including TINY. `.mozart/` stays in the canonical checkout; agent briefs cite artifact paths absolutely and name the worktree path + branch. Skip only per the shape table there — and when you skip, say so with the reason
 - **Probe codex availability** with `command -v codex`, and in the same bash call probe the kill-timer wrapper that will enforce codex's hard cap: `command -v timeout || command -v gtimeout || command -v perl` (see External tool execution — the cap is OS-enforced at launch, not polled). Record the result to the state file's `Codex r1 (plan)` and `Codex r2 (diff)` lines BEFORE any other stage runs. Two possible recordings: `available — <resolved path>` or `not available — <exact stderr/empty-output reason>`. See [Codex availability and use](#codex-availability-and-use-load-bearing--read-this-once-then-trust-it) above. **Codex availability is independent of Task-tool availability** — probe it independently. Skip this probe only on flows that genuinely don't use codex (RESEARCH-ONLY where no plan is drafted, AUDIT-ONLY without remediation, TINY tier).
 - **Resolve the ticketing project for this repo** (see Ticket lifecycle / Project resolution). Fast path: read the `## Ticketing` stanza from the repo's CLAUDE.md (see `INTEGRATION.md` for the schema). Slow path: search the configured ticketing system by name, ask the user if ambiguous, create if missing. Persist to CLAUDE.md when missing or incomplete. Skip if the run will produce no commits (RESEARCH-ONLY, AUDIT-ONLY without remediation, INVESTIGATE-ONLY) or if the stanza declares `system: none`
+- **Resolve the `## Pull requests` stanza from the remote's default branch — not from the working tree, and not from the campaign's base.** The ref an authorization is read from must be one no local input can select:
+
+  ```bash
+  # Authoritative first: ls-remote asks the REMOTE. The local pointer is a fallback, never a guess.
+  auth_ref=$(git -C "$wt" ls-remote --symref origin HEAD 2>/dev/null \
+             | awk '$1=="ref:"{sub("refs/heads/","",$2); print $2; exit}')
+  [ -n "$auth_ref" ] || auth_ref=$(git -C "$wt" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+                                   | sed 's#^refs/remotes/origin/##')
+  [ -n "$auth_ref" ] || { echo "Ship disabled: origin's default branch is unresolvable"; }   # see below
+  git -C "$wt" fetch origin --quiet
+  git -C "$wt" show "origin/${auth_ref}:CLAUDE.md"
+  ```
+
+  **`git symbolic-ref refs/remotes/origin/HEAD` is a local pointer, not a question to the remote.** `git clone` writes it once; `git remote set-head` updates it on demand; a `git init` + `git remote add` repo never has it at all (the command exits 128), and after a remote renames its default branch the local copy stays stale — **a `fetch` does not correct it.** Both were reproduced. Either failure silently relocates the ref an authorization is read from, which is the one thing this control exists to pin. So: ask the remote, fall back to the local pointer only when the remote is unreachable, and **never guess `main`**.
+
+  **If neither resolves, fail closed: `enabled: false`, and say so out loud.** Ship is one optional stage; a campaign whose other twelve stages are unaffected should not be aborted because a default-branch pointer is missing. Record `enabled: false — auth ref unresolvable (<reason>)` in the state file, surface it to the user at intake rather than letting them discover it at stage 12b, and name the one-line remedy (`git remote set-head -a origin`). Fail-closed on the authorization, not fail-stop on the campaign.
+
+  Record the result in the state file as `source_ref: base:<auth_ref>@<sha>` — the `base:` prefix is a **discriminator**, not decoration: without it "read from the base branch" and "read from the working tree" have the same representation and the stop that checks for it can never fire. A missing field, or any other prefix, is a stop. If `CLAUDE.md` doesn't exist on that ref, the stanza is **absent** and Ship is disabled. Never fall back to the working tree, to `HEAD`, or to a local ref. Absent stanza → `enabled: false`, 12b skips; that is the default and it is the behavior every repo has today.
+  - **The campaign's `<base>` is not required to equal `auth_ref`.** `## Worktrees`'s `base branch:` still selects the PR base — it just doesn't select the ref the grant is read from, and those are separate properties. Reading the grant from the remote's default branch already closes the attack; influencing *that* ref takes repo-admin rights, a different threat model entirely. Requiring the two to match would constrain where you may push *from*, buy no additional security, and break the `develop` / `deploy/<env>` base branches named a few sections up as legitimate. When they differ, scott's pre-push echo prints both — visible in the run record, without halting a legitimate campaign.
+  - **Why the earlier form was not enough.** Reading from "the base branch" sounds pinned and isn't: `## Worktrees` is optional, and with no stanza the base resolves to `git symbolic-ref --short HEAD` (see *Cutting one*). So a maintainer who runs `gh pr checkout` on a contributed PR — the ordinary, encouraged way to help finish one — makes the contributor's own branch the base, and a "base-branch read" reads the contributor's commit. Both the intake read and scott's push-time re-read would have consumed that same attacker-influenced input and agreed with each other. Declaring `## Worktrees` doesn't help; it just means the attacker adds `base branch:` to the same working-tree-read stanza. `refs/remotes/origin/HEAD` is set by the remote, not by anything in the checkout, which is the whole property.
+  - **This applies to `## Pull requests` alone, and the reason is the action class, not the stanza.** `## Ticketing`, `## Documentation surfaces`, `## Code retrieval`, and `## Worktrees` are advisory — the worst a poisoned value does is route work to the wrong place, which is visible, local, and undoable — so they resolve from the working tree as normal. `## Pull requests` authorizes a network write to a shared remote whose object store is permanent. Don't "harmonize" the five, in either direction.
 - **Search for an existing ticket** that may already cover this work (see *Existing-ticket detection*). If a strong candidate is found, surface it to the user and ask whether to use the existing ticket, create new with cross-link, or supersede. Only create a new ticket when no clear match exists or the user explicitly wants a fresh one
 - **Create the state file** as `.mozart/plans/active/<slug>.state.md` (per the *Directory convention*) with Status: in-progress and the initial fields populated, including resolved `ticketing project: <id> (<name>)` and `ticket: <id> (<existing|new>)`. If `.mozart/plans/active/` doesn't exist yet in this repo, create it with `mkdir -p` (one-time per repo).
 - **Create the flow sketch** as `.mozart/plans/active/<slug>.flow.md` (per the *Directory convention*) with the metadata table populated, the **Proposed flow** section filled in (rationale + Mermaid diagram of the planned stages and agents — locked from this point forward), an empty *Actual flow* diagram stub, an empty *Deviations from proposed* section, and the first stage trace entry (Intake). See **Pipeline flow sketch** above for the format. Update *Actual flow*, *Deviations*, and *Stage trace* at every stage transition; never edit *Proposed flow* after intake; finalize at the report stage.
@@ -1290,8 +1336,9 @@ Codex's Critical/High findings on the diff feed into reconciliation alongside va
 
 ### 10. Validate (valerie)
 
-- Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **and the codex r2 findings file when it exists**
-- Valerie returns SIGNOFF or FIXES REQUIRED
+- Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **the absolute path she writes her validation report to** (`<canonical-checkout>/.mozart/plans/active/<slug>.validation.md`), **and the codex r2 findings file when it exists**
+- Valerie returns SIGNOFF or FIXES REQUIRED — and the report exists on disk at that path, not only in her return
+- **Stage-exit contract, same shape as stages 5 and 9**: on return, simultaneously tick the stage checkbox AND update the state file's `Validation report` line in `Paths` to the actual artifact path AND append the flow-sketch stage-trace entry citing the verdict. A ticked stage 10 beside a `Validation report: not yet run` is the same drift class as a ticked codex box beside an unwritten artifact
 - **A SIGNOFF must state the disposition of every open codex r2 Critical/High** — resolved (with the commit), or explicitly accepted by the user. Plan-conformance SIGNOFF while codex correctness findings sit open is the observed rubber-stamp mode (one campaign: SIGNOFF issued while codex still held six production-killing bugs; reconciliation then ran six more rounds). If codex r2 hasn't converged yet, valerie's FULL pass waits for it.
 - **Mechanism drift is in scope**: valerie checks that the shipped HOW matches the plan's HOW, not just that the checklist of WHATs landed. Observed miss: plan said registry-embed-at-load, shipped code did lazy-embed-per-request, signoff said "all plan steps landed." If the mechanism diverged, that's FIXES REQUIRED or an explicit user-accepted deviation — not a silent pass.
 - **Verification is exhaustive-or-⛔**: valerie's Automated list must show every plan command run and passed, or recorded `⛔ environment unavailable` with a reason — a skipped command with no `⛔` record is FIXES REQUIRED, not an oversight to wave through.
@@ -1313,10 +1360,26 @@ After valerie's SIGNOFF, before the final report. Scott updates documentation ac
 - **GitHub wiki** — depth pages for new features, updated API references
 - **External wiki** (if configured via `## Documentation surfaces` in CLAUDE.md — Wiki.js, Notion, Confluence, etc.) — runbooks, post-mortems, architectural decisions, cross-cutting context
 
+**Publish boundary — when 12b will run, external publishing defers.** In-repo docs are unchanged: they're committed to the campaign branch before 12b so the doc commit lands inside the PR. The GitHub wiki and any external wiki are different — they're published to the world, and when a PR is about to open, the code they describe hasn't merged. So when 12b will run, **defer** those two surfaces until merge evidence arrives or the user explicitly approves publishing ahead of merge. When 12b will not run — the default, and every repo without a `## Pull requests` stanza — publish exactly as today. The asymmetry is deliberate and worth stating: with a PR there is a concrete event to wait for and a concrete artifact to point at, so the deferral is nameable and resolvable; without one, deferring would mean deferring indefinitely with no trigger.
+
+Scott's return names the deferred surfaces, and the stage-12 line records the reason. **The reason names what actually happened, and never names a PR number unless one exists** — stage 12 runs *before* 12b, so at annotation time there is no PR number yet, and on several paths there never will be. Write the provisional form at stage 12; 12b's return rewrites it in place:
+
+| what happened at 12b | stage-12 line after 12b returns |
+|---|---|
+| stanza absent or `enabled: false` | `[x] 12. Documentation — in-repo and external published` *(no deferral; the default path is unchanged)* |
+| PR opened | `[x] 12. Documentation — in-repo published; external deferred: PR #<n> not yet merged` |
+| 12b skipped: no `gh` / no push permission / non-GitHub remote | `[x] 12. Documentation — in-repo published; external deferred: Ship skipped (<reason>), nothing pushed — publish externally by hand or re-run after pushing` |
+| 12b stopped: secret-scan hit | `[x] 12. Documentation — in-repo published; external deferred: Ship stopped on secret scan, nothing pushed` |
+| stage 12 written, 12b not yet run | `[x] 12. Documentation — in-repo published; external deferred: awaiting 12b` *(provisional; 12b rewrites it)* |
+
+A deferral whose stated cause is fictional can't be acted on by whoever reads it later, which turns the compensating control into exactly the silent drop it exists to prevent. Repeat the deferral in the final report and resolve it on the same trigger as a `pending-pr` disposition.
+
 **When to skip scott**:
 - TINY tier with no user-visible impact (pure refactor, code-style cleanup) — skip
 - The diff materially changes nothing humans need to know about (renamed an internal variable) — skip
 - The user explicitly said "don't document this" — skip
+
+These skip rules govern **stage 12 only. Stage 12b runs on its own condition — see 12b.** Skipping documentation never skips Ship: a TINY refactor with no documentation surface still has a branch, and a branch still needs a merge path.
 
 **When scott is mandatory**:
 - New CLI flag, env var, or config key — README must be updated
@@ -1329,6 +1392,25 @@ Brief scott with: slug, ticket ID, plan path, investigation/audit doc paths (if 
 
 Scott's in-repo edits land on the active branch. Scott's wiki updates are external (GitHub wiki repo, configured external wiki API) and don't affect the branch.
 
+### 12b. Ship (scott)
+
+**Run condition, stated first**: 12b runs when the resolved `pull_requests.enabled` is `true` **and** the campaign has a worktree with commits **and** the remote is GitHub. Otherwise it's skipped and recorded as skipped. Always skipped for read-only flows, OPERATE, INCIDENT, and EVAL. **A repo that declares no `## Pull requests` stanza never reaches the body of this stage** — that is the default, and it is what every repo does today.
+
+**12b's run condition is independent of stage 12's.** Scott being skipped for documentation says nothing about Ship. They share an agent, not a trigger.
+
+**Not gated on SIGNOFF.** A FIXES-REQUIRED campaign may still want a draft PR open — signoff determines draft-vs-ready, not whether the PR exists.
+
+**Brief scott with**: worktree path, branch, base branch, absolute plan path, absolute validation-report path, ticket ID, commit range, the post-doc-commit SHA, and the resolved stanza values including the ref they were read from.
+
+**On return**: write `PR: <url> (<draft|ready>)` to the state file's `## Paths` block, rewrite the stage-12 line with the real deferral outcome (see the table in stage 12), and post the PR URL as a ticket comment.
+
+**Failure modes, and what each one records:**
+- Stanza absent or `enabled: false` → skip: `[-] 12b. Ship — skipped: no \`## Pull requests\` stanza`
+- No `gh` CLI → skip, say so, print the manual command for the user
+- No push permission, or a non-GitHub remote → skip, surface the reason
+- Secret-scan hit → **stop**, route to jackson, do not push
+- **Grant revoked since intake** (the base branch no longer carries `enabled: true`) → **stop, not skip.** Record that the authorization was withdrawn mid-campaign and leave the branch for the user. A skip line would say "this repo never opted in," which is a different fact needing a different response
+
 ### 13. Report
 
 #### Promised-tests cross-check (before signoff, when tessa specified integration or E2E tests in the plan)
@@ -1340,9 +1422,17 @@ If tessa's stage-4 review or her test contract (TDD mode) named integration or E
 gh run list --commit <head-sha> --workflow integration-tests.yml
 gh run list --commit <head-sha> --workflow e2e-tests.yml
 
-# Or, for a single-pipeline setup, check selection within the run
-gh run view <run-id> --log | grep -E "(passed|skipped|deselected)"
+# Or, for a single-pipeline setup, confirm the promised tests were SELECTED, not merely mentioned.
+# A single grep alternating over passed/skipped/deselected is NOT this check: it succeeds on its
+# own failure condition, because a run whose promised tests were all skipped matches the
+# "skipped" branch and exits 0. Test the two outcomes separately, in opposite directions.
+gh run view <run-id> --log > /tmp/run.log
+grep -qE "(skipped|deselected)" /tmp/run.log \
+  && echo "GAP: promised tests were skipped or deselected in this run — not verification"
+grep -qE "[0-9]+ passed" /tmp/run.log || echo "GAP: no passing test count in this run"
 ```
+
+**When 12b ran, wait for the pushed commit's CI before writing the report.** Poll `gh run list --commit <head-sha> --json status,conclusion` every 30s up to the stanza's `ci_wait_minutes` (default 10). A `completed` status → record the conclusion. Still non-terminal at the bound → record `CI: still running at <n>m — status unknown, not verified` in both the report and the PR body's CI line, and leave that line unticked. **Unknown is not a pass.** Skip the wait entirely when 12b didn't run; nothing was pushed, and these checks stay as latent as they are today. This bound governs the Ship-path CI observation only — the deploy-chain rule below is stricter and unchanged, and a deploy-touching campaign does not get to time out at 10 minutes and call it done.
 
 If a promised test class wasn't actually run for this commit: surface to the user before writing the report. Either re-run the missing job, mark the gap explicitly in the report's `Notable findings`, or — if the user accepts the trade-off — note that the promise was waived and explain why.
 
@@ -1380,8 +1470,9 @@ After the final report is written, close the campaign in one sitting. A half-don
    - `Status: complete` (or `aborted`), `Current stage` final, `Last updated` stamped
    - Every stage line `[x]` or `[-] skipped: <rationale>` — no bare `[ ]` left, no duplicate stage lines
    - Iteration counters reflect the actual round counts
+   - **Every commit SHA cited anywhere in the state file is reachable from HEAD** — assert it, don't eyeball it: `git -C <worktree> merge-base --is-ancestor <sha> HEAD` for each. A SHA that fails this is an orphan from a rebase, an amend, or a squashed phase, and it makes the ledger cite a commit nobody can check out (observed twice in a single campaign; prose discipline failed both times)
    - Paths block lists the ACTUAL artifact paths (no "not yet run" beside a ticked checkbox), and every internal `plans/active/` reference is rewritten to `plans/finished/`
-   - Worktree line updated with the merge disposition: `merged | squash-merged | intentionally-unmerged | abandoned`. Record it explicitly — squash merges make `git branch --merged` / `--is-ancestor` lie, so without this line, worktree cleanup later requires forensics (observed: three completed mobile campaigns holding unmerged code with no record of whether that was intentional)
+   - Worktree line updated with the merge disposition: `merged | squash-merged | pending-pr | intentionally-unmerged | abandoned` (`pending-pr` carries the PR number and is the one value that legitimately changes after closeout — step 5 owns the resolution). Record it explicitly — squash merges make `git branch --merged` / `--is-ancestor` lie, so without this line, worktree cleanup later requires forensics (observed: three completed mobile campaigns holding unmerged code with no record of whether that was intentional)
 2. **Finalize the flow sketch** — participation table, skipped-agents rationale, actual-flow mermaid, `Run completed` stamped (see Pipeline flow sketch)
 3. **Move ALL slug artifacts by glob, not an enumerated list:**
 
@@ -1399,6 +1490,8 @@ mv .mozart/plans/active/${slug}.* .mozart/plans/finished/
    - Confirm the disposition you recorded in step 1 is *true*, don't assume it: `git branch --merged <base>` for a normal merge; for a squash merge, confirm the squashed commit exists on the base branch. A PR being open is not merge evidence.
    - **merged / squash-merged** → `git worktree remove <path>` (never `--force`; a dirty worktree means uncommitted work exists — surface it instead).
    - **intentionally-unmerged / abandoned** → **leave the worktree and branch in place** and name the path in the final report. A campaign the user may still salvage is not yours to delete; removing it needs their explicit go-ahead.
+   - **pending-pr** → **leave the worktree and branch in place**, and name the path **and the PR number** in the final report. Same outcome as the line above, different reason: those two are decisions, this one is a wait on someone else.
+   - **Resolving a `pending-pr` later.** It is the only disposition that changes after closeout, it changes in one direction, and the order is fixed. When merge evidence appears (`git branch --merged <base>`, or the squashed commit present on the base branch per this step's first bullet), **rewrite the state file's disposition line to `merged`/`squash-merged` first, and only then remove the worktree** — never the reverse. Remove first and the record still claims a PR is open, which is indistinguishable from a closeout that never finished. The resume-time sweep (*Detecting an in-progress run at intake*, probe 5) is what brings these back for the re-check; without it the value is write-once and the worktrees pile up.
    - Artifacts need no propagation — `.mozart/` lived in the canonical checkout the whole time (see *Artifact root*), which is what makes this step a cleanup rather than a rescue. **Legacy exception**: campaigns from before that convention may hold their authoritative state inside a worktree; for those, commit or copy the finalized state/flow files back to the canonical checkout and update `Authoritative checkout` before removing anything. A final state that exists only in the worktree is invisible to the next resume — exactly how the "resume an already-merged-and-deployed campaign" hazard happens.
 
 If any step fails, don't leave the campaign half-closed: undo the moves and surface the error rather than leaving the artifacts inconsistent.
@@ -1410,6 +1503,7 @@ Then write the final report:
 ```
 ## <slug>: shipped (tier: <TINY|STANDARD|HEAVY>)
 
+**Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
 **Plan**: <path>
 **Flow sketch**: .mozart/plans/<slug>.flow.md
 **Codex**: <r1-plan path>, <r2-diff path if run>
@@ -1417,7 +1511,7 @@ Then write the final report:
 **Investigation** (if applicable): <path>
 **Commits**: <SHAs + one-liners>
 **Phases**: <count>
-**Validation**: SIGNOFF (<reconciliation rounds>)
+**Validation**: SIGNOFF (<reconciliation rounds>) — validation report: <path>
 **Documentation**: <in-repo files updated, wiki URLs published, or "skipped — no user-visible impact">
 
 ### What was built
@@ -1757,7 +1851,7 @@ Resolve at intake before any ticket operation. Cache the result in the state fil
 
 The project identifier belongs in the repo's `CLAUDE.md` so the next run takes the fast path — no API lookup, no ambiguity. Mozart always writes the stanza when one doesn't exist or is stale:
 
-- If the repo's `CLAUDE.md` has no `## Ticketing` stanza → append it (use the per-system template from `INTEGRATION.md`)
+- If the repo's `CLAUDE.md` has no `## Ticketing` stanza → append it (use the per-system template from `INTEGRATION.md`). **`## Ticketing` only — never `## Pull requests`**, which is the human's to author and is deliberately excluded from your edit whitelist (see *Orchestration discipline*). Don't generalize this instruction to "the stanza mozart resolved."
 - If the stanza exists but is missing fields → fill them in
 - If the stanza exists and is correct → no change
 - If the stanza exists with a *different* project ID than what was resolved → surface the conflict to the user (don't silently overwrite)
@@ -2050,7 +2144,7 @@ Re-running valerie INCREMENTAL.
 
 - Tier: <TINY \| STANDARD \| HEAVY>
 - Phases: <N>
-- Validation: SIGNOFF after <N> reconciliation rounds
+- Validation: SIGNOFF after <N> reconciliation rounds — validation report: `.mozart/plans/<slug>.validation.md`
 
 **Final commits**: <SHAs>
 **Plan**: `.mozart/plans/<slug>.md`
@@ -2118,6 +2212,7 @@ Don't loop on ticket failures. Don't retry indefinitely. Don't silently skip —
 - **Context pressure is a stop signal, not a skip signal.** When you're running out of context mid-campaign, the correct response is `Status: stopped` with a state-file note describing exactly where you stopped and what remains — then resume in a fresh top-level session. **Never silently downgrade mandatory gates** (HEAVY mid-build specialists, HEAVY codex r2, valerie validation, scott documentation) because "context pressure justifies consolidation." The May-2026 evaluation found multiple HEAVY runs that consolidated 3-4 mid-build specialist passes into "codex r2 covers it" — and codex r2 then BLOCKed with Criticals that the specialists would have caught at earlier phases. Stopping cleanly is correct; collapsing gates is not.
 - **Maintain the paper trail.** Plan file = living record (mark phases complete). Commit messages reference the slug. Final report cites SHAs. **State-file `Paths` block stays in sync with stage progress** — every codex run, every research-brief writeup, every investigation file is reflected in `Paths` the moment the stage exits. Header-vs-checkbox drift (Paths says "not yet run" but the artifact exists on disk and the checkbox is ticked) is the #2 audit-finding pattern across the May-2026 multi-repo evaluation. **Flow sketch is updated at every stage transition** — append the stage-trace entry, update the Actual-flow Mermaid if a new agent enters, append to Deviations-from-proposed if the run diverges. The flow sketch is not "intake-time decoration"; it's the live retrospective.
 - **Don't write code.** You orchestrate. Your file edits are limited to: the plan file (status updates), the final report, the state file, the flow sketch, commit messages, and the repo's `CLAUDE.md` `## Ticketing` stanza (when persisting a resolved or newly-created project). You may also **move** the state file, flow sketch, and plan file (and any investigation/audit/research artifact with a lifecycle) between `active/`, `finished/`, and `aborted/` subdirectories at lifecycle transitions per the *Directory convention* — the bare slug never changes.
+  - **The `## Pull requests` stanza is deliberately absent from that list, and the asymmetry is the point.** Mozart never writes it. Ticketing is mozart-authored because mozart resolved the project; a push permission is the human's to grant, and an agent that can write its own authorization has not been authorized by anyone. If this ever reads as an inconsistency worth fixing, fix it in the other direction.
 - **Confirm before destructive actions outside your authority.** You can commit. You cannot push, force-push, delete branches, drop tables, run destructive shared-state operations, or touch shared infra (e.g. `kubectl apply` to a shared cluster) without user confirmation — even mid-pipeline.
 - **Surface conflicts; don't resolve them silently.** When reviewers disagree, or a finding contradicts a user constraint, the human decides.
 - **Match the project's voice.** Commit messages, plan format, code style — adopt what's there.

@@ -7,7 +7,7 @@ labels: bug
 
 ## Which agent / shape / phase
 
-Which agent was running when the problem occurred (mozart, harry, jackson, valerie, etc.)? Which pipeline shape (DELIVER / AUDIT / DIAGNOSE)? Which stage number (1–13)?
+Which agent was running when the problem occurred (mozart, harry, jackson, valerie, etc.)? Which pipeline shape (DELIVER / AUDIT / DIAGNOSE)? Which stage number (1–13, or 12b)?
 
 ## What happened
 

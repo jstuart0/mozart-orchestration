@@ -103,7 +103,7 @@ You run in one of two modes — the orchestrator (mozart) tells you which:
 7. **Run the plan's Automated verification** — every command, exit codes recorded. This list is not optional and not sampled; a command you skipped is a gap, not a pass. Where a command cannot run because its environment is genuinely unavailable (no cluster, no network, no credential), record it as `⛔ <command> — environment unavailable: <reason>` — never silently, never as a pass, and always after actually attempting it. Carry the plan's **Manual** list forward untouched into your report — you do not tick manual items, and you do not convert one into an automated pass because a related command happened to succeed. The binding verification-list rule in harry's plan template applies here: no substitution, no weakening, and no reclassification after stage-4 convergence; any violation is FIXES REQUIRED unless it went through the iterate path as an explicit plan amendment.
 
    If the plan predates the Automated/Manual split and carries one undifferentiated Verification section, do not infer pass/fail silently. Report FIXES REQUIRED: the plan requires a verification-split amendment before validation — unless the user explicitly authorizes a one-time compatibility pass, which records every legacy item as unmapped and never counts a missing command as passed.
-8. **Report**
+8. **Report** — **write the report to the absolute `<slug>.validation.md` path in mozart's brief, then return it.** Both, not either. The returned message is what mozart acts on in the moment; the file is what survives a context reset, and mozart's final report and signoff comment both cite verification facts that have no other source. Use the absolute path exactly as briefed — a relative `.mozart/...` won't resolve if your cwd is the campaign's git worktree, same rule as step 1. If the brief omits the path, say so and write to `<canonical-checkout>/.mozart/plans/active/<slug>.validation.md`
 
 **INCREMENTAL** (reconciliation rounds after a FIXES REQUIRED report):
 - The orchestrator passes you the previous punch list and the new commits since
@@ -112,6 +112,7 @@ You run in one of two modes — the orchestrator (mozart) tells you which:
 - Confirm no new ripples were introduced by the fix (read the changed files end-to-end)
 - Don't re-audit plan steps that already passed in the previous round — that's wasted effort
 - Report in the same format, but mark items previously closed as "(closed prior round)" and focus the verdict on the punch-list items
+- **One validation artifact per campaign** — reconciliation rounds append to the same `<slug>.validation.md` file under a `## Round <N>` heading. Never write a sibling (`<slug>.validation-r2.md`), never overwrite the prior round: the closeout glob moves the artifact by slug, and a reader tracing why a signoff was issued needs every round in one place, in order
 
 ## Report format
 

@@ -6,7 +6,7 @@ For now, the authoritative references are:
 
 - [`../agents/PIPELINE.md`](../agents/PIPELINE.md) — full pipeline reference: shapes (DELIVER / AUDIT / DIAGNOSE), tiers, partial flows, multi-campaign mode, codex CLI integration, authority boundaries, and the complete agent roster. Every specialist persona links here.
 - [`../agents/LEARNINGS.md`](../agents/LEARNINGS.md) — append-only field-notes protocol for specialists to record cross-project patterns.
-- [`../INTEGRATION.md`](../INTEGRATION.md) — how to wire ticketing and documentation surfaces (Plane, Linear, Jira, GitHub Issues, Notion, Wiki.js, Confluence, GitHub Wiki) per-repo via a `CLAUDE.md` stanza.
+- [`../INTEGRATION.md`](../INTEGRATION.md) — how to wire the five pluggable surfaces per-repo via a `CLAUDE.md` stanza: Ticketing (Plane, Linear, Jira, GitHub Issues, none), Documentation surfaces (Notion, Wiki.js, Confluence, GitHub Wiki, in-repo), Code retrieval, Worktrees, and Pull requests.
 - [`../agents/README.md`](../agents/README.md) — specialist and support-agent roster with models, stage assignments, and the persona-format scaffold.
 
-PIPELINE.md and LEARNINGS.md live in `agents/` because every persona file links there by relative path. Moving them would require updating ~25 cross-references across 14 agent files; the index above is the preferred discovery path.
+PIPELINE.md and LEARNINGS.md live in `agents/` because nearly every persona file links there by relative path. Moving them would require updating 53 cross-references across 21 files in `agents/`; the index above is the preferred discovery path.

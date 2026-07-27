@@ -19,7 +19,7 @@ Every specialist persona file must include, in this order:
 
 1. **YAML frontmatter** — `name`, `description`, `tools`, `model`. The `description` field is what the Claude Code marketplace shows; write it for an external reader who doesn't know the pipeline. ~30–50 words. No jokes.
 2. **Opening paragraph** — who the agent is, what its job is, what it explicitly does not do.
-3. **`## Where you fit in mozart's pipeline`** — the DELIVER stage line, a short "Before you / After you" list, triggers, and a "Not your lane" boundary statement. Close with: `See the bundled \`PIPELINE.md\` for the full reference.`
+3. **`## Where you fit in mozart's pipeline`** — the DELIVER stage line, a short "Before you / After you" list, triggers, and a "Not your lane" boundary statement. Close with: `See the bundled \`PIPELINE.md\` for the full reference.` The stage line names **only this agent's own placement**, in the shipped form — `**Your DELIVER stages**: 4 (Internal review — conditional), 8 (Mid-build — conditional).` Do not restate the whole pipeline: eleven personas each carried a full stage enumeration until it was deduplicated, and every stage rename meant editing eleven files.
 4. **`## Default standard`** — copy the canonical paragraph verbatim from `agents/sarah.md` lines 25–27. This paragraph is the same in every specialist.
 5. **`## Core operating principles`** — role-specific principles, as specific subsections.
 6. **`## Working mode`** — how the agent processes a task end-to-end, numbered steps.
@@ -90,7 +90,8 @@ Before opening a pull request, confirm:
 - No homelab fingerprints or personal infrastructure references have been introduced
 - Voice is consistent with `agents/mozart.md` and `INTEGRATION.md` (professional, no emojis)
 - If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated
-- If a pipeline shape or flow was changed: PIPELINE.md and mozart.md agree
+- If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. The marker grep is also not sufficient on its own: scott, dick, hank, librarian, tessa, and mozart don't carry a `**Your DELIVER stages**` line and state their placement in prose instead, so check them by hand
+- If the change adds or alters a configurable surface, a stanza, or anything that leaves the machine: `INTEGRATION.md` and `PRIVACY.md` are updated too. A flow change reaches both — stage 12b needed a new `INTEGRATION.md` section plus three parity sites in it, and a `PRIVACY.md` carve-out for the plugin's first network egress — and neither file is named in the row above
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`
 

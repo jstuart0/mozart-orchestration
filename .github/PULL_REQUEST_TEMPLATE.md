@@ -36,7 +36,8 @@ Closes #
 - [ ] No homelab fingerprints or personal infrastructure references introduced
 - [ ] Voice is consistent with `agents/mozart.md` and `INTEGRATION.md` (professional, no emojis)
 - [ ] If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated
-- [ ] If a pipeline shape or flow was changed: PIPELINE.md and agents/mozart.md agree
+- [ ] If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it (`.claude-plugin/*.json` isn't markdown, so `--include="*.md"` sweeps miss it; and not every persona uses the `**Your DELIVER stages**` form — scott, dick, hank, librarian, tessa, and mozart state placement in prose, so a grep for that marker alone will skip them)
+- [ ] If the change adds or alters a configurable surface, a stanza, or anything that leaves the machine: `INTEGRATION.md` and `PRIVACY.md` are updated too — a flow change reaches both, and neither is covered by the row above
 - [ ] CHANGELOG.md has an entry for this change (if user-visible)
 - [ ] JSON files validate
 

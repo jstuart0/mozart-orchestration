@@ -50,9 +50,9 @@ Semantics:
 
 ## Mechanical metrics (scripts/mozart-lint.sh)
 
-| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts |
-|---|---|---|---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts | missing-12b |
+|---|---|---|---|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
 Trend vs previous run: <deltas, or "baseline — no comparison">
 
@@ -65,7 +65,17 @@ Trend vs previous run: <deltas, or "baseline — no comparison">
 Source: each campaign's state-file `## Findings ledger` (one row per dispositioned
 finding: stage, lens, severity, fixed/rejected/accepted-risk) and `## Escapes`
 block (`Traces-to:` links written when a later DIAGNOSE or audit finds a defect
-the campaign shipped). What the columns decide:
+the campaign shipped).
+
+**`## Degraded controls` is a separate block and is deliberately not counted here.**
+It records checks that ran at reduced strength (e.g. stage 12b with no secret
+scanner installed, falling back to a fixed pattern set). Those are not escapes —
+nothing necessarily shipped — and folding them into the `## Escapes` denominator
+would deflate DRE for every affected campaign. Read it qualitatively, alongside
+the ledger: a control degraded on many campaigns is a tooling gap to close, not a
+defect to attribute.
+
+What the columns decide:
 
 - **Catches by stage** — a stage whose catches nothing upstream found is earning
   its keep; a stage that only re-derives upstream findings is a candidate to demote.
