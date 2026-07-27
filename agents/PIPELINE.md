@@ -370,13 +370,13 @@ A plan or diff reviewed only by agents in the same conversation context has corr
 
 ```bash
 # Stage 5 — review the plan
-codex exec --skip-git-repo-check "Read CLAUDE.md and .mozart/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. Write findings to .mozart/plans/<slug>.codex-r1-plan.md as severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block."
+codex exec -o .mozart/plans/<slug>.codex-r1-plan.md --skip-git-repo-check "Read CLAUDE.md and .mozart/plans/<slug>.md. As a senior solution architect, review the plan for correctness, sequencing, risk coverage, alignment with CLAUDE.md, and missing considerations. Emit your findings as your final message — severity-tagged markdown (Critical/High/Medium/Low) with a recommendation: proceed, iterate, or block, and nothing after them."
 
 # Stage 9 — review the diff
-codex exec --skip-git-repo-check "Read CLAUDE.md, .mozart/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git -C <worktree-path> diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Write findings to .mozart/plans/<slug>.codex-r2-diff.md."
+codex exec -o .mozart/plans/<slug>.codex-r2-diff.md --skip-git-repo-check "Read CLAUDE.md, .mozart/plans/<slug>.md, and the diff between <base-commit> and HEAD (run: git -C <worktree-path> diff <base-commit>...HEAD). As a senior solution architect, review the implementation: does it match the plan? Are there flaws the plan didn't catch? Emit your findings as your final message — severity-tagged markdown, and nothing after them."
 ```
 
-Output lands in `.mozart/plans/` alongside the plan and state files.
+`-o <path>` is what creates the findings file: it captures codex's final message, which is why both prompts end in the findings and say nothing after them. Without it codex prints the review to stdout and the target path is never written. Output lands in `.mozart/plans/` alongside the plan and state files.
 
 ### Tier policy
 
