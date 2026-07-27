@@ -12,7 +12,7 @@ Ordered by DELIVER pipeline stage.
 
 | Agent | Role | Model | Stages |
 |-------|------|-------|--------|
-| mozart | Delivery conductor — orchestrates all three pipeline shapes | opus | 1–13 (all), incl. 12b |
+| mozart | Delivery conductor — orchestrates all six pipeline shapes | opus | 1–13 (all), incl. 12b |
 | sarah | Technical researcher — surfaces prior art and best practices | sonnet | 2 (optional) |
 | harry | Planner — produces the phased implementation plan | opus | 3, 6 |
 | bob | Architect reviewer — evaluates design, layering, and trade-offs | sonnet | 4, 8 |
