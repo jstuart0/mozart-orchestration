@@ -245,10 +245,15 @@ cmdlines=$(printf '%s\n' "$cmdfenced" | cut -f2-)
 # the normal case and precisely why the bug is invisible until it matters.
 want_range='HEAD --not --remotes=origin'
 want_since='origin/<base>'
-range_defs=$(grep -coE 'PUSH_RANGE="[^"]*"' agents/scott.md)
-since_defs=$(grep -coE 'PUSH_SINCE="[^"]*"' agents/scott.md)
-push_range_value=$(grep -m1 -oE 'PUSH_RANGE="[^"]*"' agents/scott.md | sed -E 's/^PUSH_RANGE="//; s/"$//')
-push_since_value=$(grep -m1 -oE 'PUSH_SINCE="[^"]*"' agents/scott.md | sed -E 's/^PUSH_SINCE="//; s/"$//')
+# Read the values from FENCED COMMAND LINES, not the whole file. File-wide
+# extraction is spoofable: with the real definition broken and
+# `<!-- PUSH_RANGE="HEAD --not --remotes=origin" -->` planted ANYWHERE ABOVE it,
+# `grep -m1` returns the comment and this gate passes. Measured. Only the
+# occurrence count caught it, and only because the plant was additive.
+range_defs=$(printf '%s\n' "$cmdlines" | grep -coE 'PUSH_RANGE="[^"]*"')
+since_defs=$(printf '%s\n' "$cmdlines" | grep -coE 'PUSH_SINCE="[^"]*"')
+push_range_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_RANGE="[^"]*"' | sed -E 's/^PUSH_RANGE="//; s/"$//')
+push_since_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_SINCE="[^"]*"' | sed -E 's/^PUSH_SINCE="//; s/"$//')
 report "V3_range_defs" "$(eq "$range_defs/$since_defs" "1/1")" "PUSH_RANGE/PUSH_SINCE definitions=$range_defs/$since_defs (want 1/1)"
 report "V3_push_range_value" "$(eq "$push_range_value" "$want_range")" "PUSH_RANGE=[$push_range_value] want [$want_range]"
 report "V3_push_since_value" "$(eq "$push_since_value" "$want_since")" "PUSH_SINCE=[$push_since_value] want [$want_since]"
@@ -276,20 +281,64 @@ fallback_is_real=$(printf '%s\n' "$cmdlines" | awk '
   { if ($0 ~ /git .*log .*-p .*[$]PUSH_RANGE/) n++ } END { print n+0 }')
 report "V3_fallback_is_real" "$(ge "$fallback_is_real" 1)" "fenced 'git ... log ... -p ... \$PUSH_RANGE' fallback commands=$fallback_is_real (floor 1)"
 
+# The quoting asymmetry is documented as intrinsic and load-bearing, so it gets
+# asserted in BOTH directions rather than described. --log-opts takes ONE string
+# the scanner re-splits, so it must be quoted; git log takes separate argv words,
+# so it must NOT be. Each form breaks silently in the other's position, and
+# `fallback_is_real` alone accepts a quoted fallback.
+fallback_quoted=$(printf '%s\n' "$cmdlines" | awk '
+  { if ($0 ~ /git .*log .*-p .*[$]PUSH_RANGE/ && index($0,"\"$PUSH_RANGE\"")>0) n++ } END { print n+0 }')
+scanner_unquoted=$(printf '%s\n' "$cmdlines" | awk '
+  { if (index($0,"--log-opts")>0     && index($0,"$PUSH_RANGE")>0 && index($0,"\"$PUSH_RANGE\"")==0) n++
+    if (index($0,"--since-commit")>0 && index($0,"$PUSH_SINCE")>0 && index($0,"\"$PUSH_SINCE\"")==0) n++ } END { print n+0 }')
+report "V3_fallback_unquoted" "$(eq "$fallback_quoted" 0)" "fallback commands that QUOTE \$PUSH_RANGE=$fallback_quoted (want 0; git log needs split argv words)"
+report "V3_scanner_quoted"    "$(eq "$scanner_unquoted" 0)" "scanner flags that leave their range name UNQUOTED=$scanner_unquoted (want 0; --log-opts/--since-commit take one string)"
+
 # The stop rule binds BOTH coupled sites, asserted per file. scott's runs once at
 # 12b; mozart's per-phase gate runs on every phase of every campaign, and is the
 # shared definition scott cites - so hardening one and not the other hardens the
 # rarer path. Deletion from either is a failure, not a partial pass.
-stop_rule_scott=$(grep -cF 'A scan that does not run is not a clean scan' agents/scott.md)
-stop_rule_mozart=$(grep -cF 'A scan that does not run is not a clean scan' agents/mozart.md)
-report "V3_stop_rule_scott"  "$(ge "$stop_rule_scott" 1)"  "failed-scan stop rule in agents/scott.md=$stop_rule_scott (floor 1, pinned by its text)"
-report "V3_stop_rule_mozart" "$(ge "$stop_rule_mozart" 1)" "failed-scan stop rule in agents/mozart.md per-phase gate=$stop_rule_mozart (floor 1, pinned by its text)"
+# A rule's SCOPE is the step it governs, not the file it lives in. Counting a
+# pinned sentence file-wide is satisfiable by inert text: with the real bullets
+# deleted and both sentences appended as HTML comments, all three of these
+# passed. Measured. So: restrict to the region, drop HTML comments, and require
+# the rule to be the BULLET it is supposed to be - position is part of the
+# requirement, not decoration.
+# Resolve the region by LINE NUMBER, via grep. Passing the anchors through
+# `awk -v` does not work: awk processes escape sequences in -v assignments, so
+# `^1\. \*\*Secret scan` reaches the dynamic regex as `^1. **Secret scan` and
+# matches nothing - a silently empty region, which is a vacuous pass waiting to
+# happen. Caught by these gates failing on correct text.
+v3_region() { # v3_region <file> <start-ere> <end-ere>
+  v3_rs=$(grep -nE "$2" "$1" | head -1 | cut -d: -f1)
+  [ -n "$v3_rs" ] || { echo "__REGION_START_NOT_FOUND__"; return 0; }
+  v3_re=$(grep -nE "$3" "$1" | cut -d: -f1 | awk -v a="$v3_rs" '$1>a {print; exit}')
+  [ -n "$v3_re" ] || v3_re=$(( $(wc -l < "$1") + 1 ))
+  awk -v a="$v3_rs" -v b="$v3_re" 'NR>=a && NR<b' "$1" | grep -v '<!--'
+}
+v3_step1=$(v3_region agents/scott.md '^1\. \*\*Secret scan before publish' '^2\. \*\*Find the template')
+v3_step7=$(v3_region agents/scott.md '^7\. \*\*Write the body' '^8\. \*\*Push and open')
+v3_mozgate=$(v3_region agents/mozart.md '^### 7\. Implement' '^### 8\. Mid-build')
 
-zero_range_rule=$(grep -cF 'A scan reporting 0 commits while the push will transmit objects is a stop, not a pass' agents/scott.md)
-report "V3_zero_range_rule" "$(ge "$zero_range_rule" 1)" "empty-range stop rule present=$zero_range_rule (floor 1; exit status alone cannot separate an empty range from a clean scan)"
+stop_rule_scott=$(printf '%s\n' "$v3_step1" | grep -cE '^[[:space:]]*- \*\*A scan that does not run is not a clean scan\.\*\*')
+stop_rule_mozart=$(printf '%s\n' "$v3_mozgate" | grep -F 'A scan that does not run is not a clean scan' | grep -cF 'Mechanical secret scan on the staged diff')
+report "V3_stop_rule_scott"  "$(ge "$stop_rule_scott" 1)"  "failed-scan stop rule as a bullet inside scott's step 1=$stop_rule_scott (floor 1; pinned by text AND position)"
+report "V3_stop_rule_mozart" "$(ge "$stop_rule_mozart" 1)" "failed-scan stop rule inside mozart's per-phase secret-scan bullet=$stop_rule_mozart (floor 1; pinned by text AND position)"
+
+zero_range_rule=$(printf '%s\n' "$v3_step1" | grep -cE '^[[:space:]]*- \*\*A scan reporting 0 commits while the push will transmit objects is a stop, not a pass\.\*\*')
+report "V3_zero_range_rule" "$(ge "$zero_range_rule" 1)" "empty-range stop rule as a bullet inside scott's step 1=$zero_range_rule (floor 1; exit status alone cannot separate an empty range from a clean scan)"
+
+# H1: the body-scan REQUIREMENT lives in step 1, but the body does not exist
+# until step 7 and step 7.5 forbids inserting anything before the push - so step
+# 7 is the only place it can execute. Assert the requirement AND the command.
+body_scan_req=$(printf '%s\n' "$v3_step1" | grep -cF '**Body scan**')
+body_scan_cmd=$(printf '%s\n' "$v3_step7" | awk '
+  index($0,"\"$body\"")>0 && ($0 ~ /grep/ || $0 ~ /gitleaks/ || $0 ~ /trufflehog/)' | grep -c .)
+report "V3_body_scan_req" "$(ge "$body_scan_req" 1)" "body-scan requirement stated in step 1=$body_scan_req (floor 1)"
+report "V3_body_scan_cmd" "$(ge "$body_scan_cmd" 1)" "body-scan commands between body creation and the push=$body_scan_cmd (floor 1; the requirement is stated 40+ lines before the artifact exists)"
 
 want_count='PUSH_COUNT=$(git -C <worktree> rev-list --count $PUSH_RANGE)'
-push_count_value=$(grep -m1 -oE 'PUSH_COUNT=[$][(][^)]*[)]' agents/scott.md)
+push_count_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_COUNT=[$][(][^)]*[)]')
 report "V3_push_count_value" "$(eq "$push_count_value" "$want_count")" "PUSH_COUNT=[$push_count_value] want [$want_count]"
 
 # The fetch must sit in the unconditional prologue - the fence that defines the
@@ -356,6 +405,13 @@ while IFS="$(printf '\t')" read -r ag _; do
   # section, which is the 176-line miss this gate exists to catch.
   [ "$v4_in" -ge 1 ]        || v4_bad="$v4_bad [$ag: no marker inside the section ($v4_any in the file)]"
   [ "$v4_any" = "$v4_in" ]  || v4_bad="$v4_bad [$ag: $v4_any marker(s) in the file but only $v4_in inside the section]"
+  # Cardinality: the contract says ONE marker line per roster-recorded shape.
+  # Containment alone accepts a duplicated marker line, and V4c's set comparison
+  # used to collapse the duplicate away.
+  v4_dupshape=$(awk -v s="$v4_sec" -v e="$v4_end" 'NR>s && NR<e' "$af" \
+    | grep -oE '^\*\*Your [A-Z]+ stages\*\*:' | sed -E 's/^\*\*Your //; s/ stages\*\*:$//' \
+    | sort | uniq -c | awk '$1>1 {printf "%sx%s ", $2, $1}')
+  [ -z "$v4_dupshape" ] || v4_bad="$v4_bad [$ag: repeated marker line(s) for $v4_dupshape]"
 done < <(printf '%s\n' "$v4_roster")
 report "V4_section" "$([ -z "$v4_bad" ] && echo 0 || echo 1)" \
   "${v4_bad:-all $v4_n specialists: section present exactly once, before Field notes, marker contained}"
@@ -435,7 +491,7 @@ v4c_norm() {
   }'
 }
 
-v4c_rosterpairs=$(printf '%s\n' "$v4_roster" | v4c_norm | sort -u)
+v4c_rosterpairs=$(printf '%s\n' "$v4_roster" | v4c_norm | sort)
 v4c_markerpairs=$(while IFS="$(printf '\t')" read -r ag _; do
     [ -n "$ag" ] || continue
     [ -f "agents/$ag.md" ] || continue
@@ -444,7 +500,7 @@ v4c_markerpairs=$(while IFS="$(printf '\t')" read -r ag _; do
       vv=$(printf '%s' "$ml" | sed -E 's/^\*\*Your [A-Z]+ stages\*\*:[[:space:]]*//')
       printf '%s\t%s %s\n' "$ag" "$pp" "$vv"
     done
-  done < <(printf '%s\n' "$v4_roster") | v4c_norm | sort -u)
+  done < <(printf '%s\n' "$v4_roster") | v4c_norm | sort)
 
 # comm -23 / comm -13 separately: the triples contain tabs, so comm's indented
 # second column is not distinguishable from the data.

@@ -269,7 +269,7 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
      ```
 
      The prologue's `git fetch origin` already refreshed those refs — it sits above the branch, so it runs on this path too, which is the point: a fallback resolving `--remotes=origin` against refs nobody fetched is scanning a range it invented. **That range is deliberately identical to the scanner path's** — it is the same `$PUSH_RANGE`, not a second spelling of it — and it has to stay that way: the fallback is the path that actually executes on a host with no scanner installed, so a fallback scanning a narrower range than the scanner it substitutes for means the weakest control also has the smallest field of view. If you strengthen one, strengthen both in the same edit; naming the range once is what makes that a single edit instead of two. **Cite the pattern set by name; never restate it here, and don't pin the citation to a line number** — that bullet moved twice while this section was being written. A second copy of a pattern list has no propagation path: it agrees on the day it is written and silently stops agreeing the day someone strengthens one side, and the version that shipped in between is the weak one. The bullet heading is the durable anchor; grep for it.
-   - **Body scan**: the same referenced pattern set over the **assembled PR body**, before it publishes. The body is built from plan text, valerie's report, and commit messages — none of which passed through the staged-diff gate.
+   - **Body scan**: the same referenced pattern set over the **assembled PR body**, before it publishes. The body is built from plan text, valerie's report, and commit messages — none of which passed through the staged-diff gate. **It executes in step 7**, not here: the body does not exist yet at this point in the sequence, and step 7.5's adjacency rule closes the gap between step 7 and the push. Stating the requirement 40-odd lines before the artifact exists is how it goes unrun.
    - Any hit on either scan → **stop before push**, route to jackson. Never "publish now, scrub later"; a secret reaching a remote is already leaked.
    - **A scan that does not run is not a clean scan.** A scanner that exits non-zero, dies on a bad range, or prints nothing because the command itself failed is a **stop** — identical in force to a hit, and never a pass. Silence from a command that never executed is absence of evidence, not evidence of absence, and it is indistinguishable at the terminal from a clean run. Check the exit status of every scan, say which one failed and how, and route to jackson. Do not push on an unrun scan.
    - **A scan reporting 0 commits while the push will transmit objects is a stop, not a pass.** Exit status does not cover this one: a scan over an empty range succeeds, prints nothing, and is byte-identical at the terminal to a clean scan over real commits. `$PUSH_COUNT` is what separates them. At 12b it is never legitimately `0` — you are about to push a campaign branch — so `0` means the range selected nothing: stale or rewound refs, a `<base>` that never resolved, or the names arriving unset from a split shell. Echo the count (step 7.5 does) so the number that scoped the scan is on the record beside the scanner that ran.
@@ -314,6 +314,22 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
 6. **Verification checklist — the part that matters.** Tick only against evidence: a recorded result in valerie's validation report, or a command you ran yourself this session. Never from the plan's *intent*. Manual items stay unticked, marked `— manual, not yet performed`. `⛔` items stay unticked, marked `— not run: <environment reason>`. Failures stay unticked with the failure quoted. The three prohibitions in harry's plan template — no substitution, no weakening, no reclassification — bind here; reference them rather than restating them into a second dialect. **A fully-ticked checklist nobody executed is the failure this stage exists to prevent.**
 
 7. **Write the body to a temp file safely**: `body=$(mktemp)`, `chmod 600 "$body"`, `trap 'rm -f "$body"' EXIT`. It may quote log excerpts; it is not world-readable and does not outlive the process.
+
+   **Then run step 1's body scan, here.** Step 1 states the requirement; this is the only place it can execute. The body does not exist until the line above, and step 7.5's adjacency rule forbids inserting anything between it and the push — so a body scan that is not run here is not run at all.
+
+   ```bash
+   # $BODY_PATTERNS is the high-signal set cited in step 1: agents/mozart.md's
+   # per-phase gate, bullet "Mechanical secret scan on the staged diff". Read it
+   # from there. Never restate it here - a second copy agrees only on day one.
+   grep -nE "$BODY_PATTERNS" "$body"; hit=$?
+   case "$hit" in
+     0) echo "STOP: secret pattern in the assembled PR body. Nothing pushed."; exit 1 ;;
+     1) ;;                       # grep ran and found nothing - the only clean outcome
+     *) echo "STOP: body scan did not run (grep exit $hit). Nothing pushed."; exit 1 ;;
+   esac
+   ```
+
+   The exit-code split is step 1's stop rule applied to this scan: `1` means the scan ran and found nothing, anything above `1` means it did not run, and both print nothing. **A clean history scan is not evidence about the body.** The history scan reads commits; the body is a file that was never in git, assembled from plan text, valerie's report and commit messages — none of which passed the staged-diff gate, and none of which any range can reach.
 
 7.5 **Re-validate the grant, then echo — the last mutable step before the push.** Nothing may be inserted between this step and step 8. That adjacency *is* the control: the authorization was resolved at intake, the state file is authoritative on resume, and a human who has since removed the stanza from the remote's default branch has revoked a permission your state file still records.
 
