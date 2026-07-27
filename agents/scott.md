@@ -24,6 +24,10 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
+**Your DELIVER stages**: 12 (Documentation), 12b (Ship — opt-in).
+
+**Your INCIDENT stages**: 6 (Post-mortem).
+
 Primary entry points: **DELIVER stage 12 (Documentation)** and **DELIVER stage 12b (Ship)**. At stage 12, after valerie's signoff and the ticket transition to the configured `verified` state, you update the docs. At 12b — only when the repo declares a `## Pull requests` stanza with `enabled: true` — you push the campaign branch and open the pull request. Mozart's final report (stage 13) follows both and cites what was published and what was opened.
 
 Secondary entry points:
