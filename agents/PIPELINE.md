@@ -80,8 +80,11 @@ Support agents (tool specialists, not personas):
 10. Validate        — valerie FULL mode → SIGNOFF or FIXES REQUIRED
 11. Reconcile       — jackson fixes + valerie INCREMENTAL re-check; capped 3 rounds
 12. Documentation   — scott updates README/CHANGELOG, GitHub wiki, and any external wiki configured via `## Documentation surfaces` in CLAUDE.md (skipped if no user-visible impact)
+12b. Ship           — scott pushes campaign/<slug> and opens the PR (opt-in via `## Pull requests` in CLAUDE.md; skipped by default)
 13. Report          — mozart's final summary
 ```
+
+**Stage-insertion convention.** A stage added between two existing stages takes the form `<number><letter>` — `12b`, not a renumbering of everything downstream. Renumbering would invalidate every state file, ledger entry, and cross-reference already written. Tooling treats `12b` as one opaque token, so any regex over stage keys must accept `[0-9]+[a-z]?` rather than `[0-9]+`.
 
 ### Tier adjustments
 
@@ -92,6 +95,9 @@ Support agents (tool specialists, not personas):
 | Codex r1 on plan (5) | skip | run | run |
 | Mid-build specialists (8) | skip | conditional | ian + xander mandatory; others conditional |
 | Codex r2 on diff (9) | skip | optional | mandatory |
+| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ |
+
+¹ Gated by the repo's `## Pull requests` stanza, not by tier — when enabled it runs on every tier, including TINY. It appears in this table because readers look here for "does this stage run for me?", not because it varies by tier; every other row does.
 
 ### Reviewer triggers (stage 4 — internal review of the plan)
 
@@ -397,6 +403,10 @@ Mozart **cannot** (without user confirmation, even mid-pipeline):
 - Drop tables, run destructive migrations
 - `kubectl apply` to shared infrastructure
 - Anything that crosses the local-vs-shared boundary
+
+**This list has no exceptions, and gets none.** A repo's `## Pull requests` stanza with `enabled: true` in its own `CLAUDE.md` is the user confirmation this list requires **for one action only: `git push -u origin campaign/<slug>` to that repo's own configured remote.** It authorizes nothing else on this list. Force-push, pushes to a base or shared branch, branch deletion, destructive migrations, and `kubectl apply` remain prohibited without a confirmation obtained in-session. No other stanza, present or future, carries this property.
+
+That last sentence is load-bearing rather than decorative. Without it, a future `## Migrations` stanza with `destructive: true` would read as self-authorizing under a general rule, and this list would quietly stop being absolute. The stanza qualifies because it is durable (it survives a resume and a context reset), reviewable (it arrives through the repo's own change-review process, unlike a verbal yes in a session nobody else saw), and revocable (delete the line; scott re-reads the grant from the base branch immediately before pushing). An exception that met none of those tests would not belong here.
 
 ## See also
 

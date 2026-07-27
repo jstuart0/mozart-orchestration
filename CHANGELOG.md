@@ -4,6 +4,35 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — stage 12b (Ship): mozart can open the PR, if your repo asks it to
+
+**Off by default, and the default is the point.** A repo that declares nothing behaves exactly as it does today: mozart commits to the campaign branch, never contacts a remote, publishes external docs at stage 12 as always, and records `[-] 12b. Ship — skipped: no ## Pull requests stanza`. Opting in is one stanza in your own `CLAUDE.md`:
+
+```markdown
+## Pull requests
+
+- enabled: true            # default false — mozart never pushes unless you declare this
+- default_state: draft     # draft (default) | ready — draft flips to ready on validation signoff
+- ci_wait_minutes: 10      # how long stage 13 waits for post-push CI to reach a terminal status
+```
+
+- **`INTEGRATION.md`** — new `## 5. Pull requests` section, plus its parity sites: the intro's surface count, the resolved-values block, and the per-specialist read list. `README.md`'s pluggable-surfaces list goes from four to five.
+- **`agents/scott.md`** — new `## Pull request authoring (DELIVER stage 12b)`: preconditions, two secret scans, template selection, body assembly, push, and the draft/ready flip.
+- **`agents/mozart.md`** — new `### 12b. Ship (scott)` between 12 and 13, with a run condition **independent of stage 12's**. Skipping documentation never skips Ship; a TINY refactor with no docs surface still has a branch, and a branch still needs a merge path.
+- **`agents/PIPELINE.md`** — stage list, a tier-adjustments row (`opt-in` on all three tiers, footnoted so it doesn't read as a tier-varying stage), and the `<number><letter>` stage-insertion convention: new stages take `12b` rather than renumbering everything downstream, because renumbering invalidates every state file and cross-reference already written.
+
+**The authorization argument, stated because it's the load-bearing part.** `PIPELINE.md`'s *Authority boundaries* prohibits pushing without user confirmation. That prohibition gets **no carve-out** — a carve-out would weaken the rule for every repo to serve one feature. Instead, `enabled: true` committed to a repo's own `CLAUDE.md` **is** the confirmation the existing rule already demands, for exactly one action (`git push -u origin campaign/<slug>`) and nothing else. It qualifies because it's durable (survives a resume and a context reset), reviewable (it went through the repo's own review process, unlike a verbal yes in a session nobody else saw), and revocable. Three mechanisms enforce the scope:
+
+- **The stanza is read from the base branch, not the working tree** — and it is the only stanza that is. Otherwise a PR that adds `enabled: true` would authorize a push on the machine of whoever checks it out to help finish it. The other four stanzas are advisory and stay working-tree-read; the reason is the action class, not the stanza.
+- **The grant is re-read immediately before the push**, after the secret scan and body assembly, so the time-of-check-to-time-of-use window is empty. A grant revoked mid-campaign is a **stop, not a skip**: "never opted in" and "opted in, then opted out" need different responses from a human.
+- **Mozart never authors this stanza.** It is deliberately absent from mozart's edit whitelist. An agent that can write its own authorization has not been authorized by anyone.
+
+**External doc publishing defers when a PR is opening.** In-repo docs still commit to the branch so they land inside the PR; GitHub and external wikis wait for merge evidence, and the stage-12 line records why. The deferral reason names what actually happened and **never names a PR number unless one exists** — a fictional cause can't be acted on later, which would turn the compensating control into the silent drop it exists to prevent. When 12b doesn't run, publishing is unchanged.
+
+**`scripts/mozart-lint.sh`** — `[0-9]+` couldn't match `12b`, so two checks went blind on exactly the new stage. Fixed at all three greps (Check D extracts its key in *two*; fixing one lets the second strip the letter and report a real `12b` duplicate as `12`). New Check I flags an active DELIVER campaign missing its `12b` row — **scoped to `active/` by construction, never `finished/`**: a finished campaign's stage list is a record of what ran, not a template to conform to, and a global check would turn every pre-existing repo's own history into lint findings the day this shipped. Check G's stale-path grep is scoped to the `## Paths` block, so quoting an `active/` path in a ledger row no longer trips it.
+
+**Also fixed, all pre-existing:** `All 12 stages` (13 exist) and `Stages 9–12 … report` (12 is Documentation; Report is 13); a CI selection check that succeeded on its own failure condition, because a run whose promised tests were all *skipped* matched its `skipped` branch and exited 0; closeout now asserts every cited commit SHA is reachable from HEAD rather than trusting prose discipline, which failed twice in one campaign. Three stale rosters are repaired — `agents/README.md` said `Specialists (14)` against 17 persona files, `README.md`'s file tree omitted three, and `agents/LEARNINGS.md`'s roster line **granted the field-notes right by name** while `hank`, `percy`, and `tessa` each carried a `## Field notes` section the protocol never addressed. The contributor drift guard, which required only that "PIPELINE.md and mozart.md agree" — precisely the line that let an eleven-file drift through — now names every surface a flow change touches.
+
 ### Added — `pending-pr` worktree disposition, and valerie's validation report as a durable artifact
 
 Two records that were wrong in the same way: each described something that had actually happened, and neither had anywhere to be written down.

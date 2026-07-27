@@ -1,6 +1,6 @@
 # Field Notes Protocol — Self-Improvement for Agents
 
-Agents in this roster (mozart, harry, jackson, valerie, dick, dexter, xander, otto, ruby, bob, scott, librarian) may improve themselves over time by appending to a `## Field notes (append-only)` section at the bottom of their own persona file. This document defines the protocol — what's allowed, what's forbidden, and the format every entry must follow.
+Agents in this roster (mozart, harry, jackson, valerie, dick, dexter, xander, otto, ruby, bob, scott, librarian, hank, percy, tessa) may improve themselves over time by appending to a `## Field notes (append-only)` section at the bottom of their own persona file. This document defines the protocol — what's allowed, what's forbidden, and the format every entry must follow.
 
 The point is to capture cross-project patterns the agent discovers in practice, so future invocations benefit from accumulated experience. The protocol is intentionally constrained because a persona file is a contract: the human-authored sections define who the agent is, and the agent doesn't get to rewrite that.
 

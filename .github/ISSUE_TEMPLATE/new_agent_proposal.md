@@ -12,7 +12,7 @@ Role: one sentence — what this agent does and for whom.
 
 ## Where in the pipeline
 
-Which stage(s) does this agent run? (Stage numbers 1–13 for DELIVER; or AUDIT / DIAGNOSE placement.) Is it a reviewer (stage 4), a mid-build specialist (stage 8), or something else?
+Which stage(s) does this agent run? (Stage numbers 1–13, or 12b, for DELIVER; or AUDIT / DIAGNOSE placement.) Is it a reviewer (stage 4), a mid-build specialist (stage 8), or something else?
 
 ## Trigger
 

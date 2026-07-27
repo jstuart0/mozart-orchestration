@@ -55,10 +55,12 @@ flowchart LR
     G --> J
     J --> K[11 · Reconcile<br/>jackson]
     K --> L[12 · Document<br/>scott]
-    L --> M[13 · Report]
+    L -.-> S[12b · Ship<br/><i>opt-in per repo</i>]
+    S -.-> M[13 · Report]
+    L --> M
 ```
 
-Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages: Research runs on STANDARD/HEAVY; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY.
+Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier or on repo configuration: Research runs on STANDARD/HEAVY; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
 
 *AUDIT and DIAGNOSE flows are shorter — see [PIPELINE.md](agents/PIPELINE.md) for the full reference.*
 
@@ -109,15 +111,18 @@ mozart-orchestration/
 │   ├── codebase-pattern-finder.md
 │   ├── dexter.md
 │   ├── dick.md
+│   ├── hank.md
 │   ├── harry.md
 │   ├── ian.md
 │   ├── jackson.md
 │   ├── librarian.md
 │   ├── mozart.md                # the conductor
 │   ├── otto.md
+│   ├── percy.md
 │   ├── ruby.md
 │   ├── sarah.md
 │   ├── scott.md
+│   ├── tessa.md
 │   ├── valerie.md
 │   ├── web-search-researcher.md
 │   └── xander.md
@@ -153,10 +158,11 @@ Mozart is pluggable for the surfaces that vary by team:
 2. **Documentation surfaces** — GitHub wiki, in-repo docs, an external wiki (Wiki.js, Notion, Confluence), or a custom mix.
 3. **Code retrieval** — an LSP, IDE symbol index, or AST-backed MCP server, if you have one.
 4. **Worktrees** — where campaign worktrees live, what they branch from, and how they're named.
+5. **Pull requests** — whether mozart pushes the campaign branch and opens the PR at all, and whether it opens as draft or ready.
 
 Configure them by adding stanzas to your repo's `CLAUDE.md`. See [`INTEGRATION.md`](./INTEGRATION.md) for templates and the contract mozart follows.
 
-Every stanza is optional. Without ticketing, mozart skips ticket steps entirely — research, planning, implementation, and verification still work. Without a docs stanza, scott publishes to in-repo `README.md` / `CHANGELOG.md` / `docs/` only. Without a code-retrieval stanza, agents use native `Read`/`Grep`/`Glob`. Without a worktrees stanza, campaigns get `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`.
+Every stanza is optional. Without ticketing, mozart skips ticket steps entirely — research, planning, implementation, and verification still work. Without a docs stanza, scott publishes to in-repo `README.md` / `CHANGELOG.md` / `docs/` only. Without a code-retrieval stanza, agents use native `Read`/`Grep`/`Glob`. Without a worktrees stanza, campaigns get `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`. Without a pull-requests stanza — the default — mozart never contacts a remote: it commits to the campaign branch and names it in the final report for you to push yourself.
 
 ## Optional: codex CLI
 

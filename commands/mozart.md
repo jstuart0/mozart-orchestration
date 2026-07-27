@@ -27,7 +27,7 @@ The single source of truth for mozart's behavior is the `mozart` agent definitio
 - Resume / entry points (when the user provides an existing plan or state file)
 - State persistence and the flow sketch artifact
 - Ticket lifecycle — driven by the active ticketing integration declared in the consuming repo's `CLAUDE.md` (see `INTEGRATION.md` in this plugin). If no ticketing system is configured, ticket steps are skipped automatically.
-- The DELIVER pipeline (13 stages), AUDIT pipeline, DIAGNOSE pipeline, INCIDENT pipeline (7 stages: declare+triage → stabilize ‖ race hypotheses → converge → durable fix → verify recovery → post-mortem), OPERATE pipeline (7 stages: intake+pin → recon → change plan → pre-flight → apply → verify → record), EVAL pipeline
+- The DELIVER pipeline (13 stages, plus opt-in 12b Ship), AUDIT pipeline, DIAGNOSE pipeline, INCIDENT pipeline (7 stages: declare+triage → stabilize ‖ race hypotheses → converge → durable fix → verify recovery → post-mortem), OPERATE pipeline (7 stages: intake+pin → recon → change plan → pre-flight → apply → verify → record), EVAL pipeline
 - The live narration cadence — announce-before-invoke, summarize-on-return
 - Orchestration discipline (what mozart edits, what he doesn't, what surfaces conflict to the user)
 

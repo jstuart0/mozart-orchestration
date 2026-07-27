@@ -6,13 +6,13 @@ To add a new agent, read the authoring contract in [`../CONTRIBUTING.md`](../CON
 
 ---
 
-## Specialists (14)
+## Specialists (17)
 
 Ordered by DELIVER pipeline stage.
 
 | Agent | Role | Model | Stages |
 |-------|------|-------|--------|
-| mozart | Delivery conductor — orchestrates all three pipeline shapes | opus | 1–13 (all) |
+| mozart | Delivery conductor — orchestrates all three pipeline shapes | opus | 1–13 (all), incl. 12b |
 | sarah | Technical researcher — surfaces prior art and best practices | sonnet | 2 (optional) |
 | harry | Planner — produces the phased implementation plan | opus | 3, 6 |
 | bob | Architect reviewer — evaluates design, layering, and trade-offs | sonnet | 4, 8 |
@@ -20,12 +20,15 @@ Ordered by DELIVER pipeline stage.
 | xander | Security reviewer — threat model, injection, auth, secrets | sonnet | 4, 8 |
 | ruby | UX reviewer — states, accessibility, responsive, voice | sonnet | 4, 8 |
 | otto | Infrastructure-ops reviewer — infra, config, deployment, ops | sonnet | 4, 8 |
+| tessa | Test-strategy and test-quality reviewer | sonnet | 4, 8 |
+| percy | Performance engineer — measurement-first | sonnet | 4, 8 |
 | librarian | Code archaeologist — does this already exist? (BROWNFIELD only) | sonnet | 4, 8 |
 | ian | Change-impact analyst — ripple effects from the diff | sonnet | 8 |
 | jackson | Implementer — writes and reconciles code, phase by phase | sonnet | 7, 11 |
 | dick | Bug investigator — DIAGNOSE lead; reproduces, isolates, roots out | sonnet | DIAGNOSE 2 |
 | valerie | Validator — checks implementation against the plan | sonnet | 10, 11 |
-| scott | Technical writer — documentation, CHANGELOG, release notes | sonnet | 12 |
+| scott | Technical writer — documentation, CHANGELOG, release notes; opens the PR when the repo opts in | sonnet | 12, 12b |
+| hank | Ops executor — applies changes to live infrastructure | sonnet | OPERATE 5 |
 
 ---
 
