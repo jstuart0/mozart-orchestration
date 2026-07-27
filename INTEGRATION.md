@@ -305,7 +305,17 @@ Declare a `## Pull requests` stanza when you want mozart to push the campaign br
 
 **`enabled: true` is the push authorization, and it authorizes exactly one action.** `PIPELINE.md`'s *Authority boundaries* prohibits mozart from pushing to a remote without user confirmation. That prohibition is unchanged; this stanza *is* the confirmation, for `git push -u origin campaign/<slug>` to this repo's own configured remote and nothing else. Force-push, pushes to a base or shared branch, branch deletion, merging, destructive migrations, and `kubectl apply` all still require a confirmation obtained in-session. No other stanza carries this property.
 
-**This stanza is read from your base branch, and it is the only one that is.** The consequence is worth stating plainly: **enabling Ship takes effect once the stanza is merged to your base branch, not when you write it locally.** The reason is that a PR which adds `enabled: true` must not authorize a push on the machine of whoever checks that PR out to help finish it — an authorization read from a contributor's working tree is not your repo's declaration. The other four stanzas are advisory (the worst a bad value does is route work to the wrong place, which is visible and undoable), so they are read from the working tree as normal.
+**This stanza is read from your remote's default branch, and it is the only one that is.** The consequence is worth stating plainly: **enabling Ship takes effect once the stanza is merged and pushed to your default branch, not when you write it locally.** That is the real cost of the design, and it is deliberate — the declaration goes through your repo's own review process, which is the property the whole authorization rests on.
+
+The reason is that a PR which adds `enabled: true` must not authorize a push on the machine of whoever checks that PR out to help finish it. Mozart asks the remote which branch is default (`git ls-remote --symref origin HEAD`) rather than trusting a local pointer, because every local alternative can be steered — or can simply be absent or stale — on the checkout doing the asking.
+
+**Your campaigns do not have to branch from that default branch.** If your `## Worktrees` stanza sets `base branch: develop` or a deploy branch, Ship still runs: the grant is read from the default branch, the PR opens against your declared base, and the pre-push echo prints both refs so the divergence is on the record. The other four stanzas are advisory (the worst a bad value does is route work to the wrong place, which is visible and undoable), so they are read from the working tree as normal.
+
+**Write the stanza as a real stanza, not as documentation.** Three rules, because a grant that a reviewer reads as prose is not a grant anyone approved:
+
+- The `## Pull requests` heading must appear **exactly once**, outside any code fence. Two headings is a stop, not a "last one wins" — that is how a grant gets appended below a decoy.
+- Text inside a fenced ``` block is **ignored**. If you are documenting your setup — including by pasting the example above — it is documentation, not authorization, and it will not enable anything.
+- `enabled: true` must be a **first-level bullet** of the stanza. A sentence that merely contains the words, like *"we do not enable this; it would read `- enabled: true`"*, does not grant anything.
 
 **Mozart never writes this stanza.** Unlike `## Ticketing`, which mozart persists on your behalf once it has resolved your project, `## Pull requests` is yours to author. An agent that can grant itself push permission has not been granted anything. Its absence never means "mozart hasn't gotten around to it yet."
 
@@ -342,17 +352,17 @@ pull_requests:
   enabled: <true|false>
   default_state: <draft|ready>
   ci_wait_minutes: <n>
-  source_ref: <base>@<sha>    # the ref the stanza was read from — base branch, never the working tree
+  source_ref: base:<ref>@<sha>   # the ref the stanza was read from — origin's default branch
 ```
 
-`pull_requests.source_ref` is part of the resolved value, not a note about it: an authorization is only meaningful alongside the ref it was read from, and a resumed campaign is exactly where an intake grant and a current grant can disagree.
+`pull_requests.source_ref` is part of the resolved value, not a note about it: an authorization is only meaningful alongside the ref it was read from, and a resumed campaign is exactly where an intake grant and a current grant can disagree. The **`base:` prefix is a discriminator** — a working-tree read and a default-branch read would otherwise have identical representations, and a check that can't tell them apart can't stop either one. A missing field, or any other prefix, is a stop.
 
 Specialists read the state file rather than re-resolving:
 
 - **dick** creates tickets in the configured system using the configured `investigating` state
 - **jackson** posts comments after each phase commit
 - **valerie** transitions the ticket to `verified` (or back to `in_progress` on FIXES REQUIRED)
-- **scott** publishes to the configured docs surfaces using the configured categories, and — at stage 12b, when `pull_requests.enabled` is true — pushes the campaign branch and opens the PR at the resolved `default_state`. Scott is the one specialist that re-reads its stanza from the base branch immediately before acting, because the action it authorizes cannot be taken back
+- **scott** publishes to the configured docs surfaces using the configured categories, and — at stage 12b, when `pull_requests.enabled` is true — pushes the campaign branch and opens the PR at the resolved `default_state`. Scott is the one specialist that re-fetches and re-reads its stanza from the remote's default branch immediately before acting, because the action it authorizes cannot be taken back
 
 If the state file lacks ticketing or docs config, agents skip the corresponding step gracefully and surface that to mozart.
 

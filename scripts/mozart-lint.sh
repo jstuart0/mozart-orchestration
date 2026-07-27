@@ -4,8 +4,12 @@
 # Mechanizes the state-file invariants that prose discipline demonstrably fails
 # to hold (May + July 2026 evaluations): status-vs-location drift, paths-vs-
 # checkbox drift, duplicate stage lines, unclosed stage lists in complete
-# campaigns, stale active campaigns, stranded sibling artifacts, and stale
-# active/ path references inside finished state files.
+# campaigns, stale active campaigns, stranded sibling artifacts, stale active/
+# path references inside finished ## Paths blocks, and active DELIVER campaigns
+# missing their 12b. Ship row.
+#
+# Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
+# re-check) — that stays a manual sweep at intake. See agents/mozart.md.
 #
 # Usage: mozart-lint.sh [repo-root]     (default: current directory)
 # Exit:  0 = clean, 1 = findings, 2 = nothing to lint
@@ -134,6 +138,14 @@ lint_root() {
   # because they test time-invariant internal consistency (duplicate rows, bare
   # [ ] in a terminal file); this one tests conformance to the current template,
   # which is not time-invariant. Do not "make the loops consistent."
+  #
+  # The legacy prefixless glob ("$PLANS"/[0-9]*.state.md) that Checks C and D
+  # include is deliberately omitted: those files predate the subdir convention,
+  # so they predate 12b too, and their lifecycle state isn't knowable from the
+  # path. This check also never consults the ## Pull requests stanza — an
+  # in-flight campaign needs the row present (run or explicitly skipped)
+  # whether or not the repo opted in, because closeout requires every stage
+  # accounted for.
   for f in "$PLANS"/active/*.state.md "$PLANS"/active-*.state.md; do
     [ -f "$f" ] || continue
     if grep -qE '^\- \[[ x-]\] 12\. ' "$f" && ! grep -qE '^\- \[[ x-]\] 12b\.' "$f"; then

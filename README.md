@@ -136,7 +136,7 @@ mozart-orchestration/
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
-├── INTEGRATION.md               # ticketing, docs, code-retrieval, worktree configuration
+├── INTEGRATION.md               # ticketing, docs, code-retrieval, worktree, pull-request configuration
 ├── LICENSE
 ├── README.md
 └── SECURITY.md
