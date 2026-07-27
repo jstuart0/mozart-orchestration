@@ -9,4 +9,4 @@ For now, the authoritative references are:
 - [`../INTEGRATION.md`](../INTEGRATION.md) — how to wire the five pluggable surfaces per-repo via a `CLAUDE.md` stanza: Ticketing (Plane, Linear, Jira, GitHub Issues, none), Documentation surfaces (Notion, Wiki.js, Confluence, GitHub Wiki, in-repo), Code retrieval, Worktrees, and Pull requests.
 - [`../agents/README.md`](../agents/README.md) — specialist and support-agent roster with models, stage assignments, and the persona-format scaffold.
 
-PIPELINE.md and LEARNINGS.md live in `agents/` because every persona file links there by relative path. Moving them would require updating cross-references across 17 agent files; the index above is the preferred discovery path.
+PIPELINE.md and LEARNINGS.md live in `agents/` because nearly every persona file links there by relative path. Moving them would require updating 53 cross-references across 21 files in `agents/`; the index above is the preferred discovery path.

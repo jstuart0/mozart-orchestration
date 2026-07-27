@@ -30,7 +30,9 @@ All access is performed by named subagents, transparent in mozart's live narrati
 
 ## Mozart's working artifacts
 
-When mozart orchestrates work, it writes plan files, state files, flow sketches, validation reports, and audit reports to `.mozart/` in your working directory. These are local files in your repo. They are not transmitted anywhere. Whether you commit them is your choice; the included `.gitignore` patterns can be adapted to keep them out of git.
+When mozart orchestrates work, it writes plan files, state files, flow sketches, validation reports, and audit reports to `.mozart/` in your working directory. These are local files in your repo. Whether you commit them is your choice; the included `.gitignore` patterns can be adapted to keep them out of git.
+
+These files are never uploaded as files. **On the opt-in Ship path only, some of their content is quoted off your machine**: stage 12b assembles the pull-request body from excerpts of the plan and of valerie's validation report, and that body is published to your remote. This applies even though `.mozart/` is typically gitignored — gitignore governs what git commits, not what a PR body quotes. With no `## Pull requests` stanza, nothing in `.mozart/` leaves your machine.
 
 ## Third-party data handling
 

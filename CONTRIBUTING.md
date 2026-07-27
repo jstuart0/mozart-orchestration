@@ -90,7 +90,8 @@ Before opening a pull request, confirm:
 - No homelab fingerprints or personal infrastructure references have been introduced
 - Voice is consistent with `agents/mozart.md` and `INTEGRATION.md` (professional, no emojis)
 - If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated
-- If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's `**Your DELIVER stages**` line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it
+- If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. The marker grep is also not sufficient on its own: scott, dick, hank, librarian, tessa, and mozart don't carry a `**Your DELIVER stages**` line and state their placement in prose instead, so check them by hand
+- If the change adds or alters a configurable surface, a stanza, or anything that leaves the machine: `INTEGRATION.md` and `PRIVACY.md` are updated too. A flow change reaches both — stage 12b needed a new `INTEGRATION.md` section plus three parity sites in it, and a `PRIVACY.md` carve-out for the plugin's first network egress — and neither file is named in the row above
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`
 
