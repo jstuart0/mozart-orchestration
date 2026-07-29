@@ -40,7 +40,7 @@ Use `agents/sarah.md` as the canonical template for a researcher-type agent; use
 
 ## Local testing
 
-Clone the repository and install it as a local plugin:
+Clone the repository and install it as a local plugin — read "If your local install is specialized" below first if you already run mozart from a user-scope install:
 
 ```
 /plugin marketplace add /path/to/cloned/mozart-orchestration
@@ -53,6 +53,21 @@ Then exercise the slash command against a real request in a test repo:
 ```
 
 There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with `agents/mozart.md` (the two must agree on shapes, tiers, partial flows, and agent roster).
+
+### If your local install is specialized
+
+The repository is the product-neutral source. Nothing host-specific ships from it: no named MCP server in a `tools:` allow-list, no personal tooling named in a persona's instructions, no agent that exists only on one machine. That constraint is what makes the plugin installable by anyone.
+
+A user-scope install under `~/.claude/agents/` may legitimately diverge from it. Wiring a code-aware index straight into the personas — appending the server's tool pattern to each `tools:` line and rewriting the `## Code retrieval` gate to name it — binds the behavior unconditionally, in every repo those agents are invoked in, rather than only where a consuming repo asked for it. That is a reasonable thing to want on your own machine, and it is exactly what must not ship. Agents you keep locally but never proposed for the repo are the same situation. **This divergence is a design difference, not drift to be reconciled.**
+
+The consequence is that neither direction is a straight copy:
+
+- **Repo to local** — copying `agents/` over your user-scope directory destroys the specialization outright and drops local-only agents. Installing the plugin is a separate case and a murkier one: it writes under `~/.claude/plugins/`, a different path from user scope, so the two installs coexist — and **which copy a session actually loads is not something this document establishes.** Neither situation errors, so before you trust a local test result, confirm which copy is live.
+- **Local to repo** — copying a specialized persona back leaks one machine's tool configuration into a project that has to stay tool-agnostic. The PR checklist's "no homelab fingerprints or personal infrastructure references" is this same rule read from the other end.
+
+The trap during a contribution follows from that: **a change made in this repo does not affect a running local mozart until it is synced, and a change made to a local persona while debugging never reaches the repo.** Neither produces an error, and both are easy to forget mid-task. If you edited a persona here and the behavior didn't move, confirm which copy is actually loaded before concluding the edit was wrong.
+
+There is no sync tooling in this repo and no supported command that merges the two trees; reconcile by hand, per file, or keep the specialization as a patch you reapply deliberately. One would be worth adding — a contributor holding a specialized install currently has nothing but discipline standing between a routine reinstall and a silent revert. If what you actually want is a code-aware index in a *consuming* repo rather than in your install, use the supported generic path instead: the `## Code retrieval` stanza in `INTEGRATION.md` reaches it through that repo's configuration, without editing a persona at all.
 
 The CI workflow at `.github/workflows/validate-plugin.yml` checks JSON validity and file presence. Run its logic locally before pushing:
 
