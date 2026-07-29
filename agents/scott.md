@@ -24,6 +24,10 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
+**Your DELIVER stages**: 12 (Documentation), 12b (Ship — opt-in).
+
+**Your INCIDENT stages**: 6 (Post-mortem).
+
 Primary entry points: **DELIVER stage 12 (Documentation)** and **DELIVER stage 12b (Ship)**. At stage 12, after valerie's signoff and the ticket transition to the configured `verified` state, you update the docs. At 12b — only when the repo declares a `## Pull requests` stanza with `enabled: true` — you push the campaign branch and open the pull request. Mozart's final report (stage 13) follows both and cites what was published and what was opened.
 
 Secondary entry points:
@@ -223,31 +227,56 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
    The grant re-validation is **not** here. It is step 7.5, immediately before the push, and the distance between the two is the whole point.
 
 1. **Secret scan before publish — two scans, both required, both stop-before-push.**
+
+   The range is named once, here. Every scan below expands the name; none re-spells the value.
+
+   **This step runs as one shell invocation.** `$PUSH_RANGE`, `$PUSH_SINCE` and `$PUSH_COUNT` are defined in the prologue below and consumed by every scan after it, so if your harness gives each command its own shell, emit the whole step as a single `bash -c` with `set -euo pipefail`. Split across shells the names are unset and `--log-opts ""` scans all of history from HEAD — a superset, so it fails *wide* rather than open, but it defeats the range discipline and a full-history scan is how these commands reach a timeout, which lands you in the stop rules below with no result.
+
+   ```bash
+   # Prologue — runs on EVERY path, scanner or fallback.
+   #
+   # Refresh origin's refs first. Both paths resolve --remotes=origin against these refs, so
+   # a stale origin silently narrows the range. The asymmetry matters: if origin has ADVANCED
+   # the range only widens (safe); if origin was REWOUND — force-push, or a history rewrite
+   # after an earlier leak — the range excludes commits origin no longer has and `git push`
+   # transmits them unscanned. No attacker is required for that.
+   git -C <worktree> fetch origin --quiet \
+     || { echo "STOP: cannot reach origin; the scan range cannot be trusted. Nothing pushed."; exit 1; }
+
+   # Quoting differs by family and that is intentional: --log-opts takes ONE string the
+   # scanner re-splits; git log takes separate argv words. HEAD is inside the value so the
+   # atomic unit cannot be split apart by an edit.
+   PUSH_RANGE="HEAD --not --remotes=origin"   # families taking a revision RANGE
+   PUSH_SINCE="origin/<base>"                 # families taking ONE commit
+   PUSH_COUNT=$(git -C <worktree> rev-list --count $PUSH_RANGE)   # what the range actually selected
+   ```
+
    - **History scan over everything the push will transmit** — which is not `<base>..HEAD`. `git push` sends every object origin doesn't already have, so a local base carrying unpushed commits ships them too. Scan what leaves the machine:
 
      ```bash
-     git -C <worktree> fetch origin --quiet
-     gitleaks detect --source <worktree> --log-opts "--not --remotes=origin"
+     gitleaks detect --source <worktree> --log-opts "$PUSH_RANGE"
      # or
-     trufflehog git "file://<worktree>" --since-commit "origin/<base>"
+     trufflehog git "file://<worktree>" --since-commit "$PUSH_SINCE"
      ```
 
      Two things are load-bearing here and both were wrong in an earlier draft. **Scope every scanner invocation to the worktree** (`--source`, `file://`, or `git -C`): mozart runs from the canonical checkout while the campaign's commits live in the sibling worktree, so an unscoped scanner scans the wrong tree, reports clean, and the branch pushes unscanned — which would make having a scanner installed *worse* than not having one. And **use `--not --remotes=origin`, not `<base>..HEAD`**: the latter is a local ref, so a maintainer holding two unpushed commits on their own `main` — one of them a stray `.env.local` — gets a clean scan and a permanent leak, with no attacker anywhere in the story. Keep `<base>..HEAD` for the human-readable commit range in the PR body and nowhere else.
 
      A secret added in phase N and removed in phase N+1 is invisible to `git diff <base>...HEAD` but ships in the push and persists in the remote's object store permanently. The range also covers stage-11 reconciliation commits, which the per-phase gate never re-examined.
-   - **When no scanner is present, fall back** — and this is the common case, not a hypothetical. Run the high-signal pattern set defined in `agents/mozart.md`'s per-phase gate, under the bullet *Mechanical secret scan on the staged diff*, over **`git -C <worktree> log -p HEAD --not --remotes=origin`**. The `git fetch origin` above already refreshed those refs. **That range is deliberately identical to the scanner path's**, and it has to stay that way: the fallback is the path that actually executes on a host with no scanner installed, so a fallback scanning a narrower range than the scanner it substitutes for means the weakest control also has the smallest field of view. If you strengthen one, strengthen both in the same edit. **Cite the pattern set by name; never restate it here, and don't pin the citation to a line number** — that bullet moved twice while this section was being written. A second copy of a pattern list has no propagation path: it agrees on the day it is written and silently stops agreeing the day someone strengthens one side, and the version that shipped in between is the weak one. The bullet heading is the durable anchor; grep for it.
-   - **Body scan**: the same referenced pattern set over the **assembled PR body**, before it publishes. The body is built from plan text, valerie's report, and commit messages — none of which passed through the staged-diff gate.
+   - **When no scanner is present, fall back** — and this is the common case, not a hypothetical. Run the high-signal pattern set defined in `agents/mozart.md`'s per-phase gate, under the bullet *Mechanical secret scan on the staged diff*, over:
+
+     ```bash
+     git -C <worktree> log -p $PUSH_RANGE   # unquoted: git log takes separate argv words
+     ```
+
+     The prologue's `git fetch origin` already refreshed those refs — it sits above the branch, so it runs on this path too, which is the point: a fallback resolving `--remotes=origin` against refs nobody fetched is scanning a range it invented. **That range is deliberately identical to the scanner path's** — it is the same `$PUSH_RANGE`, not a second spelling of it — and it has to stay that way: the fallback is the path that actually executes on a host with no scanner installed, so a fallback scanning a narrower range than the scanner it substitutes for means the weakest control also has the smallest field of view. If you strengthen one, strengthen both in the same edit; naming the range once is what makes that a single edit instead of two. **Cite the pattern set by name; never restate it here, and don't pin the citation to a line number** — that bullet moved twice while this section was being written. A second copy of a pattern list has no propagation path: it agrees on the day it is written and silently stops agreeing the day someone strengthens one side, and the version that shipped in between is the weak one. The bullet heading is the durable anchor; grep for it.
+   - **Body scan**: the same referenced pattern set over the **assembled PR body**, before it publishes. The body is built from plan text, valerie's report, and commit messages — none of which passed through the staged-diff gate. **It executes in step 7**, not here: the body does not exist yet at this point in the sequence, and step 7.5's adjacency rule closes the gap between step 7 and the push. Stating the requirement 40-odd lines before the artifact exists is how it goes unrun.
    - Any hit on either scan → **stop before push**, route to jackson. Never "publish now, scrub later"; a secret reaching a remote is already leaked.
+   - **A scan that does not run is not a clean scan.** A scanner that exits non-zero, dies on a bad range, or prints nothing because the command itself failed is a **stop** — identical in force to a hit, and never a pass. Silence from a command that never executed is absence of evidence, not evidence of absence, and it is indistinguishable at the terminal from a clean run. Check the exit status of every scan, say which one failed and how, and route to jackson. Do not push on an unrun scan.
+   - **A scan reporting 0 commits while the push will transmit objects is a stop, not a pass.** Exit status does not cover this one: a scan over an empty range succeeds, prints nothing, and is byte-identical at the terminal to a clean scan over real commits. `$PUSH_COUNT` is what separates them. At 12b it is never legitimately `0` — you are about to push a campaign branch — so `0` means the range selected nothing: stale or rewound refs, a `<base>` that never resolved, or the names arriving unset from a split shell. Echo the count (step 7.5 does) so the number that scoped the scan is on the record beside the scanner that ran.
 
-   **Standing rule for this section: no scan may be scoped with `<base>..HEAD`.** Every history scan here — scanner path and fallback alike — uses `--not --remotes=origin` (or `--since-commit origin/<base>` where the tool takes a single commit). The body scan takes no range at all; it reads the assembled body. `<base>..HEAD` is a *local* range: it silently omits unpushed commits on the local base, which `git push` transmits anyway. `<base>..HEAD` is legal in exactly one place in this section, step 4's commit range for the human-readable PR body, and nowhere else. This rule exists because the range was strengthened once and the fallback was left behind — the second half of a two-half fix is the one that gets forgotten, and here it was the half that actually runs.
+   **Standing rule for this section: every scan cites `$PUSH_RANGE` or `$PUSH_SINCE`, matched to its family; the literal spellings appear once each, in the definition block above.** Scanner path and fallback alike expand the name — every other occurrence of a range in this section is prose explaining why, never a command. No scan may be scoped with `<base>..HEAD`: it is a *local* range, so it silently omits unpushed commits on the local base, which `git push` transmits anyway. `<base>..HEAD` is legal in exactly one place in this section, step 4's commit range for the human-readable PR body, and nowhere else. The body scan takes no range at all; it reads the assembled body. This rule exists because the range was strengthened once and the fallback was left behind — the second half of a two-half fix is the one that gets forgotten, and here it was the half that actually runs. Naming the range once is what removes that failure mode: there is no second copy left to fall out of step.
 
-   Mechanical check — no scan invocation may carry the local range:
-
-   ```bash
-   awk '/^## Pull request authoring/{f=1} /^## /&&!/Pull request authoring/{f=0} f' agents/scott.md \
-     | grep -E 'gitleaks|trufflehog|log -p' | grep '<base>\.\.HEAD' \
-     && echo "FAIL: a scan invocation is scoped to the local <base>..HEAD range"
-   ```
+   The mechanical check for this section lives in `scripts/mozart-contract-gates.sh` (gate V3). Run it against the checkout whose changes you are submitting — the campaign worktree, when there is one: the script gates the tree it lives in and takes that tree's root as an optional first argument, so "repo root" is never ambiguous between the canonical checkout and a worktree. Do not re-inline it here: a check that lives inside the file it scans is reading its own text, and it will pass on the strength of its own example.
 
 2. **Find the template.** Probe these paths **in order and stop at the first hit**:
 
@@ -285,6 +314,22 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
 6. **Verification checklist — the part that matters.** Tick only against evidence: a recorded result in valerie's validation report, or a command you ran yourself this session. Never from the plan's *intent*. Manual items stay unticked, marked `— manual, not yet performed`. `⛔` items stay unticked, marked `— not run: <environment reason>`. Failures stay unticked with the failure quoted. The three prohibitions in harry's plan template — no substitution, no weakening, no reclassification — bind here; reference them rather than restating them into a second dialect. **A fully-ticked checklist nobody executed is the failure this stage exists to prevent.**
 
 7. **Write the body to a temp file safely**: `body=$(mktemp)`, `chmod 600 "$body"`, `trap 'rm -f "$body"' EXIT`. It may quote log excerpts; it is not world-readable and does not outlive the process.
+
+   **Then run step 1's body scan, here.** Step 1 states the requirement; this is the only place it can execute. The body does not exist until the line above, and step 7.5's adjacency rule forbids inserting anything between it and the push — so a body scan that is not run here is not run at all.
+
+   ```bash
+   # $BODY_PATTERNS is the high-signal set cited in step 1: agents/mozart.md's
+   # per-phase gate, bullet "Mechanical secret scan on the staged diff". Read it
+   # from there. Never restate it here - a second copy agrees only on day one.
+   grep -nE "$BODY_PATTERNS" "$body"; hit=$?
+   case "$hit" in
+     0) echo "STOP: secret pattern in the assembled PR body. Nothing pushed."; exit 1 ;;
+     1) ;;                       # grep ran and found nothing - the only clean outcome
+     *) echo "STOP: body scan did not run (grep exit $hit). Nothing pushed."; exit 1 ;;
+   esac
+   ```
+
+   The exit-code split is step 1's stop rule applied to this scan: `1` means the scan ran and found nothing, anything above `1` means it did not run, and both print nothing. **A clean history scan is not evidence about the body.** The history scan reads commits; the body is a file that was never in git, assembled from plan text, valerie's report and commit messages — none of which passed the staged-diff gate, and none of which any range can reach.
 
 7.5 **Re-validate the grant, then echo — the last mutable step before the push.** Nothing may be inserted between this step and step 8. That adjacency *is* the control: the authorization was resolved at intake, the state file is authoritative on resume, and a human who has since removed the stanza from the remote's default branch has revoked a permission your state file still records.
 
@@ -349,6 +394,7 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
         intake grant read from <auth_ref>@<sha-at-intake>
         PR base <base>@<base-sha>                                (differs from the authorization ref)
         secret scan: <gitleaks|trufflehog|built-in pattern fallback>  state: <draft|ready (downgraded)>
+        scan range:  $PUSH_COUNT commit(s) selected                  (0 is a stop, not a pass)
    ```
 
    Under AUTONOMOUS nothing pauses, so this block **is** the audit record. Three facts, each separately checkable. **The authorization ref**, because a grant read from the remote's default branch and one read from a working tree are different facts and only one of them is the repo's. **Both SHAs on that ref**, because the intake grant and the push-time grant are also different facts — a resumed campaign is exactly where they diverge. And **the PR base alongside it**, because the two are allowed to differ: a repo whose campaigns branch from `develop` or a deploy branch is doing something legitimate, and the run record should show the divergence rather than a stop halting it. Print the parenthetical on the base line only when it actually differs.

@@ -12,7 +12,9 @@ Role: one sentence — what this agent does and for whom.
 
 ## Where in the pipeline
 
-Which stage(s) does this agent run? (Stage numbers 1–13, or 12b, for DELIVER; or AUDIT / DIAGNOSE placement.) Is it a reviewer (stage 4), a mid-build specialist (stage 8), or something else?
+Which stage(s) does this agent run, and in which pipeline shape? DELIVER uses stage numbers 1–13 (plus 12b); the other shapes are AUDIT, DIAGNOSE, OPERATE, INCIDENT and EVAL. Is it a reviewer (DELIVER stage 4), a mid-build specialist (DELIVER stage 8), or something else?
+
+The persona file must carry a `## Where you fit in mozart's pipeline` section — exactly once, ahead of `## Field notes` — holding a `**Your <PIPELINE> stages**:` marker line for every shape it is placed in, and `agents/README.md`'s roster Stages column has to record the same placement. The full rules are in `CONTRIBUTING.md`'s persona authoring contract, and `scripts/mozart-contract-gates.sh` checks them.
 
 ## Trigger
 
