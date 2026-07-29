@@ -4,6 +4,10 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Documentation — a local install may legitimately diverge from this repo
+
+`CONTRIBUTING.md`'s **Local testing** section now states that the repository is the product-neutral source — no host-specific MCP server, personal tooling, or machine-local agent ships from it — while a user-scope install under `~/.claude/agents/` may legitimately specialize past it, and that the gap between them is a design difference rather than drift to reconcile. Neither direction is a straight copy: copying `agents/` over user scope destroys the specialization, copying a specialized persona back leaks one machine's tool configuration into a tool-agnostic project, and an edit made here doesn't reach a running local mozart until it's synced — none of which errors, so the section tells contributors to confirm which copy is live before trusting a local test result. There is no sync tooling in the repo; the section recommends one rather than documenting one that doesn't exist.
+
 ### Fixed — four verification checks that could not fail
 
 Four issues (#6, #7, #8, #9), one defect class: **a check whose scope was a spelling rather than a property.** Each ran, printed a result, and could not report the thing it existed to catch.
