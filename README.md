@@ -3,7 +3,7 @@
 *A Claude Code plugin that turns one request into an orchestrated, narrated, multi-agent pipeline.*
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 ![Claude Code Plugin](https://img.shields.io/badge/claude--code-plugin-7B61FF.svg)
 
 ## Why this exists

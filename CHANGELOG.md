@@ -4,6 +4,12 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-29
+
+Everything merged since 0.1.0, listed newest first. The pipeline goes from three work shapes to six — EVAL, OPERATE and INCIDENT join DELIVER, AUDIT and DIAGNOSE — and from 14 specialists to 17 with tessa, percy and hank. The newest feature is opt-in and off by default: **stage 12b (Ship)** opens a pull request at campaign end, and only for a repo that declares a `## Pull requests` stanza on its default branch.
+
+Read this before upgrading, because three defaults change whether or not you opt into anything. **Every code-changing campaign now cuts its own worktree and branch at intake** — previously that happened only in multi-campaign mode, so a single campaign implemented onto whatever branch was checked out; a dirty checkout at intake is now a stop. **New artifacts are written under `.mozart/` instead of `thoughts/shared/`** — nothing is migrated, both roots are swept, and a campaign started under the legacy root keeps writing there for life. **Codex r2 now runs by default on STANDARD tier** rather than being optional, and valerie and bob moved from sonnet to opus, so a STANDARD campaign costs more than it did on 0.1.0. Existing state files stay readable and resumable throughout; no artifact path, filename layout or config stanza from 0.1.0 stops working.
+
 ### Documentation — a local install may legitimately diverge from this repo
 
 `CONTRIBUTING.md`'s **Local testing** section now states that the repository is the product-neutral source — no host-specific MCP server, personal tooling, or machine-local agent ships from it — while a user-scope install under `~/.claude/agents/` may legitimately specialize past it, and that the gap between them is a design difference rather than drift to reconcile. Neither direction is a straight copy: copying `agents/` over user scope destroys the specialization, copying a specialized persona back leaks one machine's tool configuration into a tool-agnostic project, and an edit made here doesn't reach a running local mozart until it's synced — none of which errors, so the section tells contributors to confirm which copy is live before trusting a local test result. There is no sync tooling in the repo; the section recommends one rather than documenting one that doesn't exist.
@@ -253,6 +259,12 @@ This release threads a wiring-sites discipline through the pipeline so the popul
 - **`agents/valerie.md`** — added a fourth failure mode, `Pattern incomplete` — re-runs the plan's documented grep against the post-diff tree and flags any enumerated non-deferred site that didn't land. Added a verification-evidence bullet requiring proof that the path the work targets was actually exercised, not just the happy path.
 
 Skipped on plans that introduce no pattern (pure bug fix in a single function, isolated feature add with no analogue elsewhere) — but the plan still says so explicitly. Silence is not the same as "no pattern."
+
+### Notes
+
+Pre-1.0, so no stability commitment is made across minor versions — though nothing in this release removes a documented path, stanza or state-file field.
+
+One behavior change is not gated behind an opt-in and will appear unprompted: the new `missing-12b` lint category fires on an **in-flight** DELIVER campaign written before stage 12b existed, asking for a `12b` row. Add the row and either run it or mark it skipped. Finished campaigns are exempt by construction.
 
 ## [0.1.0] - 2026-05-03
 
