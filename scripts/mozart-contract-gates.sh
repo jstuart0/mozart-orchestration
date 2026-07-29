@@ -44,6 +44,20 @@ report() { # report <name> <ok:0|1> <detail>
 eq() { [ "$1" = "$2" ] && echo 0 || echo 1; }
 ge() { [ "$1" -ge "$2" ] && echo 0 || echo 1; }
 
+# Every gate below asserts a COMMAND, not a mention of one. A floor that counts
+# substring presence is satisfiable by inert prose inside a fence - measured on
+# all three sites: replacing the real command with `echo "we used to git -C
+# <worktree> fetch origin --quiet here"` (and the equivalents) left the whole
+# suite green. Deletion was already caught; substitution is what a reflow
+# produces, and it is what passed.
+#
+# NO BACKSLASHES in this string: it crosses `awk -v`, which processes escape
+# sequences in assignments. That trap has already cost this campaign a round.
+# `(^|[|;&(]|! )` admits a leading-whitespace line start, a pipeline stage, a
+# `;`/`&&`/`||` separator, `(`, and `if ! cmd` - so legitimate shell forms still
+# count, which is the half that keeps the gate off correct work.
+v3_cmdpos='(^|[|;&(]|! )[[:space:]]*'
+
 echo "== mozart contract gates =="
 echo "root: $gate_root"
 echo "gate file: $gatefile"
@@ -129,6 +143,19 @@ report "V0b_no_mirrored_gate" "$(eq "$gatevar_hits" 0)" \
 v1_fields=$(awk '/^\*\*Last updated\*\*/{f=1} f && /^\*\*[A-Z]/{gsub(/^\*\*/,"");sub(/\*\*.*/,"");print} f && /^## Tickets/{exit}' \
   agents/mozart.md | sort -u)
 v1_alt=$(printf '%s\n' "$v1_fields" | paste -sd'|' -)
+
+# Control on the derivation itself. Every other derived scope in this file has
+# one - V0b_derivation's floor, V4_population's pinned 17, V4c_shapes by name,
+# V3_ctl's heading check - and V1, the gate for the campaign's headline bug, did
+# not. Rename the template's `**Last updated**` anchor and the field list comes
+# back EMPTY, the alternation `()` matches nothing, and a live bare-form
+# `grep -l "Status: stopped"` reports 0: issue #6 reintroduced with its own gate
+# green. Measured on a fixture. Two conditions, because a floor alone would
+# accept a list that no longer contains the field this gate is about.
+v1_nfields=$(printf '%s\n' "$v1_fields" | grep -c .)
+v1_hasstatus=$(printf '%s\n' "$v1_fields" | grep -cx 'Status')
+if [ "$v1_nfields" -ge 5 ] && [ "$v1_hasstatus" -eq 1 ]; then v1_fl=0; else v1_fl=1; fi
+report "V1_fieldlist" "$v1_fl" "state-file template fields derived=$v1_nfields (floor 5), 'Status' among them=$v1_hasstatus (want 1); an empty or Status-less list makes the alternation below match nothing"
 
 # must-not half: no invocation may still grep the bare "<Field>: " form.
 v1_stale=$(grep -cE "grep[^\"']*[\"']($v1_alt): " agents/mozart.md)
@@ -277,8 +304,8 @@ v3_fam=$(printf '%s\n' "$cmdlines" | awk '
 report "V3_fam" "$(eq "$v3_fam" 0)" "family mismatches (range name on a single-commit flag or vice versa)=$v3_fam (want 0)"
 
 # The fallback must be a real git log -p over the named range, not a citation.
-fallback_is_real=$(printf '%s\n' "$cmdlines" | awk '
-  { if ($0 ~ /git .*log .*-p .*[$]PUSH_RANGE/) n++ } END { print n+0 }')
+fallback_is_real=$(printf '%s\n' "$cmdlines" | awk -v cp="$v3_cmdpos" '
+  { if ($0 ~ /git .*log .*-p .*[$]PUSH_RANGE/ && $0 ~ (cp "git[[:space:]]")) n++ } END { print n+0 }')
 report "V3_fallback_is_real" "$(ge "$fallback_is_real" 1)" "fenced 'git ... log ... -p ... \$PUSH_RANGE' fallback commands=$fallback_is_real (floor 1)"
 
 # The quoting asymmetry is documented as intrinsic and load-bearing, so it gets
@@ -316,9 +343,49 @@ v3_region() { # v3_region <file> <start-ere> <end-ere>
   [ -n "$v3_re" ] || v3_re=$(( $(wc -l < "$1") + 1 ))
   awk -v a="$v3_rs" -v b="$v3_re" 'NR>=a && NR<b' "$1" | grep -v '<!--'
 }
-v3_step1=$(v3_region agents/scott.md '^1\. \*\*Secret scan before publish' '^2\. \*\*Find the template')
-v3_step7=$(v3_region agents/scott.md '^7\. \*\*Write the body' '^8\. \*\*Push and open')
-v3_mozgate=$(v3_region agents/mozart.md '^### 7\. Implement' '^### 8\. Mid-build')
+# Fenced command lines only, from a region. Same fence-flag rules as $cmdlines:
+# a flag, never an awk range, and only trailing `#` comments stripped.
+v3_fence_filter() {
+  awk '
+    /^[[:space:]]*```/ { infence=!infence; next }
+    infence {
+      if ($0 ~ /^[[:space:]]*#/) next
+      sub(/[[:space:]]#.*/,"")
+      if ($0 ~ /[^[:space:]]/) print
+    }'
+}
+
+# Anchors defined ONCE and consumed by both the resolution check and the region
+# extraction, so the two cannot drift apart.
+v3_a1s='^1\. \*\*Secret scan before publish' ; v3_a1e='^2\. \*\*Find the template'
+v3_a7s='^7\. \*\*Write the body'             ; v3_a7e='^8\. \*\*Push and open'
+v3_ams='^### 7\. Implement'                  ; v3_ame='^### 8\. Mid-build'
+
+# V3_ctl exists because a rename must not silently EMPTY a scope. The symmetric
+# case had no control: lose the END anchor and v3_region falls back to EOF, so
+# the region silently WIDENS and a rule relocated 80 lines downstream still
+# lands inside it. Failing wide reads exactly like passing. Measured: with the
+# end anchor renamed and both stop-rule bullets moved into step 5, every gate
+# passed; without the rename the same relocation is caught.
+#
+# Checked with plain calls, NOT command substitution - `$(...)` runs a subshell
+# and the assignment to v3_anchors_bad would never reach the parent.
+v3_anchors_bad=""
+v3_check_anchors() { # <file> <start-ere> <end-ere> <label>
+  v3_cs=$(grep -nE "$2" "$1" | head -1 | cut -d: -f1)
+  if [ -z "$v3_cs" ]; then v3_anchors_bad="$v3_anchors_bad [$4: START anchor unresolved]"; return; fi
+  v3_ce=$(grep -nE "$3" "$1" | cut -d: -f1 | awk -v a="$v3_cs" '$1>a {print; exit}')
+  [ -n "$v3_ce" ] || v3_anchors_bad="$v3_anchors_bad [$4: END anchor unresolved - region widens to EOF]"
+}
+v3_check_anchors agents/scott.md  "$v3_a1s" "$v3_a1e" step1
+v3_check_anchors agents/scott.md  "$v3_a7s" "$v3_a7e" step7
+v3_check_anchors agents/mozart.md "$v3_ams" "$v3_ame" mozart-per-phase-gate
+report "V3_region_anchors" "$([ -z "$v3_anchors_bad" ] && echo 0 || echo 1)" \
+  "${v3_anchors_bad:-all 3 region anchor pairs resolve; no region falls back to EOF}"
+
+v3_step1=$(v3_region agents/scott.md  "$v3_a1s" "$v3_a1e")
+v3_step7=$(v3_region agents/scott.md  "$v3_a7s" "$v3_a7e")
+v3_mozgate=$(v3_region agents/mozart.md "$v3_ams" "$v3_ame")
 
 stop_rule_scott=$(printf '%s\n' "$v3_step1" | grep -cE '^[[:space:]]*- \*\*A scan that does not run is not a clean scan\.\*\*')
 stop_rule_mozart=$(printf '%s\n' "$v3_mozgate" | grep -F 'A scan that does not run is not a clean scan' | grep -cF 'Mechanical secret scan on the staged diff')
@@ -332,8 +399,19 @@ report "V3_zero_range_rule" "$(ge "$zero_range_rule" 1)" "empty-range stop rule 
 # until step 7 and step 7.5 forbids inserting anything before the push - so step
 # 7 is the only place it can execute. Assert the requirement AND the command.
 body_scan_req=$(printf '%s\n' "$v3_step1" | grep -cF '**Body scan**')
-body_scan_cmd=$(printf '%s\n' "$v3_step7" | awk '
-  index($0,"\"$body\"")>0 && ($0 ~ /grep/ || $0 ~ /gitleaks/ || $0 ~ /trufflehog/)' | grep -c .)
+# FENCED command lines only. Matching anywhere in the region detects deletion
+# but not SUBSTITUTION, and substitution is what a reflow produces: replacing the
+# runnable scan with the prose line `We may one day grep the assembled "$body"
+# for secrets. Not today.` left the whole suite green. That is this campaign's
+# own defect class - a proxy (a line mentioning grep and "$body") standing in for
+# the property (a command exists). The stop rules got this treatment in the same
+# commit; this sibling gate did not.
+# The scanner must be in COMMAND POSITION, not merely present on the line, so
+# that fencing a quoted mention (`echo 'grep "$body"'`) does not satisfy it -
+# that is f3's substitution one layer down. Command position = line start, or
+# after a pipe / separator / `!` / `(`, which admits `if ! grep -q ... "$body"`.
+body_scan_cmd=$(printf '%s\n' "$v3_step7" | v3_fence_filter | awk '
+  index($0,"\"$body\"")>0 && $0 ~ /(^|[|;&(]|! )[[:space:]]*(grep|gitleaks|trufflehog)[[:space:]]/' | grep -c .)
 report "V3_body_scan_req" "$(ge "$body_scan_req" 1)" "body-scan requirement stated in step 1=$body_scan_req (floor 1)"
 report "V3_body_scan_cmd" "$(ge "$body_scan_cmd" 1)" "body-scan commands between body creation and the push=$body_scan_cmd (floor 1; the requirement is stated 40+ lines before the artifact exists)"
 
@@ -347,12 +425,23 @@ report "V3_push_count_value" "$(eq "$push_count_value" "$want_count")" "PUSH_COU
 # the scanner-less fallback is the common case, so the claim was false on the
 # path that actually executes. A rewound origin then silently narrows the range.
 deffence=$(printf '%s\n' "$cmdfenced" | grep -F 'PUSH_RANGE="' | head -1 | cut -f1)
-fetch_in_def=$(printf '%s\n' "$cmdfenced" | awk -F'\t' -v f="$deffence" '$1==f && index($2,"fetch origin")>0' | grep -c .)
-scanfences=$(printf '%s\n' "$cmdfenced" | awk -F'\t' '$2 ~ /^[[:space:]]*(gitleaks|trufflehog)[[:space:]]/ {print $1}' | sort -u)
-fetch_in_scan=$(printf '%s\n' "$cmdfenced" | awk -F'\t' -v s="$(printf '%s' "$scanfences" | paste -sd, -)" '
-  { split(s,a,","); for(i in a) if ($1==a[i] && index($2,"fetch origin")>0) print }' | grep -c .)
-report "V3_fetch_in_prologue" "$(ge "$fetch_in_def" 1)" "fetch commands in the range-defining fence=$fetch_in_def (floor 1: it must run on every path)"
+fetch_in_def=$(printf '%s\n' "$cmdfenced" | awk -F'\t' -v f="$deffence" -v cp="$v3_cmdpos" '
+  $1==f && index($2,"fetch origin")>0 && $2 ~ (cp "git[[:space:]]")' | grep -c .)
+scanfences=$(printf '%s\n' "$cmdfenced" | awk -F'\t' -v cp="$v3_cmdpos" '
+  $2 ~ (cp "(gitleaks|trufflehog)[[:space:]]") {print $1}' | sort -u)
+fetch_in_scan=$(printf '%s\n' "$cmdfenced" | awk -F'\t' -v cp="$v3_cmdpos" -v s="$(printf '%s' "$scanfences" | paste -sd, -)" '
+  { split(s,a,","); for(i in a) if ($1==a[i] && index($2,"fetch origin")>0 && $2 ~ (cp "git[[:space:]]")) print }' | grep -c .)
+report "V3_fetch_in_prologue" "$(ge "$fetch_in_def" 1)" "fetch COMMANDS in the range-defining fence=$fetch_in_def (floor 1: it must run on every path)"
 report "V3_fetch_not_branch"  "$(eq "$fetch_in_scan" 0)" "fetch commands inside a scanner-only fence=$fetch_in_scan (want 0)"
+
+# The scanner invocations themselves had no command assertion at all - a1, cite,
+# fam and scanner_quoted all read line content, so `echo running gitleaks detect
+# --source <worktree> --log-opts "$PUSH_RANGE"` satisfied every one of them. This
+# was the widest of the three: the two scans this section exists to require could
+# be turned into echoes with the suite green. Pinned at its measured baseline.
+scanner_cmds=$(printf '%s\n' "$cmdlines" | awk -v cp="$v3_cmdpos" '
+  $0 ~ (cp "(gitleaks|trufflehog)[[:space:]]")' | grep -c .)
+report "V3_scanner_cmds" "$(eq "$scanner_cmds" 2)" "scanner invocations in COMMAND position=$scanner_cmds (want 2: one gitleaks, one trufflehog)"
 
 # Step 1 now defines values in one fence and consumes them in later fences, the
 # same coupling step 7-8 already carries the one-shell mandate for.
