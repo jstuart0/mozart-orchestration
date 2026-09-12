@@ -661,8 +661,21 @@ report "V6_generalized_readme"  "$(ge "$v6_gen_readme" 1)"  "'roster Stages colu
 # pinned for the Default-standard paragraph now holds the placement section this
 # campaign made universal, so it pointed new contributors at the wrong contract.
 # Cite sections by name; nothing here may pin a persona file by line number.
-v6_line_pin=$(grep -cE 'agents/[a-z]+\.md.{0,3}lines? [0-9]' CONTRIBUTING.md)
-report "V6_no_line_pin" "$(eq "$v6_line_pin" 0)" "line-range pins into persona files in CONTRIBUTING.md=$v6_line_pin (want 0; cite the section)"
+#
+# Widened (ian r2): the original check swept only CONTRIBUTING.md, so it could
+# not see a LATER campaign introduce fresh cross-persona line-range pins
+# elsewhere - which this campaign's own first attempt did, three times
+# (harry.md, jackson.md x2, otto.md), each citing another persona file by
+# line/range. Population is DERIVED from v4_roster (persona filenames), never
+# hand-listed - the same discipline every other gate here uses. CHANGELOG.md
+# excluded by name, same reason as V2/V7/V9: it narrates past changes, so a
+# historical line citation there isn't a live persona-to-persona pin. Measured
+# clean across the rest of the tracked-markdown scope before this widening.
+v6_names=$(printf '%s\n' "$v4_roster" | cut -f1 | paste -sd'|' -)
+v6_pinpat="agents/($v6_names)\.md.{0,3}lines? [0-9]|(^|[^A-Za-z_/])($v6_names)\.md:[0-9]+(-[0-9]+)?"
+v6_pinhits=$(md_grep -nE "$v6_pinpat" 2>/dev/null | grep -v '^CHANGELOG\.md:')
+v6_line_pin=$(printf '%s\n' "$v6_pinhits" | grep -c .)
+report "V6_no_line_pin" "$(eq "$v6_line_pin" 0)" "line-range pins into persona files, across all tracked markdown=$v6_line_pin (want 0; cite the section) ${v6_pinhits:+[$v6_pinhits]}"
 
 v6_hank_chain=$(grep -cF 'OPERATE stages: 1.Intake+context pin' agents/hank.md)
 report "V6_hank_chain" "$(eq "$v6_hank_chain" 0)" "whole-pipeline restatement surviving in hank.md=$v6_hank_chain (want 0)"
@@ -696,15 +709,26 @@ done < <(printf '%s\n' "$v4_roster")
 report "V7_spawn" "$([ -z "$v7_spawn_bad" ] && echo 0 || echo 1)" \
   "${v7_spawn_bad:-no no-Task agent carries a spawn imperative about itself}"
 
-# Control - TWO conditions, run against agents/mozart.md, which legitimately
-# spawns and so must trip the detector (tessa; r0's control was one
-# condition, and a floor alone is satisfiable by a detector that lost 3 of 4
-# alternatives but coincidentally still matches the 4th).
-v7_mzhits=$(grep -cE "$v7_spawn_pat" agents/mozart.md)
-v7_mztask=$(grep -cF 'Task(subagent' agents/mozart.md)
-if [ "$v7_mzhits" -ge 2 ] && [ "$v7_mztask" -ge 1 ]; then v7_spawnctl=0; else v7_spawnctl=1; fi
-report "V7_spawn_control" "$v7_spawnctl" \
-  "spawn-imperative pattern hits in agents/mozart.md=$v7_mzhits (floor 2), the Task(subagent alternative among them=$v7_mztask (want >=1)"
+# Control - a FROZEN, ISOLATED fixture, one line per alternative, each line
+# crafted to hit EXACTLY one of the four alternatives (tessa r2: the r1
+# control ran against agents/mozart.md, but mozart.md's only living spawn
+# text is `Task(subagent` - all its hits come from that ONE alternative, so
+# narrowing v7_spawn_pat to 'Task\(subagent' alone still passed the r1
+# control while silently losing the three alternatives that actually caught
+# harry's and jackson's defects. A merged/aggregate corpus has the identical
+# hole: one strong alternative can mask the loss of the other three under a
+# bare floor. Testing each line SEPARATELY closes it - if any one alternative
+# stops matching, only its own line fails, and the control catches it.
+v7_fx1='## When to call in the specialists'
+v7_fx2='Spawn 3 sub-agents to investigate independently.'
+v7_fx3='Proposals are gathered via the Agent tool before comparing.'
+v7_fx4='Task(subagent_type="xander", prompt="review the plan")'
+v7_spawnctl_bad=""
+for v7_fxline in "$v7_fx1" "$v7_fx2" "$v7_fx3" "$v7_fx4"; do
+  printf '%s\n' "$v7_fxline" | grep -qE "$v7_spawn_pat" || v7_spawnctl_bad="$v7_spawnctl_bad [not matched: $v7_fxline]"
+done
+report "V7_spawn_control" "$([ -z "$v7_spawnctl_bad" ] && echo 0 || echo 1)" \
+  "${v7_spawnctl_bad:-all four spawn-imperative alternatives independently matched by an isolated, frozen fixture}"
 
 # Write half. An agent claims a persisted artifact iff a tracked markdown
 # line binds its name to a .mozart/ path under the verb alternation above.
@@ -742,22 +766,27 @@ done < <(printf '%s\n' "$v4_roster")
 report "V7_write" "$([ -z "$v7_write_bad" ] && echo 0 || echo 1)" \
   "${v7_write_bad:-every claimant holds Write}"
 
-# Control - THREE named members, not two (bob): r0's two (harry, valerie) are
-# both discoverable from their OWN files, so the agents/mozart.md half of the
-# population could match zero lines and still pass - and that half is
-# precisely where sarah's live defect lived. sarah is the mozart.md-only
-# canary. Plus a claimant floor of >=5.
+# Control - THREE named members, not two (bob), tested against agents/
+# mozart.md's OWN claim lines SPECIFICALLY, not membership in the merged
+# claimant list (tessa r2: this campaign's own sarah.md:95 rewrite now
+# self-binds her from her OWN file too, so stripping her mozart.md:1217
+# mention - the exact line this control exists to exercise - left her still
+# a claimant via the other site, and the merged-population membership test
+# still reported PASS 1/1/1). Restricting the test to the agents/mozart.md
+# SUBSET of claim lines means the control can only pass if mozart.md's own
+# text does the binding, regardless of what any persona's own file says.
+v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep '^agents/mozart\.md:')
+v7_mzharry=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" && echo 1 || echo 0)
+v7_mzvalerie=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" && echo 1 || echo 0)
+v7_mzsarah=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" && echo 1 || echo 0)
 v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
-v7_hasharry=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx harry)
-v7_hasvalerie=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx valerie)
-v7_hassarah=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx sarah)
-if [ "$v7_claimn" -ge 5 ] && [ "$v7_hasharry" -ge 1 ] && [ "$v7_hasvalerie" -ge 1 ] && [ "$v7_hassarah" -ge 1 ]; then
+if [ "$v7_claimn" -ge 5 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
   v7_claimctl=0
 else
   v7_claimctl=1
 fi
 report "V7_claim_control" "$v7_claimctl" \
-  "claimants derived=$v7_claimn (floor 5); harry/valerie/sarah all present=$v7_hasharry/$v7_hasvalerie/$v7_hassarah (want >=1 each)"
+  "claimants derived=$v7_claimn (floor 5); agents/mozart.md's OWN claim lines separately bind harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart.md independent of any persona's own file)"
 
 # Inverse half (xander) - an agent HOLDING Write must carry no UNQUALIFIED
 # read-only self-assertion. Qualified forms ("Read-only on code", "not ... for
@@ -765,24 +794,70 @@ report "V7_claim_control" "$v7_claimctl" \
 # safe instead of silently self-contradictory.
 v7_inv_bad=""
 v7_qualified_seen=0
+# Punctuation-agnostic (xander r2): the r1 form required a literal period, so
+# `agents/dick.md:3`'s frontmatter description - "Read-only; never fixes
+# anything." - returned 0 hits and PASSed on a live contradiction (dick now
+# holds Write). Broadened to a punctuation class; verified this does NOT
+# false-positive on "Read-only on code." (valerie) or "Read-only on
+# infrastructure." (otto) - the character directly after "Read-only" there is
+# a space, never punctuation, so the class never engages.
+v7_ro_punct='[.;,:]'
 while IFS="$(printf '\t')" read -r ag _; do
   [ -n "$ag" ] || continue
   af="agents/$ag.md"
   [ -f "$af" ] || continue
   v7_tools=$(grep -m1 '^tools:' "$af")
   case "$v7_tools" in *Write*) : ;; *) continue ;; esac
-  v7_bare=$(grep -cE '(^|[^a-z])Read-only\.' "$af")
-  [ "$v7_bare" -eq 0 ] || v7_inv_bad="$v7_inv_bad [$ag: $v7_bare unqualified 'Read-only.' assertion(s)]"
+  v7_bare=$(grep -cE "(^|[^a-z])Read-only$v7_ro_punct" "$af")
+  [ "$v7_bare" -eq 0 ] || v7_inv_bad="$v7_inv_bad [$ag: $v7_bare unqualified 'Read-only<punct>' assertion(s)]"
   v7_qual=$(grep -ciE 'Read-only on|for source code' "$af")
   [ "$v7_qual" -eq 0 ] || v7_qualified_seen=$((v7_qualified_seen + 1))
 done < <(printf '%s\n' "$v4_roster")
 report "V7_readonly_inverse" "$([ -z "$v7_inv_bad" ] && echo 0 || echo 1)" \
-  "${v7_inv_bad:-no Write-holding agent carries an unqualified 'Read-only.' assertion}"
+  "${v7_inv_bad:-no Write-holding agent carries an unqualified 'Read-only' + punctuation assertion}"
 # Control - at least one QUALIFIED form must exist among Write holders, or the
 # "zero bare matches" result could be true only because no agent ever writes
 # the word "Read-only" at all (V7's own defect class, one check over).
 report "V7_readonly_control" "$(ge "$v7_qualified_seen" 1)" \
   "Write-holding agents carrying a QUALIFIED read-only form=$v7_qualified_seen (floor 1)"
+
+# Live behavioural fixture for the punctuation broadening (xander r2) -
+# proves both directions on a frozen corpus, not just an assertion about the
+# shipped tree: the semicolon/comma form (dick's PRE-repair wording) must be
+# caught, and "Read-only on code." must still read as qualified.
+v7_ro_fixdir=$(mktemp -d)
+printf 'Read-only on code. You report findings.\n' > "$v7_ro_fixdir/qualified_on.md"
+printf 'You do not have Edit or Write for source code.\n' > "$v7_ro_fixdir/qualified_altform.md"
+printf 'Read-only; never fixes anything.\n' > "$v7_ro_fixdir/bare_semicolon.md"
+printf 'Read-only. You report findings.\n' > "$v7_ro_fixdir/bare_period.md"
+printf 'Read-only, and nothing else.\n' > "$v7_ro_fixdir/bare_comma.md"
+v7_ro_bad=""
+grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/qualified_on.md" \
+  && v7_ro_bad="$v7_ro_bad [qualified 'Read-only on code.' wrongly flagged as bare]"
+grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/qualified_altform.md" \
+  && v7_ro_bad="$v7_ro_bad ['for source code' phrasing wrongly flagged as bare]"
+for v7_ro_bf in bare_semicolon bare_period bare_comma; do
+  grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/$v7_ro_bf.md" \
+    || v7_ro_bad="$v7_ro_bad [$v7_ro_bf NOT caught by the broadened class]"
+done
+rm -rf "$v7_ro_fixdir"
+report "V7_readonly_fixture" "$([ -z "$v7_ro_bad" ] && echo 0 || echo 1)" \
+  "${v7_ro_bad:-broadened [.;,:] class catches bare semicolon/period/comma forms and still treats 'Read-only on ...'/'for source code' as qualified}"
+
+# Prose-coverage coda (tessa, Low, optional) - nothing above asserts the
+# CONTRIBUTING.md capability sentence actually landed, nor that harry's and
+# jackson's rewritten routing sections say WHO performs the invocation; the
+# earlier fixture only proved the OLD spawn wording is gone, not that the
+# replacement says the right thing.
+v7_contrib_rule=$(grep -cF 'must satisfy every capability its own contracts promise' CONTRIBUTING.md)
+report "V7_contrib_rule_present" "$(ge "$v7_contrib_rule" 1)" \
+  "CONTRIBUTING.md capability-vs-claim sentence present=$v7_contrib_rule (floor 1)"
+
+v7_harry_wording=$(grep -cF 'mozart performs the invocation' agents/harry.md)
+v7_jackson_wording=$(grep -cF 'mozart performs the invocation' agents/jackson.md)
+if [ "$v7_harry_wording" -ge 1 ] && [ "$v7_jackson_wording" -ge 1 ]; then v7_invctl=0; else v7_invctl=1; fi
+report "V7_invocation_wording" "$v7_invctl" \
+  "harry.md/jackson.md say 'mozart performs the invocation'=$v7_harry_wording/$v7_jackson_wording (want >=1 each)"
 
 # ---------------------------------------------------------------------------
 # V8 - DELIVER stage-key parity, ORDERED (not set-equal - codex X5), over

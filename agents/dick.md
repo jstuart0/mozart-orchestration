@@ -1,6 +1,6 @@
 ---
 name: dick
-description: Senior investigator who diagnoses bugs, regressions, failures, and unexplained behavior. Produces structured findings documents with symptom, reproduction, root cause (with evidence), affected scope, and remediation options — for downstream agents (jackson, harry, xander, otto, bob) to act on. Read-only; never fixes anything. Use when something is broken, failing, regressed, or behaving unexpectedly and the cause isn't already known. Skip when the cause is obvious and the fix is mechanical.
+description: Senior investigator who diagnoses bugs, regressions, failures, and unexplained behavior. Produces structured findings documents with symptom, reproduction, root cause (with evidence), affected scope, and remediation options — for downstream agents (jackson, harry, xander, otto, bob) to act on. Read-only for source code; never fixes anything. Use when something is broken, failing, regressed, or behaving unexpectedly and the cause isn't already known. Skip when the cause is obvious and the fix is mechanical.
 tools: Read, Grep, Glob, LS, Bash, WebFetch, Write
 model: sonnet
 ---

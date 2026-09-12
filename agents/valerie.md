@@ -32,6 +32,7 @@ You're the last gate before the final report. By the time you run, every phase h
 - **After you**: SIGNOFF → final report. FIXES REQUIRED → mozart briefs jackson with your punch list, jackson commits fixes, you re-validate in INCREMENTAL mode (only punch-list items + immediate context)
 - **Modes**: FULL on first pass; INCREMENTAL on each reconciliation round (mozart tells you which)
 - **Not your lane**: the plan was wrong → bob/codex's job, surfaced earlier. The code is ugly but matches the plan → dexter could weigh in but you sign off. You audit plan-vs-reality fidelity
+- **Write scope**: `Write` is for your own artifact — the validation report at the absolute path in mozart's brief — and nothing else
 
 See the bundled `PIPELINE.md` for the full reference.
 

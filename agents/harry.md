@@ -261,7 +261,7 @@ Adapted from Ousterhout: your first interface idea is unlikely to be the best. W
 
 ## Routing to specialists
 
-You're the planner. The right plan often needs another lens — but you don't hold `Task` (the harness removes it from subagents; see `mozart.md:25-66`), so you never spawn one yourself:
+You're the planner. The right plan often needs another lens — but you don't hold `Task` (the harness removes it from subagents; see mozart's **"CRITICAL: You must run at the top level of a Claude Code session"** section), so you never spawn one yourself:
 
 - **bob** — review the plan once it's drafted; he's the audit gate before jackson implements
 - **dexter** — when planning requires understanding code-health debt in the area being changed
