@@ -6,7 +6,7 @@
 # checkbox drift, duplicate stage lines, unclosed stage lists in complete
 # campaigns, stale active campaigns, stranded sibling artifacts, stale active/
 # path references inside finished ## Paths blocks, and active DELIVER campaigns
-# missing their 12b. Ship row.
+# missing their 12b. Ship row or their 2b. Constraints row.
 #
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
 # re-check) — that stays a manual sweep at intake. See agents/mozart.md.
@@ -150,6 +150,17 @@ lint_root() {
     [ -f "$f" ] || continue
     if grep -qE '^\- \[[ x-]\] 12\. ' "$f" && ! grep -qE '^\- \[[ x-]\] 12b\.' "$f"; then
       finding "missing-12b" "$f — has a '12. Documentation' row but no '12b. Ship' row (insert it in place between 12 and 13; run it or mark '[-] 12b. Ship — skipped: <reason>')"
+    fi
+  done
+
+  # --- Check J: DELIVER campaigns missing the 2b. Constraints row -----------
+  # active/ ONLY - never finished/, never the bare-slug glob. Same rationale
+  # as Check I (:131-148) applies verbatim: a finished campaign's stage list
+  # is a record of what ran, not a template to conform to.
+  for f in "$PLANS"/active/*.state.md "$PLANS"/active-*.state.md; do
+    [ -f "$f" ] || continue
+    if grep -qE '^\- \[[ x-]\] 3\. ' "$f" && ! grep -qE '^\- \[[ x-]\] 2b\.' "$f"; then
+      finding "missing-2b" "$f — has a '3. Plan' row but no '2b. Constraints' row (insert it in place between 2 and 3; record the trigger outcome or mark '[-] 2b. Constraints — skipped: no trigger')"
     fi
   done
 

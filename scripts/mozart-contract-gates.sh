@@ -661,11 +661,436 @@ report "V6_generalized_readme"  "$(ge "$v6_gen_readme" 1)"  "'roster Stages colu
 # pinned for the Default-standard paragraph now holds the placement section this
 # campaign made universal, so it pointed new contributors at the wrong contract.
 # Cite sections by name; nothing here may pin a persona file by line number.
-v6_line_pin=$(grep -cE 'agents/[a-z]+\.md.{0,3}lines? [0-9]' CONTRIBUTING.md)
-report "V6_no_line_pin" "$(eq "$v6_line_pin" 0)" "line-range pins into persona files in CONTRIBUTING.md=$v6_line_pin (want 0; cite the section)"
+#
+# Widened (ian r2): the original check swept only CONTRIBUTING.md, so it could
+# not see a LATER campaign introduce fresh cross-persona line-range pins
+# elsewhere - which this campaign's own first attempt did, three times
+# (harry.md, jackson.md x2, otto.md), each citing another persona file by
+# line/range. Population is DERIVED from v4_roster (persona filenames), never
+# hand-listed - the same discipline every other gate here uses. CHANGELOG.md
+# excluded by name, same reason as V2/V7/V9: it narrates past changes, so a
+# historical line citation there isn't a live persona-to-persona pin. Measured
+# clean across the rest of the tracked-markdown scope before this widening.
+v6_names=$(printf '%s\n' "$v4_roster" | cut -f1 | paste -sd'|' -)
+v6_pinpat="agents/($v6_names)\.md.{0,3}lines? [0-9]|(^|[^A-Za-z_/])($v6_names)\.md:[0-9]+(-[0-9]+)?"
+v6_pinhits=$(md_grep -nE "$v6_pinpat" 2>/dev/null | grep -v '^CHANGELOG\.md:')
+v6_line_pin=$(printf '%s\n' "$v6_pinhits" | grep -c .)
+report "V6_no_line_pin" "$(eq "$v6_line_pin" 0)" "line-range pins into persona files, across all tracked markdown=$v6_line_pin (want 0; cite the section) ${v6_pinhits:+[$v6_pinhits]}"
 
 v6_hank_chain=$(grep -cF 'OPERATE stages: 1.Intake+context pin' agents/hank.md)
 report "V6_hank_chain" "$(eq "$v6_hank_chain" 0)" "whole-pipeline restatement surviving in hank.md=$v6_hank_chain (want 0)"
+
+# ---------------------------------------------------------------------------
+# V7 - capability-vs-claim: a persona's tools: line must satisfy every
+#      capability its own contracts promise - spawning another agent, writing
+#      a persisted artifact, or claiming to be read-only.      (Rules 2, 3)
+# ---------------------------------------------------------------------------
+# Population: v4_roster, UNMODIFIED. mozart IS one of the 17 (agents/README.md
+# :15; V4_population pins 17) - hand-appending it here would be exactly the
+# scope-writing defect this gate exists to stop.
+#
+# Honest limitation, stated rather than left implicit: v7_verb and
+# v7_spawn_pat below are HAND-WRITTEN. That is not a scope shortcut this gate
+# takes - it is the property's DEFINITION: "capability-vs-claim" only means
+# something once someone decides which words count as a claim, the same way
+# V1's field list or V4's roster columns had to be named once before they
+# could be derived. What stays derived, and is never hand-listed, is the
+# POPULATION each half applies the verb set to - v4_roster for spawn, every
+# tracked markdown file for write. Each half also carries its own
+# two-condition control (V7_spawn_control, V7_claim_control) precisely
+# because a hand-written verb set is where this gate's own risk concentrates
+# - see the Risks section of the plan this gate was built from, which names
+# the verb sets as "the weakest part of both gates."
+
+v7_verb='write|writes|writing|written|author|authors|produce|produces'
+
+# Four alternatives. A no-Task agent must carry none of them about itself.
+v7_spawn_pat='call in the specialists|[Ss]pawn [0-9A-Za-z]+ sub-?agents|via the Agent tool|Task\(subagent'
+
+v7_spawn_bad=""
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || { v7_spawn_bad="$v7_spawn_bad [$ag: no file $af]"; continue; }
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in
+    *Task*) continue ;;   # holds Task - spawn imperatives about itself are legitimate
+  esac
+  v7_hits=$(grep -cE "$v7_spawn_pat" "$af")
+  [ "$v7_hits" -eq 0 ] || v7_spawn_bad="$v7_spawn_bad [$ag: $v7_hits spawn-imperative hit(s), no Task in tools]"
+done < <(printf '%s\n' "$v4_roster")
+report "V7_spawn" "$([ -z "$v7_spawn_bad" ] && echo 0 || echo 1)" \
+  "${v7_spawn_bad:-no no-Task agent carries a spawn imperative about itself}"
+
+# Control - a FROZEN, ISOLATED fixture, one line per alternative, each line
+# crafted to hit EXACTLY one of the four alternatives (tessa r2: the r1
+# control ran against agents/mozart.md, but mozart.md's only living spawn
+# text is `Task(subagent` - all its hits come from that ONE alternative, so
+# narrowing v7_spawn_pat to 'Task\(subagent' alone still passed the r1
+# control while silently losing the three alternatives that actually caught
+# harry's and jackson's defects. A merged/aggregate corpus has the identical
+# hole: one strong alternative can mask the loss of the other three under a
+# bare floor. Testing each line SEPARATELY closes it - if any one alternative
+# stops matching, only its own line fails, and the control catches it.
+v7_fx1='## When to call in the specialists'
+v7_fx2='Spawn 3 sub-agents to investigate independently.'
+v7_fx3='Proposals are gathered via the Agent tool before comparing.'
+v7_fx4='Task(subagent_type="xander", prompt="review the plan")'
+v7_spawnctl_bad=""
+for v7_fxline in "$v7_fx1" "$v7_fx2" "$v7_fx3" "$v7_fx4"; do
+  printf '%s\n' "$v7_fxline" | grep -qE "$v7_spawn_pat" || v7_spawnctl_bad="$v7_spawnctl_bad [not matched: $v7_fxline]"
+done
+report "V7_spawn_control" "$([ -z "$v7_spawnctl_bad" ] && echo 0 || echo 1)" \
+  "${v7_spawnctl_bad:-all four spawn-imperative alternatives independently matched by an isolated, frozen fixture}"
+
+# Write half. An agent claims a persisted artifact iff a tracked markdown
+# line binds its name to a .mozart/ path under the verb alternation above.
+# Attribution: a line binds to an agent iff the agent's NAME appears on that
+# line (bob) - both directions of the consequence are correct by design, not
+# exemption: a path line naming no roster agent is out of scope, and a line
+# naming two agents binds to both.
+#
+# CHANGELOG.md excluded BY NAME, with a reason: it narrates past artifact
+# changes, so it matches this pattern forever on correct text, and hand-adding
+# an exemption later would be the exact scope-rot this gate exists to
+# prevent. Same exclusion, same reason, as V2 (:211) and V9 below.
+# The exclusion is ACCEPTED, NOT ELIMINATED (tessa T3): a future CHANGELOG
+# entry making a LIVE capability claim about an agent - not narrating past
+# history - would be permanently invisible to this gate. The blind spot is
+# real, it is whole-file (not scoped to old-version headings, which was
+# considered and rejected as more fragile than the hole it closes), and it is
+# the price of the V2 precedent this exclusion follows. Same treatment V9's
+# own header gives its token-vs-parser limit, below.
+# Negation guard (codex r2, Medium): prose like "You do **not** write to
+# `.mozart/...`" would otherwise bind a claim and fail CI for a persona
+# correctly declaring it does NOT write - a gate blocking legitimate text is
+# worse than one missing a defect, because it teaches people to distrust the
+# suite. Filtered BEFORE claimant binding: a candidate line whose write-verb
+# is itself negated within a short window never becomes a claim line. Bound
+# to 20 chars (not 80, like the verb-to-path window) so it only reaches a
+# negator genuinely modifying THIS verb, not an unrelated "not" earlier in a
+# long sentence.
+v7_negpat="(^|[^A-Za-z])(not|never|don.t|doesn.t|isn.t)[^.]{0,20}($v7_verb)"
+v7_claimlines=$(git ls-files -z '*.md' | xargs -0 grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" -- \
+  | grep -v '^CHANGELOG\.md:' \
+  | grep -viE "$v7_negpat")
+# Pad every line with a trailing space so a name at true line-end still has a
+# following non-letter to match against - this host's grep (ugrep) treats a
+# bare $ mid-pattern as an anchor, so a trailing $-alternative is a trap
+# rather than a portable end-of-line test. Padding sidesteps it entirely.
+v7_claimlines_pad=$(printf '%s\n' "$v7_claimlines" | sed 's/$/ /')
+
+v7_claimants=""
+v7_write_bad=""
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || { v7_write_bad="$v7_write_bad [$ag: no file $af]"; continue; }
+  printf '%s\n' "$v7_claimlines_pad" | grep -qiE "(^|[^A-Za-z])${ag}[^A-Za-z]" || continue
+  v7_claimants="$v7_claimants $ag"
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in
+    *Write*) : ;;
+    *) v7_write_bad="$v7_write_bad [$ag: claims a persisted artifact but tools: lacks Write]" ;;
+  esac
+done < <(printf '%s\n' "$v4_roster")
+report "V7_write" "$([ -z "$v7_write_bad" ] && echo 0 || echo 1)" \
+  "${v7_write_bad:-every claimant holds Write}"
+
+# Live fixture proving the negation guard, both directions (codex r2,
+# Medium): the negated form must NOT survive extraction, and a genuine
+# unnegated claim must still survive it.
+v7_neg_fixdir=$(mktemp -d)
+printf 'You do **not** write to `.mozart/research/<slug>.md`.\n' > "$v7_neg_fixdir/negated.md"
+printf 'Write the brief to `.mozart/research/<slug>.md`.\n' > "$v7_neg_fixdir/positive.md"
+v7_neg_survived=$(grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" "$v7_neg_fixdir/negated.md" \
+  | grep -viE "$v7_negpat" | grep -c .)
+v7_pos_survived=$(grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" "$v7_neg_fixdir/positive.md" \
+  | grep -viE "$v7_negpat" | grep -c .)
+rm -rf "$v7_neg_fixdir"
+v7_neg_bad=""
+[ "$v7_neg_survived" -eq 0 ] || v7_neg_bad="$v7_neg_bad [negated form wrongly survived the filter as a claim]"
+[ "$v7_pos_survived" -ge 1 ] || v7_neg_bad="$v7_neg_bad [genuine unnegated claim was wrongly filtered out]"
+report "V7_negation_fixture" "$([ -z "$v7_neg_bad" ] && echo 0 || echo 1)" \
+  "${v7_neg_bad:-negated write-verb prose does not register as a claim (survived=$v7_neg_survived); a real claim still does (survived=$v7_pos_survived)}"
+
+# Control - THREE named members, not two (bob), tested against agents/
+# mozart.md's OWN claim lines SPECIFICALLY, not membership in the merged
+# claimant list (tessa r2: this campaign's own sarah.md:95 rewrite now
+# self-binds her from her OWN file too, so stripping her mozart.md:1217
+# mention - the exact line this control exists to exercise - left her still
+# a claimant via the other site, and the merged-population membership test
+# still reported PASS 1/1/1). Restricting the test to the agents/mozart.md
+# SUBSET of claim lines means the control can only pass if mozart.md's own
+# text does the binding, regardless of what any persona's own file says.
+v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep '^agents/mozart\.md:')
+v7_mzharry=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" && echo 1 || echo 0)
+v7_mzvalerie=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" && echo 1 || echo 0)
+v7_mzsarah=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" && echo 1 || echo 0)
+v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
+if [ "$v7_claimn" -ge 5 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
+  v7_claimctl=0
+else
+  v7_claimctl=1
+fi
+report "V7_claim_control" "$v7_claimctl" \
+  "claimants derived=$v7_claimn (floor 5); agents/mozart.md's OWN claim lines separately bind harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart.md independent of any persona's own file)"
+
+# Inverse half (xander) - an agent HOLDING Write must carry no UNQUALIFIED
+# read-only self-assertion. Qualified forms ("Read-only on code", "not ... for
+# source code") pass; a bare "Read-only." does not. Makes otto's Write grant
+# safe instead of silently self-contradictory.
+v7_inv_bad=""
+v7_qualified_seen=0
+# Punctuation-agnostic (xander r2): the r1 form required a literal period, so
+# `agents/dick.md:3`'s frontmatter description - "Read-only; never fixes
+# anything." - returned 0 hits and PASSed on a live contradiction (dick now
+# holds Write). Broadened to a punctuation class; verified this does NOT
+# false-positive on "Read-only on code." (valerie) or "Read-only on
+# infrastructure." (otto) - the character directly after "Read-only" there is
+# a space, never punctuation, so the class never engages.
+v7_ro_punct='[.;,:]'
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || continue
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in *Write*) : ;; *) continue ;; esac
+  v7_bare=$(grep -cE "(^|[^a-z])Read-only$v7_ro_punct" "$af")
+  [ "$v7_bare" -eq 0 ] || v7_inv_bad="$v7_inv_bad [$ag: $v7_bare unqualified 'Read-only<punct>' assertion(s)]"
+  v7_qual=$(grep -ciE 'Read-only on|for source code' "$af")
+  [ "$v7_qual" -eq 0 ] || v7_qualified_seen=$((v7_qualified_seen + 1))
+done < <(printf '%s\n' "$v4_roster")
+report "V7_readonly_inverse" "$([ -z "$v7_inv_bad" ] && echo 0 || echo 1)" \
+  "${v7_inv_bad:-no Write-holding agent carries an unqualified 'Read-only' + punctuation assertion}"
+# Control - at least one QUALIFIED form must exist among Write holders, or the
+# "zero bare matches" result could be true only because no agent ever writes
+# the word "Read-only" at all (V7's own defect class, one check over).
+report "V7_readonly_control" "$(ge "$v7_qualified_seen" 1)" \
+  "Write-holding agents carrying a QUALIFIED read-only form=$v7_qualified_seen (floor 1)"
+
+# Live behavioural fixture for the punctuation broadening (xander r2) -
+# proves both directions on a frozen corpus, not just an assertion about the
+# shipped tree: the semicolon/comma form (dick's PRE-repair wording) must be
+# caught, and "Read-only on code." must still read as qualified.
+v7_ro_fixdir=$(mktemp -d)
+printf 'Read-only on code. You report findings.\n' > "$v7_ro_fixdir/qualified_on.md"
+printf 'You do not have Edit or Write for source code.\n' > "$v7_ro_fixdir/qualified_altform.md"
+printf 'Read-only; never fixes anything.\n' > "$v7_ro_fixdir/bare_semicolon.md"
+printf 'Read-only. You report findings.\n' > "$v7_ro_fixdir/bare_period.md"
+printf 'Read-only, and nothing else.\n' > "$v7_ro_fixdir/bare_comma.md"
+v7_ro_bad=""
+grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/qualified_on.md" \
+  && v7_ro_bad="$v7_ro_bad [qualified 'Read-only on code.' wrongly flagged as bare]"
+grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/qualified_altform.md" \
+  && v7_ro_bad="$v7_ro_bad ['for source code' phrasing wrongly flagged as bare]"
+for v7_ro_bf in bare_semicolon bare_period bare_comma; do
+  grep -qE "(^|[^a-z])Read-only$v7_ro_punct" "$v7_ro_fixdir/$v7_ro_bf.md" \
+    || v7_ro_bad="$v7_ro_bad [$v7_ro_bf NOT caught by the broadened class]"
+done
+rm -rf "$v7_ro_fixdir"
+report "V7_readonly_fixture" "$([ -z "$v7_ro_bad" ] && echo 0 || echo 1)" \
+  "${v7_ro_bad:-broadened [.;,:] class catches bare semicolon/period/comma forms and still treats 'Read-only on ...'/'for source code' as qualified}"
+
+# Prose-coverage coda (tessa, Low, optional) - nothing above asserts the
+# CONTRIBUTING.md capability sentence actually landed, nor that harry's and
+# jackson's rewritten routing sections say WHO performs the invocation; the
+# earlier fixture only proved the OLD spawn wording is gone, not that the
+# replacement says the right thing.
+v7_contrib_rule=$(grep -cF 'must satisfy every capability its own contracts promise' CONTRIBUTING.md)
+report "V7_contrib_rule_present" "$(ge "$v7_contrib_rule" 1)" \
+  "CONTRIBUTING.md capability-vs-claim sentence present=$v7_contrib_rule (floor 1)"
+
+v7_harry_wording=$(grep -cF 'mozart performs the invocation' agents/harry.md)
+v7_jackson_wording=$(grep -cF 'mozart performs the invocation' agents/jackson.md)
+if [ "$v7_harry_wording" -ge 1 ] && [ "$v7_jackson_wording" -ge 1 ]; then v7_invctl=0; else v7_invctl=1; fi
+report "V7_invocation_wording" "$v7_invctl" \
+  "harry.md/jackson.md say 'mozart performs the invocation'=$v7_harry_wording/$v7_jackson_wording (want >=1 each)"
+
+# Two more documentation mandates (plan 1.1's T3 and honest-limitation
+# deliverables) that nothing mechanized (valerie, reconciliation r3): the two
+# places V7 discloses its OWN limits were exactly the two places nothing
+# checked, which is this campaign's signature defect one layer out. Self-
+# referential checks on the gate script's own comments, same pattern V0b
+# already uses to read "$gatefile" directly.
+# Anchored to COMMENT lines ('# ...'), not just present anywhere in the file:
+# a bare grep here would match this check's OWN quoted pattern string two
+# lines down and pass at floor 1 even if the disclosure comment itself were
+# deleted - self-matching inflating its own floor, the identical vacuity
+# shape V0 exists to catch, one level deeper. Comment-anchoring means only
+# the actual prose disclosure can satisfy it.
+v7_changelog_residual=$(grep -cEi '^# .*accepted, not eliminated' "$gatefile")
+report "V7_changelog_residual_stated" "$(ge "$v7_changelog_residual" 1)" \
+  "V7's CHANGELOG.md exclusion states its own residual blind spot=$v7_changelog_residual (floor 1)"
+
+v7_honest_limit=$(grep -cEi '^# .*not a scope shortcut' "$gatefile")
+report "V7_honest_limitation_stated" "$(ge "$v7_honest_limit" 1)" \
+  "verb-set honest-limitation comment present=$v7_honest_limit (floor 1)"
+
+# ---------------------------------------------------------------------------
+# V8 - DELIVER stage-key parity, ORDERED (not set-equal - codex X5), over
+#      five populations, against a reference with its own vacuity control.
+#                                                               (Rules 2, 3)
+# ---------------------------------------------------------------------------
+
+# P1 - PIPELINE.md DELIVER fenced block: the REFERENCE. Fence detection pipes
+# through the EXISTING v3_fence_filter toggle (defined above, V3) rather than
+# re-authoring a second toggle-and-count implementation of the same thing
+# (dexter H) - the section carries exactly one fenced block, so the flag
+# toggle alone is equivalent to the fc==2-exit form this population needs.
+v8_p1=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/PIPELINE.md \
+  | v3_fence_filter | grep -oE '^[0-9]+[a-z]?\.' | tr -d '.' | paste -sd' ' -)
+
+# P2 - mozart.md "## Stage progress" template
+v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+  | grep -oE '^- \[.\] [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
+# needs the SPECIFIC ```mermaid open tag, not a generic any-fence toggle.
+# Scoped to the pipeline section FIRST (codex r2, Medium): reading the first
+# ```mermaid block in the whole file would make an unrelated diagram added
+# above this one silently become P3's population - correct content failing
+# on a change that never touched it. Section-scope, then fence-scope.
+v8_p3=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' README.md \
+  | awk '/^```mermaid/{f=1;next} f&&/^```/{exit} f' \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+
+# P4 - mozart.md "### Stage labels" table
+v8_p4=$(awk '/^### Stage labels/{s=1;next} s&&/^### /{exit} s' agents/mozart.md \
+  | grep -oE '^\| [0-9]+[a-z]? ' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# P5 - mozart.md "### <N>." stage-heading bodies, scoped to the DELIVER
+# section so OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it
+v8_p5=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+  | grep -oE '^### [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# Control - TWO conditions on the REFERENCE: floor >=13 and 12b present. A
+# renamed "## DELIVER pipeline" heading empties P1 and would otherwise make
+# all four comparisons below trivially pass against an empty string.
+v8_refn=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -c .)
+v8_ref12b=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -cx '12b')
+if [ "$v8_refn" -ge 13 ] && [ "$v8_ref12b" -ge 1 ]; then v8_refctl=0; else v8_refctl=1; fi
+report "V8_ref_control" "$v8_refctl" \
+  "reference (P1) keys=$v8_refn (floor 13), 12b present=$v8_ref12b (want >=1)"
+
+# Main assertion - ORDERED string equality, not set equality: position IS the
+# contract (PIPELINE.md:67-84; codex X5), so appending 2b after 13 must fail
+# this even though the SET would still be correct.
+v8_bad=""
+[ "$v8_p2" = "$v8_p1" ] || v8_bad="$v8_bad [P2 stage-progress differs: got [$v8_p2]]"
+[ "$v8_p3" = "$v8_p1" ] || v8_bad="$v8_bad [P3 mermaid differs: got [$v8_p3]]"
+[ "$v8_p4" = "$v8_p1" ] || v8_bad="$v8_bad [P4 stage-labels differs: got [$v8_p4]]"
+[ "$v8_p5" = "$v8_p1" ] || v8_bad="$v8_bad [P5 stage-heading bodies differ: got [$v8_p5]]"
+report "V8" "$([ -z "$v8_bad" ] && echo 0 || echo 1)" \
+  "${v8_bad:-all five DELIVER stage-key populations agree, in order, with reference [$v8_p1]}"
+
+# Live fixture proving P3's section-scoping (codex r2, Medium): an unrelated
+# mermaid block ABOVE the pipeline section must not become the population.
+v8_p3_fixdir=$(mktemp -d)
+cat > "$v8_p3_fixdir/readme.md" <<'EOF'
+# Title
+
+## Some other section
+
+```mermaid
+flowchart LR
+    X[99z · Unrelated]
+```
+
+## The pipeline at a glance
+
+```mermaid
+flowchart LR
+    A[1 · Intake]
+    A --> B[2 · Research]
+```
+EOF
+v8_p3_unscoped=$(awk '/^```mermaid/{s=1;next} s&&/^```/{exit} s' "$v8_p3_fixdir/readme.md" \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+v8_p3_scoped=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' "$v8_p3_fixdir/readme.md" \
+  | awk '/^```mermaid/{f=1;next} f&&/^```/{exit} f' \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+rm -rf "$v8_p3_fixdir"
+v8_p3_bad=""
+[ "$v8_p3_unscoped" = "99z" ] || v8_p3_bad="$v8_p3_bad [unscoped extraction should have read the unrelated block first, got [$v8_p3_unscoped] - fixture itself is wrong]"
+[ "$v8_p3_scoped" = "1 2" ] || v8_p3_bad="$v8_p3_bad [scoped extraction should read only the pipeline block, got [$v8_p3_scoped]]"
+report "V8_p3_scope_fixture" "$([ -z "$v8_p3_bad" ] && echo 0 || echo 1)" \
+  "${v8_p3_bad:-scoping to the pipeline section before the fence rejects an unrelated mermaid block above it (unscoped would have read [99z])}"
+
+# ---------------------------------------------------------------------------
+# V9 - DELIVER stage-key TOKEN parity across prose sites: every site names
+#      the same set of letter-suffixed key TOKENS as the reference. Named for
+#      what it checks, not more: this is token presence, not a claim parser
+#      - it has no negative-context awareness, so a hypothetical or negated
+#      sentence carrying the right tokens still passes (codex r2, Low). A
+#      gate whose name promises more than it verifies is the same defect
+#      class this campaign exists to remove, in miniature.
+#                                                            (Rules 1, 2, 3)
+# ---------------------------------------------------------------------------
+
+# Reference letter-suffixed keys, FULLY DERIVED from V8's own reference (P1) -
+# no hand-written key list. Today that is {12b}; once a future phase adds 2b
+# to PIPELINE.md's DELIVER block, this gate needs no edit to pick it up.
+v9_refkeys=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -E '^[0-9]+[a-z]$' | sort -u)
+
+# Site population. md_grep-scoped (Rule 1 - this pattern must never sweep the
+# .sh file it lives in; V0a covers only markdown-scoped gates and is silent
+# about one that sweeps every tracked file). CHANGELOG.md excluded by name,
+# same reason as V7's write half and V2. The bare "[0-9]+ stages" arm from the
+# documented enumerating grep is CONSTRAINED here to
+# "DELIVER[^.]{0,30}\([0-9]+ stages" so a future non-DELIVER "N stages" line
+# can never silently join the population through that arm alone - verified
+# both directions in V9_deliver_filter below. The other arms are unchanged;
+# today's six sites are unaffected because each is also caught by
+# "1[--]13"/"incl. 12b"/"plus 12b" (see the "why a per-line filter can't be
+# the whole answer" note in the plan - commands/mozart.md:30 carries all
+# three pipelines' stage counts on one line, and needs no line-level split).
+v9_endash=$(printf '\xe2\x80\x93')
+v9_pat='1['"$v9_endash"'-]13|stage numbers|plus (opt-in )?12b|incl\. 12b|\(plus 12b\)|DELIVER[^.]{0,30}\([0-9]+ stages'
+v9_sites=$(md_grep -nE "$v9_pat" 2>/dev/null | grep -v '^CHANGELOG\.md:')
+
+# Control - TWO conditions, on the SITE population, DISTINCT from V8's
+# reference control (bob and tessa, independently): if the site regex stops
+# matching - a reword, a ugrep quirk - the per-site loop below runs zero
+# times and this gate would report PASS on an empty population. Floor >=6,
+# plus agents/README.md as a named canary: it's the one site no other gate
+# can see (V4c's en-dash exemption treats "1-13" as one opaque token there).
+v9_siten=$(printf '%s\n' "$v9_sites" | grep -c .)
+v9_sitecanary=$(printf '%s\n' "$v9_sites" | grep -c '^agents/README\.md:')
+if [ "$v9_siten" -ge 6 ] && [ "$v9_sitecanary" -ge 1 ]; then v9_sitectl=0; else v9_sitectl=1; fi
+report "V9_site_control" "$v9_sitectl" \
+  "prose claim sites=$v9_siten (floor 6), agents/README.md canary present=$v9_sitecanary (want >=1)"
+
+# Live behavioural fixture for the DELIVER-scoped arm - not just a documented
+# claim (r3, codex r1b): an INCIDENT/OPERATE "N stages" line must never match
+# through this arm, and the DELIVER line must still match through it.
+v9_fixdir=$(mktemp -d)
+printf 'INCIDENT pipeline (7 stages: declare+triage)\n' > "$v9_fixdir/incident.md"
+printf 'OPERATE pipeline (7 stages: intake+pin)\n' > "$v9_fixdir/operate.md"
+printf 'The DELIVER pipeline (13 stages, plus opt-in 12b Ship)\n' > "$v9_fixdir/deliver.md"
+v9_fix_bad=""
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/incident.md" && v9_fix_bad="$v9_fix_bad [INCIDENT fixture wrongly matched]"
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/operate.md"  && v9_fix_bad="$v9_fix_bad [OPERATE fixture wrongly matched]"
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/deliver.md" || v9_fix_bad="$v9_fix_bad [DELIVER fixture NOT matched]"
+rm -rf "$v9_fixdir"
+report "V9_deliver_filter" "$([ -z "$v9_fix_bad" ] && echo 0 || echo 1)" \
+  "${v9_fix_bad:-the DELIVER-scoped arm rejects INCIDENT/OPERATE N-stages lines and accepts the DELIVER line}"
+
+# Main assertion - per site, the SET of explicitly-named letter-suffixed keys
+# equals the reference set. Fully derived; no hand-written key list.
+v9_bad=""
+while IFS= read -r v9_line; do
+  [ -n "$v9_line" ] || continue
+  v9_file=$(printf '%s' "$v9_line" | cut -d: -f1)
+  v9_lno=$(printf '%s' "$v9_line" | cut -d: -f2)
+  v9_text=$(printf '%s' "$v9_line" | cut -d: -f3-)
+  v9_sitekeys=$(printf '%s\n' "$v9_text" | grep -oE '[0-9]+[a-z]' | sort -u)
+  if [ "$v9_sitekeys" != "$v9_refkeys" ]; then
+    v9_bad="$v9_bad [$v9_file:$v9_lno names {$(printf '%s' "$v9_sitekeys" | paste -sd, -)} want {$(printf '%s' "$v9_refkeys" | paste -sd, -)}]"
+  fi
+done < <(printf '%s\n' "$v9_sites")
+report "V9" "$([ -z "$v9_bad" ] && echo 0 || echo 1)" \
+  "${v9_bad:-all $v9_siten prose sites name exactly the reference letter-suffixed keys}"
 
 echo
 if [ "$gate_fail" -eq 0 ]; then

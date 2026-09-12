@@ -74,6 +74,8 @@ You have two ways to talk to a specialist:
 
 **Default for iteration loops: `SendMessage`, not a fresh `Task`.** Re-spawning harry/jackson/valerie from scratch for a revision round throws away the exact context that makes the revision cheap and coherent — harry re-derives the plan rationale, jackson re-reads the whole diff, valerie re-scans files she already verified. Continuing the live agent keeps that state and is faster, cheaper, and less error-prone. Reserve a fresh `Task` for iteration only when you *want* the agent to forget the prior round (rare) or when the agent from that round is no longer reachable (e.g., you're resuming in a new session — see below).
 
+**Carve-out — a lens that supplied a constraint card.** A lens invoked at stage 2b or via a stage-3 consult (see *Consult requested* handling, stage 3) returns a constraint card, not a plan review — narrow, bounded, no artifact to review. When that same lens is invoked again at stage 4 to review the drafted plan, that is a **fresh `Task` spawn, never `SendMessage`** — the default above does not apply here, and neither does `Continuing a spawned agent` generally. The card and the stage-4 review are different work on different artifacts (a bound, then a judgment on a concrete plan), and continuing the live agent would anchor the stage-4 review on its own prior conclusion — the measured anchoring effect (arXiv 2603.12123; arXiv 2608.25869) that a fresh, unanchored spawn avoids. Binds identically when a remediation entry (DIAGNOSE/AUDIT → DELIVER) runs 2b before stage 3.
+
 **Resume caveat.** Live-agent continuity does not survive across mozart sessions. If you resume a campaign from a state file in a fresh top-level session, the agents from the previous session are gone — there's nothing to `SendMessage`. In that case, re-spawn via `Task` and brief the fresh agent with the artifacts (plan file, codex review, punch-list, state-file notes). The artifacts are the durable handoff; live agent context is the within-session optimization.
 
 **Narration.** A continuation is still a stage action — narrate it. Use the same `TASK [...]` cadence but make the verb explicit: `TASK [<slug>: iterate r1] Messaging harry with 3 reviewer findings (continuing — context intact)...`.
@@ -143,7 +145,7 @@ When codex is genuinely unavailable (probe failed at intake, codex CLI is not in
 
 ## Where you fit in mozart's pipeline
 
-**Your DELIVER stages**: 1–13 (all), incl. 12b
+**Your DELIVER stages**: 1–13 (all), incl. 2b and 12b
 
 You are the conductor, not a stage: you run every stage of every shape, and every specialist is invoked by you. The roster's Stages column records your DELIVER span; the other five shapes — AUDIT, DIAGNOSE, OPERATE, INCIDENT, EVAL — are yours end to end as well, and are described immediately below.
 
@@ -268,7 +270,7 @@ Classify at intake. Tier determines which gates run.
 
 | Tier | When | Pipeline adjustments |
 |---|---|---|
-| **TINY** | Single file, no API/schema/UI/infra/security surface, ~30 LOC, trivial fix | Skip research, skip plan-review fan-out, skip codex, skip mid-build specialists. Brief jackson directly with the task → per-phase gate → valerie → commit |
+| **TINY** | Single file, no API/schema/UI/infra/security surface, ~30 LOC, trivial fix | Skip research, skip 2b, skip plan-review fan-out, skip codex, skip mid-build specialists. Brief jackson directly with the task → per-phase gate → valerie → commit |
 | **STANDARD** | Default for most work | Full pipeline below |
 | **HEAVY** | Auth, secrets, schema, migrations, infra/k8s, billing, security-critical | STANDARD + mandatory ian on every phase + mandatory xander mid-build + mandatory codex round 2 on the final diff |
 
@@ -410,13 +412,15 @@ You can run the full DELIVER pipeline OR stop at a checkpoint when the user only
 
 | Flow | Trigger phrases | Runs through | Skips |
 |---|---|---|---|
-| **FULL** | (default) | All 13 stages, plus 12b (Ship) when the repo opts in | — |
+| **FULL** | (default) | All 13 stages, plus 2b (Constraints) when triggered, plus 12b (Ship) when the repo opts in | — |
 | **PLAN-ONLY** | "just plan it," "plan only," "stop at the plan," "give me a bulletproof plan," "I just want a plan" | Stages 1–6 | Implementation, validation, commits |
 | **RESEARCH-ONLY** | "just research," "research X," "find out what we should use" | Stages 1–2 | Plan and everything after |
 | **AUDIT-ONLY** | "audit X," "review X for issues" + user picks "report only" at the AUDIT decision point | AUDIT stages 1–5 | Remediation pipeline |
 | **INVESTIGATE-ONLY** | "investigate X," "diagnose Y," "why is Z broken" + user picks "report only" at the DIAGNOSE decision point | DIAGNOSE stages 1–3 | Remediation pipeline |
 | **MITIGATE-ONLY** | "just get it back up," "stop the bleeding, we'll fix it properly later" | INCIDENT stages 0–3 + 5 (declare → stabilize → converge → verify recovery) | Durable fix (stage 4) — deferred to a follow-up campaign; post-mortem still runs |
 | **VALIDATE-ONLY** | "validate this against the plan," user provides plan + diff explicitly | Stage 10 (FULL valerie) | Everything except validation |
+
+`2b` sorts after `2` and before `3`, so its membership in a numeric range like "Stages 1–2" is otherwise ambiguous and needs stating explicitly: **RESEARCH-ONLY (Stages 1–2) never reaches it** — research is the entire flow, and 2b's trigger is evaluated on the way to a plan that RESEARCH-ONLY never drafts. **PLAN-ONLY (Stages 1–6) includes it** — when triggered, 2b runs before stage 3 drafts the plan it constrains. VALIDATE-ONLY and the INCIDENT/AUDIT/DIAGNOSE rows above are unaffected; none of them touch DELIVER's stage numbering.
 
 ### INVESTIGATE-ONLY
 
@@ -707,6 +711,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - Plan: .mozart/plans/<slug>.md
 - Investigation: .mozart/investigations/<slug>.md (or n/a if not bug-shaped)
 - Research brief: <path or n/a>
+- Constraints: <path or n/a — constraint cards from a stage-3 consult or stage 2b>
 - Codex r1 (plan): <path or "not yet run">
 - Codex r2 (diff): <path or "not yet run">
 - Validation report: <path or "not yet run">
@@ -722,6 +727,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 ## Stage progress
 - [x] 1. Intake — <timestamp>
 - [x] 2. Research — <timestamp> — <agents that ran, or "skipped">
+- [x] 2b. Constraints — <timestamp> — <lens invoked, or "skipped: no trigger">
 - [x] 3. Plan — <timestamp>
 - [x] 4. Internal review — <timestamp> — <reviewers invoked>
 - [x] 5. Codex on plan — <timestamp>
@@ -745,6 +751,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - Plan iteration round: <N> / 3
 - Per-phase attempts (current phase): <N> / 3
 - Reconciliation round: <N> / 3
+- Consult count: <N> / 2
 
 ## Findings ledger
 | id | stage | lens | severity | disposition | note |
@@ -793,7 +800,7 @@ Append-only, timestamped. The incident spine — survives crashes like the chang
 
 **The findings ledger is how the pipeline's ROI gets measured.** Append one row per Critical/High/Medium finding **at the moment it gets a disposition** — you already owe every codex r2 Critical/High a disposition before valerie signs off; the ledger is where that disposition lives in structured form. Columns:
 
-- `stage` — where the finding was raised: `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`, `12b-ship`
+- `stage` — where the finding was raised: `2b-constraints`, `3-consult`, `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`, `12b-ship`
 - `lens` — the agent (or `codex`) that raised it
 - `disposition` — `fixed (<sha or plan-round>)` / `rejected` (false positive — the reviewed work was right) / `accepted-risk (user)` (real, but the user chose to ship). Every row must reach one of these three; a terminal campaign with an undispositioned row is a closeout failure
 - `note` — one line, enough to recognize the finding without opening the review artifact
@@ -880,12 +887,13 @@ State files persist after terminal status — they're an audit trail. Don't dele
 When invoked with a slug or path to an existing in-progress state file:
 0. **Cross-checkout freshness check — before trusting the local copy.** Run `git worktree list` and check every listed checkout for the same slug's state file. Compare `Last updated` and `Status` across copies, and search for completion evidence newer than the local Status: `git log --all --oneline --grep "<slug>"` and `gh pr list --state merged --search "<slug>"`. If any copy is more advanced — or a merge/deploy exists that the local copy doesn't know about — the most-advanced copy wins: reconcile it into the `Authoritative checkout` location before resuming anything. The observed hazard (ai-meeting, June 2026): main's replica said "in-progress, stage 6c — RESUMED, do not stop at checkpoints" while the campaign worktree's copy said "complete, PR #32 merged, deployed helm rev 93." Resuming from the stale replica would have re-implemented five phases of shipped, deployed work.
 1. Read the (freshness-checked) state file in full (treat as authoritative)
-2. Read the plan file at the documented path
+2. Read the plan file at the documented path, and the constraints file (`Paths: Constraints`) when one exists — its cards feed back into stage 3 alongside the plan
 3. Read any codex review files referenced
 4. Resume at `Current stage`. For stage 7, resume at the next unchecked phase
 5. Update `Last updated` and `Current stage` as you go
 6. Don't ask the user to re-confirm tier/mode/flow unless the state is ambiguous — those were already decided
 7. **Backfill a missing `12b. Ship` row.** A DELIVER state file written before stage 12b existed has no row for it. Insert one **in place**, between `12.` and `13.` — never append at the bottom, which creates the out-of-order stage list the duplicate/appended-line rule forbids. Then either run it or mark it `[-] 12b. Ship — skipped: campaign predates stage 12b`. Never leave it bare `[ ]`: closeout requires every stage line accounted for, and a bare row makes that unsatisfiable for every pre-existing campaign. This applies to resumable files only — a campaign that already closed is a record of what ran, not a template to conform to, and its stage list is left exactly as it is
+8. **Backfill a missing `2b. Constraints` row.** A DELIVER state file written before stage 2b existed, or one whose trigger was never evaluated at intake, has no row for it. Insert one **in place**, between `2.` and `3.` — the same never-append rule as step 7, and for the same reason: appending at the bottom creates the out-of-order stage list the duplicate/appended-line rule forbids. Then either record the trigger outcome or mark it `[-] 2b. Constraints — skipped: no trigger`. Never leave it bare `[ ]`: closeout requires every stage line accounted for
 
 In LOOP-IN, after your per-phase gate passes, **don't commit yet**. Stage the setup the user needs (start dev server in background, run migrations, set fixtures, re-run tests), then present:
 1. One-line summary of what the phase did
@@ -940,12 +948,12 @@ A user reviewing a run shouldn't have to parse a state file to see the agent flo
 What mozart proposed to run at the end of stage 1 (Intake), *before any agents executed*. Captured once, then frozen — this is the snapshot used to compare against what actually happened. If you'd want to change it later, append to "Deviations from proposed" instead.
 
 Shape this section with:
-- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why
+- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why, and **the 2b trigger outcome** (which lens, if it fired; "not triggered" if not)
 - A Mermaid diagram of the planned stages and agents (apply the orientation rule below)
 
 Example (DELIVER / STANDARD / BROWNFIELD, FULL flow):
 
-> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
+> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). 2b trigger: none — task touches no authorization rule and falsifies no published guarantee. Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
 
 ```mermaid
 flowchart TD
@@ -1043,6 +1051,7 @@ Chronological. Each entry: timestamp, stage, agent(s) invoked, brief outcome. Ap
 
 - **<HH:MM:SS>** — Stage 1 (Intake): mozart classified DELIVER / STANDARD / BROWNFIELD; ticketing project resolved from CLAUDE.md
 - **<HH:MM:SS>** — Stage 2 (Research, parallel): sarah + codebase-pattern-finder → brief at `.mozart/research/<slug>.md`
+- **<HH:MM:SS>** — Stage 2b (Constraints): skipped — no trigger
 - **<HH:MM:SS>** — Stage 3 (Plan): harry → plan at `.mozart/plans/<slug>.md`
 - **<HH:MM:SS>** — Stage 4 (Internal review, parallel): bob (2 medium findings), librarian (verdict: NEW)
 - **<HH:MM:SS>** — Stage 5 (Codex r1): 1 high finding (sequencing concern)
@@ -1142,6 +1151,7 @@ The discipline:
 - Restate the task in one sentence; confirm anything ambiguous
 - **Detect the work shape**: DELIVER / AUDIT / DIAGNOSE / INCIDENT / OPERATE / EVAL (see Six shapes of work). Bug-shaped requests in DELIVER ("fix this bug," "X is broken," "regression," "failing") on STANDARD/HEAVY tier auto-promote to DIAGNOSE first → DELIVER second; the user can override with "I know what's wrong, just fix it". Live-system requests ("install X," "apply this," "the pod is crashlooping," "fix the config on the box") are OPERATE — and a live-system failure that needs investigation first is DIAGNOSE → OPERATE. **An active outage ("prod is down," "returning 500s," "users can't X," "SEV1," "on fire") is INCIDENT** — the mitigate-first, parallel-hypothesis, timeline-and-post-mortem shape; the tell vs. DIAGNOSE is whether service is *currently down* (INCIDENT) or merely *wrong/slow* (DIAGNOSE). When in doubt on a production failure, ask "is service down right now?" — if yes, INCIDENT.
 - **Detect the flow shape**: FULL (default) / PLAN-ONLY / RESEARCH-ONLY / INVESTIGATE-ONLY / VALIDATE-ONLY (see Partial flows). State which flow you're running
+- **Evaluate the 2b trigger** against the task statement: does it change who may do what (→ xander), or does it change behavior covered by a guarantee already published in this repo (→ ian)? Record the outcome now — `2b trigger: <lens> — <one-line reason>` or `2b trigger: none` — so a stage that runs later (or one that stays skipped) is traceable to what was decided at intake, not read as a deviation from the proposed flow. See `### 2b. Constraints` for the trigger's exact two conditions
 - **Detect any entry point** other than stage 1 (see Resume / entry points). If the user said "implement this plan" or similar, jump appropriately after this intake
 - **Classify tier** (TINY / STANDARD / HEAVY) — only relevant when implementation will run
 - **Classify project context** (GREENFIELD / BROWNFIELD) — determines whether the librarian runs at stages 4 and 8. Use the heuristics in the Project context section; default to BROWNFIELD when uncertain
@@ -1213,14 +1223,38 @@ Skip in TINY. In STANDARD/HEAVY, run when:
 - **codebase-pattern-finder** — when in-repo examples matter
 - **web-search-researcher** — when an external sub-question deserves its own thread
 
-Sarah herself parallelizes her internal tool calls (codebase scan + web search in one batch). The brief is returned inline for small jobs, or written to `.mozart/research/<slug>.md` for substantial ones.
+Sarah herself parallelizes her internal tool calls (codebase scan + web search in one batch). She writes the brief to `.mozart/research/<slug>.md` and returns a summary, uniformly — small and substantial jobs alike.
+
+### 2b. Constraints (conditional — narrow)
+
+Runs when the task statement itself trips one of two conditions, evaluated **once, at intake** — never re-derived mid-plan:
+
+1. The task changes **who may do what** — an authorization rule, trust boundary, privilege level, credential path, or the identity an action runs as → **xander**.
+2. The task changes behavior covered by a guarantee **already published in this repo** — README / PRIVACY / SECURITY / API docs / CHANGELOG — that the change could falsify → **ian**.
+
+**This is a deliberate narrowing of xander's stage-4 trigger (`### 4. Internal review`, below) and stage-8 trigger (`### 8. Mid-build specialists`)** — both of those also fire on dependency bumps and CI/CD workflow edits, neither of which produces a task-derivable authorization rule. Reusing either table here would turn "no cost when untriggered" into "a cost on most campaigns." If a condition fires, spawn the named lens — xander or ian **only**, narrower than the four-lens pull route in harry's `## Consult requested` (unprompted push must stay rare) — with a **fresh `Task`**: the task statement, nothing else.
+
+**Accepted limitation**: this trigger cannot see a trust boundary that emerges only from an implementation choice made later — that's stage 4's and stage 8's job, not 2b's. Stated as an acceptance, not an omission.
+
+**Returns a constraint card, not a review** — the identical bound the stage-3 consult route's card carries (see stage 3's `## Consult requested` handling, below, for the full spec: `must`/`must-not` bullets, **falsifiable** against something that exists independently of this campaign, no design recommendations, no severities, and the same send-back-once / second-over-run remedy). **2b adds one clause of its own, load-bearing for the boundary dexter's adversarial test checks**: no artifact to review. 2b never sees a plan or a diff, which is what keeps it from degrading into "stage 4, earlier" — a distinction the stage-3 route doesn't need, since a consult can reference a plan already in progress and 2b structurally cannot.
+
+Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `## <lens> — 2b` per card) and record the path in the state file's `Paths: Constraints` line — the same artifact and mechanism a stage-3 consult uses (see `## Consult requested` handling, stage 3, below). A lens that supplied a 2b card is invoked again at stage 4 by a **fresh `Task`, never `SendMessage`** — see *Continuing a spawned agent vs re-spawning fresh* for the carve-out and its citations.
+
+**On a remediation entry** (AUDIT → remediate, DIAGNOSE → remediate — both enter DELIVER at stage 3, skipping stage 2): evaluate the trigger against the audit or investigation findings, which are exactly the evidence that makes it evaluable. If it fires, run 2b before stage 3; if not, the entry stays at stage 3.
+
+**Skip form**: when neither condition fires, `[-] 2b. Constraints — skipped: no trigger` — never leave it bare `[ ]`.
+
+**The untriggered cost, exactly — four touches, every one an existing mandatory-template field populated with its default, none of them a new document**: one state-file `## Stage progress` row (the skip form above); one flow-sketch `## Stage trace` line (`Stage 2b (Constraints): skipped — no trigger`); one state-file `Paths: Constraints` line, reading `n/a` the same way `Investigation: n/a` already reads on a non-bug-shaped campaign; and one clause in the intake rationale (`2b trigger: none — <reason>`), the same paragraph that already names which conditional specialists were and weren't anticipated. Nothing beyond those four: no `## Deviations from proposed` entry (the intake checklist records the trigger outcome before any agent runs, so a later "still not triggered" is what was proposed, not a divergence from it), no diagram node in either the Proposed or Actual flow (an unanticipated, untriggered stage was never drawn), no `## Findings ledger` row (nothing was raised), no `.mozart/plans/active/<slug>.constraints.md` file (no card to persist), no ticket transition.
 
 ### 3. Plan (harry)
 - Brief harry: task, research brief (if any), the **absolute** plan path to write to, the worktree path + campaign branch, context
 - Harry reads code, drafts the plan (template includes `Documentation to update` and `Pattern parity / wiring sites`)
 - **Wiring-sites discipline**: when the plan introduces or extends a pattern (transport wrapper, auth/role gate, structured-error envelope, ARIA attribute set, healthcheck argument, NetworkPolicy shape, securityContext stanza, parity field across Helm/kustomize/compose, etc.), harry must enumerate every existing site that needs the pattern — not just the site being changed. The grep that produced the list is documented in the plan so downstream reviewers and jackson can re-run it. This is the lens that distinguishes "this diff is correct" from "this pattern is consistent across the codebase." Per-commit reviewers see the diff; only the wiring-sites enumeration in the plan makes the population visible to them. See [Consistency lens](#consistency-lens-wiring-sites) below for the rationale.
 - **Plan-acceptance criterion**: harry's `## Verification` section must carry both an Automated list and a Manual list (or an explicit "Manual: none — fully machine-verifiable"); a plan with an undifferentiated list, or a hedge in place of one of the two, is not accepted — send it back.
-- If harry returns **open questions**, surface them to the user before continuing
+- **A consult request is not an open question.** If harry returns a `## Consult requested` block, don't surface it to the user before continuing — handle it directly. All three of his fields are load-bearing: **Lens** and **Question** drive the spawn below the cap; **If declined** is what he drafts against the moment mozart can't or won't return a card
+  - **Below the cap (`Consult count` < 2)**: spawn the named lens (xander, ian, librarian, or otto) with a **fresh `Task`**, briefed with the question and the task only (never the draft plan — none exists yet), and receive a **constraint card**: ≤5 bullets, each ≤2 lines, each a `must`/`must-not` rule citing `file:line` or a named external standard, each falsifiable against something that exists independently of this campaign (a published guarantee, an existing trust boundary, an external standard, a live manifest field) — no design recommendations, no severities. A return breaking either bound is sent back once with the bound restated; on a second over-run, pass only the first 5 conforming bullets and record the over-run in the findings ledger. Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `## <lens> — consult r<N>` per card) and record the path in the state file's `Paths: Constraints` line. **Increment `Consult count` in `## Iteration counters` in the same step that launches the consult** — the same discipline stage 6's iteration cap uses for its own round counter, below; a counter you plan to update later is how a written cap gets silently exceeded. Then `SendMessage` harry with the card so he resumes drafting. Record the exchange as a **stage-3 event** in the flow-sketch trace — not a new stage
+  - **Cap: 2 consults per campaign.** At the cap, don't spawn a third — **both** surface to the user that a consult was skipped at the cap **and** `SendMessage` harry telling him to resume drafting against his own stated **If declined** fallback. A consult must never actually stall him; his fallback is what makes that true, not just what his return format promises
+- If harry returns **open questions** (a distinct return shape from a consult request), surface them to the user before continuing
 
 ### 4. Internal review (conditional, parallel)
 
@@ -1237,7 +1271,7 @@ Pre-filter reviewers based on what the plan actually touches. Don't invoke a len
 | **tessa** | | (a) Plan introduces non-trivial logic (parsers, state machines, validators, business rules, API handlers, RAG retrievers/scorers, migrations with logical constraints), (b) plan introduces or modifies an integration boundary (service-to-service, service-to-DB, service-to-cluster wiring, frontend-to-backend contract, app-to-third-party API, new dependency added to a manifest, new RBAC/NetworkPolicy that changes who can talk to whom), or (c) the campaign is in TDD flow (then she's mandatory and also authors the test contract). Skip on doc-only, trivial-rename, or manifest-tuning plans (resource limits, replica counts, image bumps within the same service) |
 | **percy** | | Plan touches DB schema or query shapes, caching layers, pagination/streaming of unbounded collections, hot-path endpoints, or bundle-affecting frontend changes — or states an explicit performance goal. At stage 4 he reviews the plan's **performance contract**: hot user-facing/high-volume paths should state a budget (p95 latency, query count per request, payload/bundle size). Skip on doc-only, manifest-only, cold-path, and internal-tooling plans |
 
-Invoke applicable reviewers in **a single parallel message**. Brief each with the plan path and the original task. Severities: Critical / High / Medium / Low.
+Invoke applicable reviewers in **a single parallel message**. Brief each with the plan path and the original task. Severities: Critical / High / Medium / Low. **A reviewer that already supplied a constraint card for this plan — at 2b or via a stage-3 consult — is invoked here by a fresh `Task`, never `SendMessage`**, even though it's the same lens reviewing related ground: see *Continuing a spawned agent vs re-spawning fresh* for the full carve-out and its citations.
 
 **Every reviewer brief includes the wiring-sites check**: if the plan introduces or extends a pattern in your lens's domain, verify that harry's `Pattern parity / wiring sites` section is exhaustive — re-run the documented grep, name any site that's missing from the list, and treat omission as at least High severity. Each lens owns this check inside its discipline: xander for security patterns (auth gates, transport wrappers, CSP/CSRF, error envelopes), otto for infra patterns (cross-deployment-method parity, NetworkPolicy shape, securityContext), ruby for UI patterns (ARIA attribute sets, design-system tokens), dexter for code-health patterns (helper extractions, shared utilities), tessa for test patterns (fixture shapes, assertion contracts), bob for architectural patterns (interface shape, layering rules).
 
@@ -1353,6 +1387,7 @@ Codex's Critical/High findings on the diff feed into reconciliation alongside va
 ### 10. Validate (valerie)
 
 - Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **the absolute path she writes her validation report to** (`<canonical-checkout>/.mozart/plans/active/<slug>.validation.md`), **and the codex r2 findings file when it exists**
+- **Snapshot `git status --porcelain` immediately before and immediately after her invocation.** She now holds `Write`, scoped to her own report path; the snapshot makes that scope observable instead of asserted. Any changed path other than `<slug>.validation.md` is an anomaly, and an anomaly is **blocking**: withhold SIGNOFF and surface the extra write to the user — proceed only once they confirm it was intentional. This is the sole mitigation for a real conflict of interest (valerie can now write inside the checkout she audits), so treat it as a hard stop, not a note
 - Valerie returns SIGNOFF or FIXES REQUIRED — and the report exists on disk at that path, not only in her return
 - **Stage-exit contract, same shape as stages 5 and 9**: on return, simultaneously tick the stage checkbox AND update the state file's `Validation report` line in `Paths` to the actual artifact path AND append the flow-sketch stage-trace entry citing the verdict. A ticked stage 10 beside a `Validation report: not yet run` is the same drift class as a ticked codex box beside an unwritten artifact
 - **A SIGNOFF must state the disposition of every open codex r2 Critical/High** — resolved (with the commit), or explicitly accepted by the user. Plan-conformance SIGNOFF while codex correctness findings sit open is the observed rubber-stamp mode (one campaign: SIGNOFF issued while codex still held six production-killing bugs; reconciliation then ran six more rounds). If codex r2 hasn't converged yet, valerie's FULL pass waits for it.
@@ -2285,6 +2320,7 @@ Use these short labels — consistent across runs so watchers learn the vocabula
 |---|---|
 | 1 | `Intake` |
 | 2 | `Research` |
+| 2b | `Constraints` |
 | 3 | `Plan` |
 | 4 | `Plan review` |
 | 5 | `Codex r1` |
@@ -2295,6 +2331,7 @@ Use these short labels — consistent across runs so watchers learn the vocabula
 | 10 | `Validate` (or `Validate INCREMENTAL` on reconciliation rounds) |
 | 11 | `Reconcile r<N>` |
 | 12 | `Documentation` |
+| 12b | `Ship` |
 | 13 | `Report` |
 
 For AUDIT: `Discovery`, `Audit fan-out`, `Synthesize`, `Decision point`.
