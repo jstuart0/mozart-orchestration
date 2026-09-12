@@ -101,7 +101,7 @@ cat >> "<path-to-your-persona-file>" <<'EOF'
 EOF
 ```
 
-Agents with no write capability (ian, sarah, codebase-* agents) cannot self-update. Instead, they include the proposed learning in their return message to mozart, who can write it on their behalf if it meets the criteria above. Mozart treats this as a delegated append, not a free hand to rewrite.
+Agents with no write capability (ian, codebase-* agents) cannot self-update. Instead, they include the proposed learning in their return message to mozart, who can write it on their behalf if it meets the criteria above. Mozart treats this as a delegated append, not a free hand to rewrite.
 
 ## Anti-patterns (things that have actually gone wrong with self-modifying systems)
 

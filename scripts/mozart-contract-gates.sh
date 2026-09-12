@@ -667,6 +667,245 @@ report "V6_no_line_pin" "$(eq "$v6_line_pin" 0)" "line-range pins into persona f
 v6_hank_chain=$(grep -cF 'OPERATE stages: 1.Intake+context pin' agents/hank.md)
 report "V6_hank_chain" "$(eq "$v6_hank_chain" 0)" "whole-pipeline restatement surviving in hank.md=$v6_hank_chain (want 0)"
 
+# ---------------------------------------------------------------------------
+# V7 - capability-vs-claim: a persona's tools: line must satisfy every
+#      capability its own contracts promise - spawning another agent, writing
+#      a persisted artifact, or claiming to be read-only.      (Rules 2, 3)
+# ---------------------------------------------------------------------------
+# Population: v4_roster, UNMODIFIED. mozart IS one of the 17 (agents/README.md
+# :15; V4_population pins 17) - hand-appending it here would be exactly the
+# scope-writing defect this gate exists to stop.
+
+v7_verb='write|writes|writing|written|author|authors|produce|produces'
+
+# Four alternatives. A no-Task agent must carry none of them about itself.
+v7_spawn_pat='call in the specialists|[Ss]pawn [0-9A-Za-z]+ sub-?agents|via the Agent tool|Task\(subagent'
+
+v7_spawn_bad=""
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || { v7_spawn_bad="$v7_spawn_bad [$ag: no file $af]"; continue; }
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in
+    *Task*) continue ;;   # holds Task - spawn imperatives about itself are legitimate
+  esac
+  v7_hits=$(grep -cE "$v7_spawn_pat" "$af")
+  [ "$v7_hits" -eq 0 ] || v7_spawn_bad="$v7_spawn_bad [$ag: $v7_hits spawn-imperative hit(s), no Task in tools]"
+done < <(printf '%s\n' "$v4_roster")
+report "V7_spawn" "$([ -z "$v7_spawn_bad" ] && echo 0 || echo 1)" \
+  "${v7_spawn_bad:-no no-Task agent carries a spawn imperative about itself}"
+
+# Control - TWO conditions, run against agents/mozart.md, which legitimately
+# spawns and so must trip the detector (tessa; r0's control was one
+# condition, and a floor alone is satisfiable by a detector that lost 3 of 4
+# alternatives but coincidentally still matches the 4th).
+v7_mzhits=$(grep -cE "$v7_spawn_pat" agents/mozart.md)
+v7_mztask=$(grep -cF 'Task(subagent' agents/mozart.md)
+if [ "$v7_mzhits" -ge 2 ] && [ "$v7_mztask" -ge 1 ]; then v7_spawnctl=0; else v7_spawnctl=1; fi
+report "V7_spawn_control" "$v7_spawnctl" \
+  "spawn-imperative pattern hits in agents/mozart.md=$v7_mzhits (floor 2), the Task(subagent alternative among them=$v7_mztask (want >=1)"
+
+# Write half. An agent claims a persisted artifact iff a tracked markdown
+# line binds its name to a .mozart/ path under the verb alternation above.
+# Attribution: a line binds to an agent iff the agent's NAME appears on that
+# line (bob) - both directions of the consequence are correct by design, not
+# exemption: a path line naming no roster agent is out of scope, and a line
+# naming two agents binds to both.
+#
+# CHANGELOG.md excluded BY NAME, with a reason: it narrates past artifact
+# changes, so it matches this pattern forever on correct text, and hand-adding
+# an exemption later would be the exact scope-rot this gate exists to
+# prevent. Same exclusion, same reason, as V2 (:211) and V9 below.
+v7_claimlines=$(git ls-files -z '*.md' | xargs -0 grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" -- \
+  | grep -v '^CHANGELOG\.md:')
+# Pad every line with a trailing space so a name at true line-end still has a
+# following non-letter to match against - this host's grep (ugrep) treats a
+# bare $ mid-pattern as an anchor, so a trailing $-alternative is a trap
+# rather than a portable end-of-line test. Padding sidesteps it entirely.
+v7_claimlines_pad=$(printf '%s\n' "$v7_claimlines" | sed 's/$/ /')
+
+v7_claimants=""
+v7_write_bad=""
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || { v7_write_bad="$v7_write_bad [$ag: no file $af]"; continue; }
+  printf '%s\n' "$v7_claimlines_pad" | grep -qiE "(^|[^A-Za-z])${ag}[^A-Za-z]" || continue
+  v7_claimants="$v7_claimants $ag"
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in
+    *Write*) : ;;
+    *) v7_write_bad="$v7_write_bad [$ag: claims a persisted artifact but tools: lacks Write]" ;;
+  esac
+done < <(printf '%s\n' "$v4_roster")
+report "V7_write" "$([ -z "$v7_write_bad" ] && echo 0 || echo 1)" \
+  "${v7_write_bad:-every claimant holds Write}"
+
+# Control - THREE named members, not two (bob): r0's two (harry, valerie) are
+# both discoverable from their OWN files, so the agents/mozart.md half of the
+# population could match zero lines and still pass - and that half is
+# precisely where sarah's live defect lived. sarah is the mozart.md-only
+# canary. Plus a claimant floor of >=5.
+v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
+v7_hasharry=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx harry)
+v7_hasvalerie=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx valerie)
+v7_hassarah=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -cx sarah)
+if [ "$v7_claimn" -ge 5 ] && [ "$v7_hasharry" -ge 1 ] && [ "$v7_hasvalerie" -ge 1 ] && [ "$v7_hassarah" -ge 1 ]; then
+  v7_claimctl=0
+else
+  v7_claimctl=1
+fi
+report "V7_claim_control" "$v7_claimctl" \
+  "claimants derived=$v7_claimn (floor 5); harry/valerie/sarah all present=$v7_hasharry/$v7_hasvalerie/$v7_hassarah (want >=1 each)"
+
+# Inverse half (xander) - an agent HOLDING Write must carry no UNQUALIFIED
+# read-only self-assertion. Qualified forms ("Read-only on code", "not ... for
+# source code") pass; a bare "Read-only." does not. Makes otto's Write grant
+# safe instead of silently self-contradictory.
+v7_inv_bad=""
+v7_qualified_seen=0
+while IFS="$(printf '\t')" read -r ag _; do
+  [ -n "$ag" ] || continue
+  af="agents/$ag.md"
+  [ -f "$af" ] || continue
+  v7_tools=$(grep -m1 '^tools:' "$af")
+  case "$v7_tools" in *Write*) : ;; *) continue ;; esac
+  v7_bare=$(grep -cE '(^|[^a-z])Read-only\.' "$af")
+  [ "$v7_bare" -eq 0 ] || v7_inv_bad="$v7_inv_bad [$ag: $v7_bare unqualified 'Read-only.' assertion(s)]"
+  v7_qual=$(grep -ciE 'Read-only on|for source code' "$af")
+  [ "$v7_qual" -eq 0 ] || v7_qualified_seen=$((v7_qualified_seen + 1))
+done < <(printf '%s\n' "$v4_roster")
+report "V7_readonly_inverse" "$([ -z "$v7_inv_bad" ] && echo 0 || echo 1)" \
+  "${v7_inv_bad:-no Write-holding agent carries an unqualified 'Read-only.' assertion}"
+# Control - at least one QUALIFIED form must exist among Write holders, or the
+# "zero bare matches" result could be true only because no agent ever writes
+# the word "Read-only" at all (V7's own defect class, one check over).
+report "V7_readonly_control" "$(ge "$v7_qualified_seen" 1)" \
+  "Write-holding agents carrying a QUALIFIED read-only form=$v7_qualified_seen (floor 1)"
+
+# ---------------------------------------------------------------------------
+# V8 - DELIVER stage-key parity, ORDERED (not set-equal - codex X5), over
+#      five populations, against a reference with its own vacuity control.
+#                                                               (Rules 2, 3)
+# ---------------------------------------------------------------------------
+
+# P1 - PIPELINE.md DELIVER fenced block: the REFERENCE. Fence detection pipes
+# through the EXISTING v3_fence_filter toggle (defined above, V3) rather than
+# re-authoring a second toggle-and-count implementation of the same thing
+# (dexter H) - the section carries exactly one fenced block, so the flag
+# toggle alone is equivalent to the fc==2-exit form this population needs.
+v8_p1=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/PIPELINE.md \
+  | v3_fence_filter | grep -oE '^[0-9]+[a-z]?\.' | tr -d '.' | paste -sd' ' -)
+
+# P2 - mozart.md "## Stage progress" template
+v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+  | grep -oE '^- \[.\] [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
+# needs the SPECIFIC ```mermaid open tag, not a generic any-fence toggle.
+v8_p3=$(awk '/^```mermaid/{s=1;next} s&&/^```/{exit} s' README.md \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+
+# P4 - mozart.md "### Stage labels" table
+v8_p4=$(awk '/^### Stage labels/{s=1;next} s&&/^### /{exit} s' agents/mozart.md \
+  | grep -oE '^\| [0-9]+[a-z]? ' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# P5 - mozart.md "### <N>." stage-heading bodies, scoped to the DELIVER
+# section so OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it
+v8_p5=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+  | grep -oE '^### [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+
+# Control - TWO conditions on the REFERENCE: floor >=13 and 12b present. A
+# renamed "## DELIVER pipeline" heading empties P1 and would otherwise make
+# all four comparisons below trivially pass against an empty string.
+v8_refn=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -c .)
+v8_ref12b=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -cx '12b')
+if [ "$v8_refn" -ge 13 ] && [ "$v8_ref12b" -ge 1 ]; then v8_refctl=0; else v8_refctl=1; fi
+report "V8_ref_control" "$v8_refctl" \
+  "reference (P1) keys=$v8_refn (floor 13), 12b present=$v8_ref12b (want >=1)"
+
+# Main assertion - ORDERED string equality, not set equality: position IS the
+# contract (PIPELINE.md:67-84; codex X5), so appending 2b after 13 must fail
+# this even though the SET would still be correct.
+v8_bad=""
+[ "$v8_p2" = "$v8_p1" ] || v8_bad="$v8_bad [P2 stage-progress differs: got [$v8_p2]]"
+[ "$v8_p3" = "$v8_p1" ] || v8_bad="$v8_bad [P3 mermaid differs: got [$v8_p3]]"
+[ "$v8_p4" = "$v8_p1" ] || v8_bad="$v8_bad [P4 stage-labels differs: got [$v8_p4]]"
+[ "$v8_p5" = "$v8_p1" ] || v8_bad="$v8_bad [P5 stage-heading bodies differ: got [$v8_p5]]"
+report "V8" "$([ -z "$v8_bad" ] && echo 0 || echo 1)" \
+  "${v8_bad:-all five DELIVER stage-key populations agree, in order, with reference [$v8_p1]}"
+
+# ---------------------------------------------------------------------------
+# V9 - prose stage-claim parity: every RUNNING-PROSE claim about DELIVER's
+#      stage count names exactly the reference's letter-suffixed keys.
+#                                                            (Rules 1, 2, 3)
+# ---------------------------------------------------------------------------
+
+# Reference letter-suffixed keys, FULLY DERIVED from V8's own reference (P1) -
+# no hand-written key list. Today that is {12b}; once a future phase adds 2b
+# to PIPELINE.md's DELIVER block, this gate needs no edit to pick it up.
+v9_refkeys=$(printf '%s\n' "$v8_p1" | tr ' ' '\n' | grep -E '^[0-9]+[a-z]$' | sort -u)
+
+# Site population. md_grep-scoped (Rule 1 - this pattern must never sweep the
+# .sh file it lives in; V0a covers only markdown-scoped gates and is silent
+# about one that sweeps every tracked file). CHANGELOG.md excluded by name,
+# same reason as V7's write half and V2. The bare "[0-9]+ stages" arm from the
+# documented enumerating grep is CONSTRAINED here to
+# "DELIVER[^.]{0,30}\([0-9]+ stages" so a future non-DELIVER "N stages" line
+# can never silently join the population through that arm alone - verified
+# both directions in V9_deliver_filter below. The other arms are unchanged;
+# today's six sites are unaffected because each is also caught by
+# "1[--]13"/"incl. 12b"/"plus 12b" (see the "why a per-line filter can't be
+# the whole answer" note in the plan - commands/mozart.md:30 carries all
+# three pipelines' stage counts on one line, and needs no line-level split).
+v9_endash=$(printf '\xe2\x80\x93')
+v9_pat='1['"$v9_endash"'-]13|stage numbers|plus (opt-in )?12b|incl\. 12b|\(plus 12b\)|DELIVER[^.]{0,30}\([0-9]+ stages'
+v9_sites=$(md_grep -nE "$v9_pat" 2>/dev/null | grep -v '^CHANGELOG\.md:')
+
+# Control - TWO conditions, on the SITE population, DISTINCT from V8's
+# reference control (bob and tessa, independently): if the site regex stops
+# matching - a reword, a ugrep quirk - the per-site loop below runs zero
+# times and this gate would report PASS on an empty population. Floor >=6,
+# plus agents/README.md as a named canary: it's the one site no other gate
+# can see (V4c's en-dash exemption treats "1-13" as one opaque token there).
+v9_siten=$(printf '%s\n' "$v9_sites" | grep -c .)
+v9_sitecanary=$(printf '%s\n' "$v9_sites" | grep -c '^agents/README\.md:')
+if [ "$v9_siten" -ge 6 ] && [ "$v9_sitecanary" -ge 1 ]; then v9_sitectl=0; else v9_sitectl=1; fi
+report "V9_site_control" "$v9_sitectl" \
+  "prose claim sites=$v9_siten (floor 6), agents/README.md canary present=$v9_sitecanary (want >=1)"
+
+# Live behavioural fixture for the DELIVER-scoped arm - not just a documented
+# claim (r3, codex r1b): an INCIDENT/OPERATE "N stages" line must never match
+# through this arm, and the DELIVER line must still match through it.
+v9_fixdir=$(mktemp -d)
+printf 'INCIDENT pipeline (7 stages: declare+triage)\n' > "$v9_fixdir/incident.md"
+printf 'OPERATE pipeline (7 stages: intake+pin)\n' > "$v9_fixdir/operate.md"
+printf 'The DELIVER pipeline (13 stages, plus opt-in 12b Ship)\n' > "$v9_fixdir/deliver.md"
+v9_fix_bad=""
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/incident.md" && v9_fix_bad="$v9_fix_bad [INCIDENT fixture wrongly matched]"
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/operate.md"  && v9_fix_bad="$v9_fix_bad [OPERATE fixture wrongly matched]"
+grep -qE 'DELIVER[^.]{0,30}\([0-9]+ stages' "$v9_fixdir/deliver.md" || v9_fix_bad="$v9_fix_bad [DELIVER fixture NOT matched]"
+rm -rf "$v9_fixdir"
+report "V9_deliver_filter" "$([ -z "$v9_fix_bad" ] && echo 0 || echo 1)" \
+  "${v9_fix_bad:-the DELIVER-scoped arm rejects INCIDENT/OPERATE N-stages lines and accepts the DELIVER line}"
+
+# Main assertion - per site, the SET of explicitly-named letter-suffixed keys
+# equals the reference set. Fully derived; no hand-written key list.
+v9_bad=""
+while IFS= read -r v9_line; do
+  [ -n "$v9_line" ] || continue
+  v9_file=$(printf '%s' "$v9_line" | cut -d: -f1)
+  v9_lno=$(printf '%s' "$v9_line" | cut -d: -f2)
+  v9_text=$(printf '%s' "$v9_line" | cut -d: -f3-)
+  v9_sitekeys=$(printf '%s\n' "$v9_text" | grep -oE '[0-9]+[a-z]' | sort -u)
+  if [ "$v9_sitekeys" != "$v9_refkeys" ]; then
+    v9_bad="$v9_bad [$v9_file:$v9_lno names {$(printf '%s' "$v9_sitekeys" | paste -sd, -)} want {$(printf '%s' "$v9_refkeys" | paste -sd, -)}]"
+  fi
+done < <(printf '%s\n' "$v9_sites")
+report "V9" "$([ -z "$v9_bad" ] && echo 0 || echo 1)" \
+  "${v9_bad:-all $v9_siten prose sites name exactly the reference letter-suffixed keys}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

@@ -886,6 +886,7 @@ When invoked with a slug or path to an existing in-progress state file:
 5. Update `Last updated` and `Current stage` as you go
 6. Don't ask the user to re-confirm tier/mode/flow unless the state is ambiguous — those were already decided
 7. **Backfill a missing `12b. Ship` row.** A DELIVER state file written before stage 12b existed has no row for it. Insert one **in place**, between `12.` and `13.` — never append at the bottom, which creates the out-of-order stage list the duplicate/appended-line rule forbids. Then either run it or mark it `[-] 12b. Ship — skipped: campaign predates stage 12b`. Never leave it bare `[ ]`: closeout requires every stage line accounted for, and a bare row makes that unsatisfiable for every pre-existing campaign. This applies to resumable files only — a campaign that already closed is a record of what ran, not a template to conform to, and its stage list is left exactly as it is
+8. **Backfill a missing `2b. Constraints` row.** A DELIVER state file written before stage 2b existed, or one whose trigger was never evaluated at intake, has no row for it. Insert one **in place**, between `2.` and `3.` — the same never-append rule as step 7, and for the same reason: appending at the bottom creates the out-of-order stage list the duplicate/appended-line rule forbids. Then either record the trigger outcome or mark it `[-] 2b. Constraints — skipped: no trigger`. Never leave it bare `[ ]`: closeout requires every stage line accounted for
 
 In LOOP-IN, after your per-phase gate passes, **don't commit yet**. Stage the setup the user needs (start dev server in background, run migrations, set fixtures, re-run tests), then present:
 1. One-line summary of what the phase did
@@ -1213,7 +1214,7 @@ Skip in TINY. In STANDARD/HEAVY, run when:
 - **codebase-pattern-finder** — when in-repo examples matter
 - **web-search-researcher** — when an external sub-question deserves its own thread
 
-Sarah herself parallelizes her internal tool calls (codebase scan + web search in one batch). The brief is returned inline for small jobs, or written to `.mozart/research/<slug>.md` for substantial ones.
+Sarah herself parallelizes her internal tool calls (codebase scan + web search in one batch). She writes the brief to `.mozart/research/<slug>.md` and returns a summary, uniformly — small and substantial jobs alike.
 
 ### 3. Plan (harry)
 - Brief harry: task, research brief (if any), the **absolute** plan path to write to, the worktree path + campaign branch, context
@@ -1353,6 +1354,7 @@ Codex's Critical/High findings on the diff feed into reconciliation alongside va
 ### 10. Validate (valerie)
 
 - Brief valerie in **FULL** mode: plan path, diff scope (base → HEAD), original task, **the absolute path she writes her validation report to** (`<canonical-checkout>/.mozart/plans/active/<slug>.validation.md`), **and the codex r2 findings file when it exists**
+- **Snapshot `git status --porcelain` immediately before and immediately after her invocation.** She now holds `Write`, scoped to her own report path; the snapshot makes that scope observable instead of asserted. Any changed path other than `<slug>.validation.md` is an anomaly — surface it, don't silently accept it
 - Valerie returns SIGNOFF or FIXES REQUIRED — and the report exists on disk at that path, not only in her return
 - **Stage-exit contract, same shape as stages 5 and 9**: on return, simultaneously tick the stage checkbox AND update the state file's `Validation report` line in `Paths` to the actual artifact path AND append the flow-sketch stage-trace entry citing the verdict. A ticked stage 10 beside a `Validation report: not yet run` is the same drift class as a ticked codex box beside an unwritten artifact
 - **A SIGNOFF must state the disposition of every open codex r2 Critical/High** — resolved (with the commit), or explicitly accepted by the user. Plan-conformance SIGNOFF while codex correctness findings sit open is the observed rubber-stamp mode (one campaign: SIGNOFF issued while codex still held six production-killing bugs; reconciliation then ran six more rounds). If codex r2 hasn't converged yet, valerie's FULL pass waits for it.
@@ -2295,6 +2297,7 @@ Use these short labels — consistent across runs so watchers learn the vocabula
 | 10 | `Validate` (or `Validate INCREMENTAL` on reconciliation rounds) |
 | 11 | `Reconcile r<N>` |
 | 12 | `Documentation` |
+| 12b | `Ship` |
 | 13 | `Report` |
 
 For AUDIT: `Discovery`, `Audit fan-out`, `Synthesize`, `Decision point`.
