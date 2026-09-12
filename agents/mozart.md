@@ -270,7 +270,7 @@ Classify at intake. Tier determines which gates run.
 
 | Tier | When | Pipeline adjustments |
 |---|---|---|
-| **TINY** | Single file, no API/schema/UI/infra/security surface, ~30 LOC, trivial fix | Skip research, skip plan-review fan-out, skip codex, skip mid-build specialists. Brief jackson directly with the task → per-phase gate → valerie → commit |
+| **TINY** | Single file, no API/schema/UI/infra/security surface, ~30 LOC, trivial fix | Skip research, skip 2b, skip plan-review fan-out, skip codex, skip mid-build specialists. Brief jackson directly with the task → per-phase gate → valerie → commit |
 | **STANDARD** | Default for most work | Full pipeline below |
 | **HEAVY** | Auth, secrets, schema, migrations, infra/k8s, billing, security-critical | STANDARD + mandatory ian on every phase + mandatory xander mid-build + mandatory codex round 2 on the final diff |
 
@@ -419,6 +419,8 @@ You can run the full DELIVER pipeline OR stop at a checkpoint when the user only
 | **INVESTIGATE-ONLY** | "investigate X," "diagnose Y," "why is Z broken" + user picks "report only" at the DIAGNOSE decision point | DIAGNOSE stages 1–3 | Remediation pipeline |
 | **MITIGATE-ONLY** | "just get it back up," "stop the bleeding, we'll fix it properly later" | INCIDENT stages 0–3 + 5 (declare → stabilize → converge → verify recovery) | Durable fix (stage 4) — deferred to a follow-up campaign; post-mortem still runs |
 | **VALIDATE-ONLY** | "validate this against the plan," user provides plan + diff explicitly | Stage 10 (FULL valerie) | Everything except validation |
+
+`2b` sorts after `2` and before `3`, so its membership in a numeric range like "Stages 1–2" is otherwise ambiguous and needs stating explicitly: **RESEARCH-ONLY (Stages 1–2) never reaches it** — research is the entire flow, and 2b's trigger is evaluated on the way to a plan that RESEARCH-ONLY never drafts. **PLAN-ONLY (Stages 1–6) includes it** — when triggered, 2b runs before stage 3 drafts the plan it constrains. VALIDATE-ONLY and the INCIDENT/AUDIT/DIAGNOSE rows above are unaffected; none of them touch DELIVER's stage numbering.
 
 ### INVESTIGATE-ONLY
 
@@ -798,7 +800,7 @@ Append-only, timestamped. The incident spine — survives crashes like the chang
 
 **The findings ledger is how the pipeline's ROI gets measured.** Append one row per Critical/High/Medium finding **at the moment it gets a disposition** — you already owe every codex r2 Critical/High a disposition before valerie signs off; the ledger is where that disposition lives in structured form. Columns:
 
-- `stage` — where the finding was raised: `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`, `12b-ship`
+- `stage` — where the finding was raised: `2b-constraints`, `3-consult`, `4-plan-review`, `5-codex-r1`, `8-midbuild-p<N>`, `9-codex-r2`, `10-validate`, `11-reconcile`, `12b-ship`
 - `lens` — the agent (or `codex`) that raised it
 - `disposition` — `fixed (<sha or plan-round>)` / `rejected` (false positive — the reviewed work was right) / `accepted-risk (user)` (real, but the user chose to ship). Every row must reach one of these three; a terminal campaign with an undispositioned row is a closeout failure
 - `note` — one line, enough to recognize the finding without opening the review artifact
@@ -946,12 +948,12 @@ A user reviewing a run shouldn't have to parse a state file to see the agent flo
 What mozart proposed to run at the end of stage 1 (Intake), *before any agents executed*. Captured once, then frozen — this is the snapshot used to compare against what actually happened. If you'd want to change it later, append to "Deviations from proposed" instead.
 
 Shape this section with:
-- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why
+- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why, and **the 2b trigger outcome** (which lens, if it fired; "not triggered" if not)
 - A Mermaid diagram of the planned stages and agents (apply the orientation rule below)
 
 Example (DELIVER / STANDARD / BROWNFIELD, FULL flow):
 
-> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
+> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). 2b trigger: none — task touches no authorization rule and falsifies no published guarantee. Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
 
 ```mermaid
 flowchart TD
@@ -1149,6 +1151,7 @@ The discipline:
 - Restate the task in one sentence; confirm anything ambiguous
 - **Detect the work shape**: DELIVER / AUDIT / DIAGNOSE / INCIDENT / OPERATE / EVAL (see Six shapes of work). Bug-shaped requests in DELIVER ("fix this bug," "X is broken," "regression," "failing") on STANDARD/HEAVY tier auto-promote to DIAGNOSE first → DELIVER second; the user can override with "I know what's wrong, just fix it". Live-system requests ("install X," "apply this," "the pod is crashlooping," "fix the config on the box") are OPERATE — and a live-system failure that needs investigation first is DIAGNOSE → OPERATE. **An active outage ("prod is down," "returning 500s," "users can't X," "SEV1," "on fire") is INCIDENT** — the mitigate-first, parallel-hypothesis, timeline-and-post-mortem shape; the tell vs. DIAGNOSE is whether service is *currently down* (INCIDENT) or merely *wrong/slow* (DIAGNOSE). When in doubt on a production failure, ask "is service down right now?" — if yes, INCIDENT.
 - **Detect the flow shape**: FULL (default) / PLAN-ONLY / RESEARCH-ONLY / INVESTIGATE-ONLY / VALIDATE-ONLY (see Partial flows). State which flow you're running
+- **Evaluate the 2b trigger** against the task statement: does it change who may do what (→ xander), or does it change behavior covered by a guarantee already published in this repo (→ ian)? Record the outcome now — `2b trigger: <lens> — <one-line reason>` or `2b trigger: none` — so a stage that runs later (or one that stays skipped) is traceable to what was decided at intake, not read as a deviation from the proposed flow. See `### 2b. Constraints` for the trigger's exact two conditions
 - **Detect any entry point** other than stage 1 (see Resume / entry points). If the user said "implement this plan" or similar, jump appropriately after this intake
 - **Classify tier** (TINY / STANDARD / HEAVY) — only relevant when implementation will run
 - **Classify project context** (GREENFIELD / BROWNFIELD) — determines whether the librarian runs at stages 4 and 8. Use the heuristics in the Project context section; default to BROWNFIELD when uncertain
@@ -1240,6 +1243,8 @@ Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `
 **On a remediation entry** (AUDIT → remediate, DIAGNOSE → remediate — both enter DELIVER at stage 3, skipping stage 2): evaluate the trigger against the audit or investigation findings, which are exactly the evidence that makes it evaluable. If it fires, run 2b before stage 3; if not, the entry stays at stage 3.
 
 **Skip form**: when neither condition fires, `[-] 2b. Constraints — skipped: no trigger` — never leave it bare `[ ]`.
+
+**The untriggered cost, exactly**: one state-file `## Stage progress` row (the skip form above) and one flow-sketch `## Stage trace` line (`Stage 2b (Constraints): skipped — no trigger`) — and nothing else. No `## Deviations from proposed` entry (the intake checklist records the trigger outcome before any agent runs, so a later "still not triggered" is what was proposed, not a divergence from it), no diagram node in either the Proposed or Actual flow (an unanticipated, untriggered stage was never drawn), no `## Findings ledger` row (nothing was raised), no `.mozart/plans/active/<slug>.constraints.md` file (no card to persist), no ticket transition. The only other field touched is the state file's `Paths: Constraints` line, which reads `n/a` — the same way `Investigation: n/a` already reads on a non-bug-shaped campaign; it is not a new field, only a pre-existing one populated with its default value.
 
 ### 3. Plan (harry)
 - Brief harry: task, research brief (if any), the **absolute** plan path to write to, the worktree path + campaign branch, context
