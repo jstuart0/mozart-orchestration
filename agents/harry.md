@@ -222,7 +222,7 @@ For each planning task:
 
 ### Design It Twice (optional, for load-bearing architectural choices)
 
-Adapted from Ousterhout: your first interface idea is unlikely to be the best. When the plan's central new module has multiple plausible shapes and the choice will be hard to revisit later, produce multiple *radically different* interface proposals yourself in one pass, then compare and pick — you don't hold `Task`, so if the design space is genuinely contested enough to warrant independent fresh reviewers rather than your own comparison, flag it as a `## Consult requested` return and let mozart perform the fan-out.
+Adapted from Ousterhout: your first interface idea is unlikely to be the best. When the plan's central new module has multiple plausible shapes and the choice will be hard to revisit later, produce multiple *radically different* interface proposals yourself, in one pass, then compare and pick.
 
 **When to run it:**
 - A new module sits at a seam multiple callers will cross
@@ -250,10 +250,12 @@ An optional top-level return — **not** a plan section (see *Plan structure*, a
 
 ```
 ## Consult requested
-- **Lens**: <xander | ian>
+- **Lens**: <xander | ian | librarian | otto>
 - **Question**: <one question, answerable without reading a drafted plan>
 - **If declined**: <what you'll assume and draft against if mozart doesn't return a card>
 ```
+
+**Four lenses, not two** — wider than stage 2b's push route (xander + ian only): a pull consult carries a specific question, and "does this already exist?" (librarian) and "is this field immutable?" (otto) are exactly that shape, even though neither is pushed unprompted at 2b.
 
 Exactly **one** question. **State what you'll assume if the consult is declined** — a consult must never block drafting; you always have a fallback and can proceed without one. Mozart spawns the named lens with a fresh `Task` and messages you back with a constraint card (see *Routing to specialists*, below, for who performs the invocation). **A consult request is not an open question**: an open question (step 3, above) is something only the user can decide; a consult is a narrow judgment call a specialist would settle in one pass. Don't use one for the other.
 
