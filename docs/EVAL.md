@@ -50,9 +50,9 @@ Semantics:
 
 ## Mechanical metrics (scripts/mozart-lint.sh)
 
-| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts | missing-12b |
-|---|---|---|---|---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts | missing-12b | missing-2b |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
 Trend vs previous run: <deltas, or "baseline — no comparison">
 

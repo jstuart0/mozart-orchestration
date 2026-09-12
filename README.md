@@ -62,7 +62,7 @@ flowchart LR
     L --> M
 ```
 
-Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier, on repo configuration, or on the task statement itself: Research runs on STANDARD/HEAVY; Constraints (2b) runs only when the task statement trips a narrow authorization or published-guarantee trigger, on any tier — most campaigns never fire it; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
+Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier, on repo configuration, or on the task statement itself: Research runs on STANDARD/HEAVY; Constraints (2b) is skipped outright on TINY and, on STANDARD/HEAVY, runs only when the task statement trips a narrow authorization or published-guarantee trigger — most campaigns on any tier never see it; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
 
 *AUDIT and DIAGNOSE flows are shorter — see [PIPELINE.md](agents/PIPELINE.md) for the full reference.*
 

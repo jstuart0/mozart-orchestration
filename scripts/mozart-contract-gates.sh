@@ -741,8 +741,19 @@ report "V7_spawn_control" "$([ -z "$v7_spawnctl_bad" ] && echo 0 || echo 1)" \
 # changes, so it matches this pattern forever on correct text, and hand-adding
 # an exemption later would be the exact scope-rot this gate exists to
 # prevent. Same exclusion, same reason, as V2 (:211) and V9 below.
+# Negation guard (codex r2, Medium): prose like "You do **not** write to
+# `.mozart/...`" would otherwise bind a claim and fail CI for a persona
+# correctly declaring it does NOT write - a gate blocking legitimate text is
+# worse than one missing a defect, because it teaches people to distrust the
+# suite. Filtered BEFORE claimant binding: a candidate line whose write-verb
+# is itself negated within a short window never becomes a claim line. Bound
+# to 20 chars (not 80, like the verb-to-path window) so it only reaches a
+# negator genuinely modifying THIS verb, not an unrelated "not" earlier in a
+# long sentence.
+v7_negpat="(^|[^A-Za-z])(not|never|don.t|doesn.t|isn.t)[^.]{0,20}($v7_verb)"
 v7_claimlines=$(git ls-files -z '*.md' | xargs -0 grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" -- \
-  | grep -v '^CHANGELOG\.md:')
+  | grep -v '^CHANGELOG\.md:' \
+  | grep -viE "$v7_negpat")
 # Pad every line with a trailing space so a name at true line-end still has a
 # following non-letter to match against - this host's grep (ugrep) treats a
 # bare $ mid-pattern as an anchor, so a trailing $-alternative is a trap
@@ -765,6 +776,23 @@ while IFS="$(printf '\t')" read -r ag _; do
 done < <(printf '%s\n' "$v4_roster")
 report "V7_write" "$([ -z "$v7_write_bad" ] && echo 0 || echo 1)" \
   "${v7_write_bad:-every claimant holds Write}"
+
+# Live fixture proving the negation guard, both directions (codex r2,
+# Medium): the negated form must NOT survive extraction, and a genuine
+# unnegated claim must still survive it.
+v7_neg_fixdir=$(mktemp -d)
+printf 'You do **not** write to `.mozart/research/<slug>.md`.\n' > "$v7_neg_fixdir/negated.md"
+printf 'Write the brief to `.mozart/research/<slug>.md`.\n' > "$v7_neg_fixdir/positive.md"
+v7_neg_survived=$(grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" "$v7_neg_fixdir/negated.md" \
+  | grep -viE "$v7_negpat" | grep -c .)
+v7_pos_survived=$(grep -nHEi "($v7_verb)[^.]{0,80}\.mozart/|\.mozart/[^ ]*[^.]{0,80}($v7_verb)" "$v7_neg_fixdir/positive.md" \
+  | grep -viE "$v7_negpat" | grep -c .)
+rm -rf "$v7_neg_fixdir"
+v7_neg_bad=""
+[ "$v7_neg_survived" -eq 0 ] || v7_neg_bad="$v7_neg_bad [negated form wrongly survived the filter as a claim]"
+[ "$v7_pos_survived" -ge 1 ] || v7_neg_bad="$v7_neg_bad [genuine unnegated claim was wrongly filtered out]"
+report "V7_negation_fixture" "$([ -z "$v7_neg_bad" ] && echo 0 || echo 1)" \
+  "${v7_neg_bad:-negated write-verb prose does not register as a claim (survived=$v7_neg_survived); a real claim still does (survived=$v7_pos_survived)}"
 
 # Control - THREE named members, not two (bob), tested against agents/
 # mozart.md's OWN claim lines SPECIFICALLY, not membership in the merged
@@ -879,7 +907,12 @@ v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/mozart.md 
 
 # P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
 # needs the SPECIFIC ```mermaid open tag, not a generic any-fence toggle.
-v8_p3=$(awk '/^```mermaid/{s=1;next} s&&/^```/{exit} s' README.md \
+# Scoped to the pipeline section FIRST (codex r2, Medium): reading the first
+# ```mermaid block in the whole file would make an unrelated diagram added
+# above this one silently become P3's population - correct content failing
+# on a change that never touched it. Section-scope, then fence-scope.
+v8_p3=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' README.md \
+  | awk '/^```mermaid/{f=1;next} f&&/^```/{exit} f' \
   | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
 
 # P4 - mozart.md "### Stage labels" table
@@ -911,9 +944,47 @@ v8_bad=""
 report "V8" "$([ -z "$v8_bad" ] && echo 0 || echo 1)" \
   "${v8_bad:-all five DELIVER stage-key populations agree, in order, with reference [$v8_p1]}"
 
+# Live fixture proving P3's section-scoping (codex r2, Medium): an unrelated
+# mermaid block ABOVE the pipeline section must not become the population.
+v8_p3_fixdir=$(mktemp -d)
+cat > "$v8_p3_fixdir/readme.md" <<'EOF'
+# Title
+
+## Some other section
+
+```mermaid
+flowchart LR
+    X[99z · Unrelated]
+```
+
+## The pipeline at a glance
+
+```mermaid
+flowchart LR
+    A[1 · Intake]
+    A --> B[2 · Research]
+```
+EOF
+v8_p3_unscoped=$(awk '/^```mermaid/{s=1;next} s&&/^```/{exit} s' "$v8_p3_fixdir/readme.md" \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+v8_p3_scoped=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' "$v8_p3_fixdir/readme.md" \
+  | awk '/^```mermaid/{f=1;next} f&&/^```/{exit} f' \
+  | grep -oE '\[[0-9]+[a-z]? ' | tr -d '[ ' | paste -sd' ' -)
+rm -rf "$v8_p3_fixdir"
+v8_p3_bad=""
+[ "$v8_p3_unscoped" = "99z" ] || v8_p3_bad="$v8_p3_bad [unscoped extraction should have read the unrelated block first, got [$v8_p3_unscoped] - fixture itself is wrong]"
+[ "$v8_p3_scoped" = "1 2" ] || v8_p3_bad="$v8_p3_bad [scoped extraction should read only the pipeline block, got [$v8_p3_scoped]]"
+report "V8_p3_scope_fixture" "$([ -z "$v8_p3_bad" ] && echo 0 || echo 1)" \
+  "${v8_p3_bad:-scoping to the pipeline section before the fence rejects an unrelated mermaid block above it (unscoped would have read [99z])}"
+
 # ---------------------------------------------------------------------------
-# V9 - prose stage-claim parity: every RUNNING-PROSE claim about DELIVER's
-#      stage count names exactly the reference's letter-suffixed keys.
+# V9 - DELIVER stage-key TOKEN parity across prose sites: every site names
+#      the same set of letter-suffixed key TOKENS as the reference. Named for
+#      what it checks, not more: this is token presence, not a claim parser
+#      - it has no negative-context awareness, so a hypothetical or negated
+#      sentence carrying the right tokens still passes (codex r2, Low). A
+#      gate whose name promises more than it verifies is the same defect
+#      class this campaign exists to remove, in miniature.
 #                                                            (Rules 1, 2, 3)
 # ---------------------------------------------------------------------------
 
