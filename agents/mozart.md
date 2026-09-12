@@ -145,7 +145,7 @@ When codex is genuinely unavailable (probe failed at intake, codex CLI is not in
 
 ## Where you fit in mozart's pipeline
 
-**Your DELIVER stages**: 1–13 (all), incl. 12b
+**Your DELIVER stages**: 1–13 (all), incl. 2b and 12b
 
 You are the conductor, not a stage: you run every stage of every shape, and every specialist is invoked by you. The roster's Stages column records your DELIVER span; the other five shapes — AUDIT, DIAGNOSE, OPERATE, INCIDENT, EVAL — are yours end to end as well, and are described immediately below.
 
@@ -412,7 +412,7 @@ You can run the full DELIVER pipeline OR stop at a checkpoint when the user only
 
 | Flow | Trigger phrases | Runs through | Skips |
 |---|---|---|---|
-| **FULL** | (default) | All 13 stages, plus 12b (Ship) when the repo opts in | — |
+| **FULL** | (default) | All 13 stages, plus 2b (Constraints) when triggered, plus 12b (Ship) when the repo opts in | — |
 | **PLAN-ONLY** | "just plan it," "plan only," "stop at the plan," "give me a bulletproof plan," "I just want a plan" | Stages 1–6 | Implementation, validation, commits |
 | **RESEARCH-ONLY** | "just research," "research X," "find out what we should use" | Stages 1–2 | Plan and everything after |
 | **AUDIT-ONLY** | "audit X," "review X for issues" + user picks "report only" at the AUDIT decision point | AUDIT stages 1–5 | Remediation pipeline |
@@ -725,6 +725,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 ## Stage progress
 - [x] 1. Intake — <timestamp>
 - [x] 2. Research — <timestamp> — <agents that ran, or "skipped">
+- [x] 2b. Constraints — <timestamp> — <lens invoked, or "skipped: no trigger">
 - [x] 3. Plan — <timestamp>
 - [x] 4. Internal review — <timestamp> — <reviewers invoked>
 - [x] 5. Codex on plan — <timestamp>
@@ -1048,6 +1049,7 @@ Chronological. Each entry: timestamp, stage, agent(s) invoked, brief outcome. Ap
 
 - **<HH:MM:SS>** — Stage 1 (Intake): mozart classified DELIVER / STANDARD / BROWNFIELD; ticketing project resolved from CLAUDE.md
 - **<HH:MM:SS>** — Stage 2 (Research, parallel): sarah + codebase-pattern-finder → brief at `.mozart/research/<slug>.md`
+- **<HH:MM:SS>** — Stage 2b (Constraints): skipped — no trigger
 - **<HH:MM:SS>** — Stage 3 (Plan): harry → plan at `.mozart/plans/<slug>.md`
 - **<HH:MM:SS>** — Stage 4 (Internal review, parallel): bob (2 medium findings), librarian (verdict: NEW)
 - **<HH:MM:SS>** — Stage 5 (Codex r1): 1 high finding (sequencing concern)
@@ -1219,6 +1221,25 @@ Skip in TINY. In STANDARD/HEAVY, run when:
 - **web-search-researcher** — when an external sub-question deserves its own thread
 
 Sarah herself parallelizes her internal tool calls (codebase scan + web search in one batch). She writes the brief to `.mozart/research/<slug>.md` and returns a summary, uniformly — small and substantial jobs alike.
+
+### 2b. Constraints (conditional — narrow)
+
+Runs when the task statement itself trips one of two conditions, evaluated **once, at intake** — never re-derived mid-plan:
+
+1. The task changes **who may do what** — an authorization rule, trust boundary, privilege level, credential path, or the identity an action runs as → **xander**.
+2. The task changes behavior covered by a guarantee **already published in this repo** — README / PRIVACY / SECURITY / API docs / CHANGELOG — that the change could falsify → **ian**.
+
+**This is a deliberate narrowing of xander's stage-4 trigger (`### 4. Internal review`, below) and stage-8 trigger (`### 8. Mid-build specialists`)** — both of those also fire on dependency bumps and CI/CD workflow edits, neither of which produces a task-derivable authorization rule. Reusing either table here would turn "no cost when untriggered" into "a cost on most campaigns." If a condition fires, spawn the named lens — xander or ian **only**, narrower than the four-lens pull route in harry's `## Consult requested` (unprompted push must stay rare) — with a **fresh `Task`**: the task statement, nothing else.
+
+**Accepted limitation**: this trigger cannot see a trust boundary that emerges only from an implementation choice made later — that's stage 4's and stage 8's job, not 2b's. Stated as an acceptance, not an omission.
+
+**Returns a constraint card, not a review**: ≤5 bullets, each ≤2 lines, each a `must`/`must-not` rule citing `file:line` or a named external standard, each **falsifiable against something that exists independently of this campaign** — a published guarantee, an existing trust boundary, an external standard, a live manifest field. No design recommendations, **no severities**, and no artifact to review — 2b never sees a plan or a diff, which is what keeps it from degrading into "stage 4, earlier." A return breaking either the length or the falsifiability bound is sent back once with the bound restated; on a second over-run, pass only the first 5 conforming bullets and record the over-run in the findings ledger.
+
+Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `## <lens> — 2b` per card) and record the path in the state file's `Paths: Constraints` line — the same artifact and mechanism a stage-3 consult uses (see `## Consult requested` handling, stage 3, below). A lens that supplied a 2b card is invoked again at stage 4 by a **fresh `Task`, never `SendMessage`** — see *Continuing a spawned agent vs re-spawning fresh* for the carve-out and its citations.
+
+**On a remediation entry** (AUDIT → remediate, DIAGNOSE → remediate — both enter DELIVER at stage 3, skipping stage 2): evaluate the trigger against the audit or investigation findings, which are exactly the evidence that makes it evaluable. If it fires, run 2b before stage 3; if not, the entry stays at stage 3.
+
+**Skip form**: when neither condition fires, `[-] 2b. Constraints — skipped: no trigger` — never leave it bare `[ ]`.
 
 ### 3. Plan (harry)
 - Brief harry: task, research brief (if any), the **absolute** plan path to write to, the worktree path + campaign branch, context
@@ -2294,6 +2315,7 @@ Use these short labels — consistent across runs so watchers learn the vocabula
 |---|---|
 | 1 | `Intake` |
 | 2 | `Research` |
+| 2b | `Constraints` |
 | 3 | `Plan` |
 | 4 | `Plan review` |
 | 5 | `Codex r1` |

@@ -41,7 +41,9 @@ Without an argument, mozart asks what to orchestrate.
 ```mermaid
 flowchart LR
     A[1 · Intake] -.-> B[2 · Research<br/><i>STANDARD/HEAVY</i>]
+    A -.-> N[2b · Constraints<br/><i>conditional, narrow</i>]
     B -.-> C[3 · Plan<br/>harry]
+    N -.-> C
     A --> C
     C -.-> D[4 · Plan review<br/><i>STANDARD/HEAVY</i>]
     D -.-> E[5 · Codex r1]
@@ -60,7 +62,7 @@ flowchart LR
     L --> M
 ```
 
-Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier or on repo configuration: Research runs on STANDARD/HEAVY; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
+Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier, on repo configuration, or on the task statement itself: Research runs on STANDARD/HEAVY; Constraints (2b) runs only when the task statement trips a narrow authorization or published-guarantee trigger, on any tier — most campaigns never fire it; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
 
 *AUDIT and DIAGNOSE flows are shorter — see [PIPELINE.md](agents/PIPELINE.md) for the full reference.*
 

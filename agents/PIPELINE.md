@@ -68,6 +68,7 @@ Support agents (tool specialists, not personas):
 1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file + flow sketch;
                       cuts the campaign worktree (../<repo>-worktrees/<slug>, branch campaign/<slug>)
 2.  Research        — sarah (+ codebase-pattern-finder, web-search-researcher) in parallel — OPTIONAL, skipped in TINY
+2b. Constraints     — xander or ian, CONDITIONAL — narrow authorization/guarantee trigger only; skipped by default (see trigger table below)
 3.  Plan            — harry drafts → .mozart/plans/<slug>.md
 4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto/tessa/percy (conditional, parallel)
 5.  Codex on plan   — codex CLI external review → <slug>.codex-r1-plan.md
@@ -91,6 +92,7 @@ Support agents (tool specialists, not personas):
 | Stage | TINY | STANDARD | HEAVY |
 |---|---|---|---|
 | Research (2) | skip | optional | optional |
+| Constraints (2b) | skip | conditional | conditional |
 | Plan-review fan-out (4) | skip | conditional | conditional |
 | Codex r1 on plan (5) | skip | run | run |
 | Mid-build specialists (8) | skip | conditional | ian + xander mandatory; others conditional |
@@ -111,6 +113,15 @@ Support agents (tool specialists, not personas):
 | dexter | refactors, shared utilities, new abstractions, code-health debt |
 | ruby | UI/UX surface, frontend components, accessibility, design system |
 | otto | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, infra YAML |
+
+### Constraints triggers (stage 2b — conditional push, narrow)
+
+| Lens | Trigger |
+|---|---|
+| xander | The task changes **who may do what** — an authorization rule, trust boundary, privilege level, credential path, or the identity an action runs as |
+| ian | The task changes behavior covered by a guarantee **already published in this repo** (README / PRIVACY / SECURITY / API docs / CHANGELOG) that the change could falsify |
+
+Deliberately **narrower** than the stage-4 and stage-8 xander triggers above — those also fire on dependency bumps and CI/CD workflow edits, which produce no task-derivable authorization rule. Evaluated once, against the task statement, at intake — never re-derived mid-plan.
 
 ### Mid-build specialist triggers (stage 8 — review the slice before commit)
 
