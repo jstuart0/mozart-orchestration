@@ -688,6 +688,19 @@ report "V6_hank_chain" "$(eq "$v6_hank_chain" 0)" "whole-pipeline restatement su
 # Population: v4_roster, UNMODIFIED. mozart IS one of the 17 (agents/README.md
 # :15; V4_population pins 17) - hand-appending it here would be exactly the
 # scope-writing defect this gate exists to stop.
+#
+# Honest limitation, stated rather than left implicit: v7_verb and
+# v7_spawn_pat below are HAND-WRITTEN. That is not a scope shortcut this gate
+# takes - it is the property's DEFINITION: "capability-vs-claim" only means
+# something once someone decides which words count as a claim, the same way
+# V1's field list or V4's roster columns had to be named once before they
+# could be derived. What stays derived, and is never hand-listed, is the
+# POPULATION each half applies the verb set to - v4_roster for spawn, every
+# tracked markdown file for write. Each half also carries its own
+# two-condition control (V7_spawn_control, V7_claim_control) precisely
+# because a hand-written verb set is where this gate's own risk concentrates
+# - see the Risks section of the plan this gate was built from, which names
+# the verb sets as "the weakest part of both gates."
 
 v7_verb='write|writes|writing|written|author|authors|produce|produces'
 
@@ -741,6 +754,13 @@ report "V7_spawn_control" "$([ -z "$v7_spawnctl_bad" ] && echo 0 || echo 1)" \
 # changes, so it matches this pattern forever on correct text, and hand-adding
 # an exemption later would be the exact scope-rot this gate exists to
 # prevent. Same exclusion, same reason, as V2 (:211) and V9 below.
+# The exclusion is ACCEPTED, NOT ELIMINATED (tessa T3): a future CHANGELOG
+# entry making a LIVE capability claim about an agent - not narrating past
+# history - would be permanently invisible to this gate. The blind spot is
+# real, it is whole-file (not scoped to old-version headings, which was
+# considered and rejected as more fragile than the hole it closes), and it is
+# the price of the V2 precedent this exclusion follows. Same treatment V9's
+# own header gives its token-vs-parser limit, below.
 # Negation guard (codex r2, Medium): prose like "You do **not** write to
 # `.mozart/...`" would otherwise bind a claim and fail CI for a persona
 # correctly declaring it does NOT write - a gate blocking legitimate text is
@@ -886,6 +906,26 @@ v7_jackson_wording=$(grep -cF 'mozart performs the invocation' agents/jackson.md
 if [ "$v7_harry_wording" -ge 1 ] && [ "$v7_jackson_wording" -ge 1 ]; then v7_invctl=0; else v7_invctl=1; fi
 report "V7_invocation_wording" "$v7_invctl" \
   "harry.md/jackson.md say 'mozart performs the invocation'=$v7_harry_wording/$v7_jackson_wording (want >=1 each)"
+
+# Two more documentation mandates (plan 1.1's T3 and honest-limitation
+# deliverables) that nothing mechanized (valerie, reconciliation r3): the two
+# places V7 discloses its OWN limits were exactly the two places nothing
+# checked, which is this campaign's signature defect one layer out. Self-
+# referential checks on the gate script's own comments, same pattern V0b
+# already uses to read "$gatefile" directly.
+# Anchored to COMMENT lines ('# ...'), not just present anywhere in the file:
+# a bare grep here would match this check's OWN quoted pattern string two
+# lines down and pass at floor 1 even if the disclosure comment itself were
+# deleted - self-matching inflating its own floor, the identical vacuity
+# shape V0 exists to catch, one level deeper. Comment-anchoring means only
+# the actual prose disclosure can satisfy it.
+v7_changelog_residual=$(grep -cEi '^# .*accepted, not eliminated' "$gatefile")
+report "V7_changelog_residual_stated" "$(ge "$v7_changelog_residual" 1)" \
+  "V7's CHANGELOG.md exclusion states its own residual blind spot=$v7_changelog_residual (floor 1)"
+
+v7_honest_limit=$(grep -cEi '^# .*not a scope shortcut' "$gatefile")
+report "V7_honest_limitation_stated" "$(ge "$v7_honest_limit" 1)" \
+  "verb-set honest-limitation comment present=$v7_honest_limit (floor 1)"
 
 # ---------------------------------------------------------------------------
 # V8 - DELIVER stage-key parity, ORDERED (not set-equal - codex X5), over
