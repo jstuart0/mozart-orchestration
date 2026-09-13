@@ -1304,6 +1304,8 @@ Adapt to the installed codex CLI's invocation form if different — but always p
 
 ### 6. Iterate (harry, if needed)
 
+- **Name the pre-revision sections in the revision message.** A revision invalidates the sections written before it, and nothing cross-reads them by default. When a round changes or adds a mechanism, the findings message must **name every artifact section authored before this round that the mechanism touches** — plan phases, the test contract, the verification list, any enumerated site list or registry — as sections the planner is required to re-read. Line-number floors, counted populations and named-producer registries are the three that go stale silently, because the phase that adds a new member never touches the section that counts them. A revision message naming no such sections is asserting there are none.
+
 - **Short-circuit**: if internal reviewers + codex are all clean (no Critical/High), proceed directly to implementation. Don't iterate for its own sake.
 - **Otherwise**: **message the live harry** (`SendMessage`, context intact — he still has the plan rationale loaded) with consolidated findings (cite the codex file path explicitly so harry reads it). Harry revises. Re-invoke only the reviewers whose concerns weren't addressed — message the live reviewer if it's the same one re-checking its own finding, spawn fresh only when you want an unanchored second look; re-run codex only if revisions are substantive (writes `<slug>.codex-r1b-plan.md`, etc.).
 - Cap: 3 rounds. **Increment the state file's iteration counter in the same step that launches the round** — a counter you plan to update later is how a written "0/3" cap gets silently exceeded (observed: six reconciliation rounds ran against an un-incremented `0/3`, ai-meeting June 2026). At the cap, present a forced decision to the user — ship with named residual risk, or stop — don't improvise an ad-hoc extension ("ship after r2g regardless" is not a convergence policy).
@@ -2434,4 +2436,35 @@ Append-only. Two distinct contexts before promoting to "pattern." Project-specif
 
 ---
 
-*(no field notes yet)*
+### 2026-09-09 — State your own known-wrong facts inside the brief
+
+- **Scope**: cross-project pattern | domain: agent briefing
+- **Confidence**: high
+- **Evidence**:
+  - A local-model port of this pipeline (September 2026) — I mis-cited exit codes (G3), `resolve_home()` semantics (Y7, which survived four of my own passes *after* I'd established the disproving fact), and `method` enum literals (G22, three of four wrong).
+  - Same campaign — briefs that carried the sentence "I have mis-cited X; where the tree and this brief disagree, the tree wins" came back with corrections: tessa's r12 corrected my framing on two of eleven items and traced my `method` error to its source in an artifact I had not suspected.
+- **The pattern**: specialists treat the conductor's brief as authoritative, so a wrong assertion in a brief is laundered into a finding and returns as corroboration. Explicitly licensing disagreement costs one sentence and converts the specialist from a transcriber into a check on the conductor.
+- **What to do differently**: in every brief, name the specific things you have already been wrong about this campaign, and state that the code wins over the brief. Ask for items that turn out **not** to be defects to be reported rather than quietly fixed — a "not a defect" finding is a real result and its absence hides the fact that you were wrong.
+- **What this overrides**: n/a.
+
+### 2026-09-09 — Scope every empirical finding to platform, tool version, and date
+
+- **Scope**: cross-project pattern | domain: measured findings
+- **Confidence**: high
+- **Evidence**:
+  - A local-model port of this pipeline (September 2026) — user instruction ("might be different on other platforms") adopted as a binding rule; every measured claim carries a (platform, version, date) triple.
+  - Same campaign — the harness under measurement (`claude-code`) drifted `2.1.265` → `2.1.266` **mid-run**, invalidating the scope of every claim measured against it and requiring a re-measure sweep in the final phase.
+- **The pattern**: findings about external tool behaviour are measurements of one build on one platform on one day, but they get written as timeless facts. They then outlive their truth silently, and the campaign that inherits them cannot tell which claims are still live. Restating an unscoped claim is not cheaper than re-measuring it — it is just a claim with unknown provenance.
+- **What to do differently**: record platform, exact version, and date on every empirical finding at the moment it is made. When a version drifts mid-campaign, re-measure the claims that could have changed rather than restating them. This applies at least as strongly to infrastructure work (cluster, storage, and identity versions drift the same way).
+- **What this overrides**: n/a.
+
+### 2026-09-09 — An unattended run needs a decision log, separate from the state file
+
+- **Scope**: cross-project pattern | domain: AUTONOMOUS operation
+- **Confidence**: medium
+- **Evidence**:
+  - A local-model port of this pipeline (September 2026) — user went unattended mid-run ("finish autonomously i will be asleep so not here to answer questions, keep a decision log"); a `<slug>.decisions.md` was created and accumulated eight lettered decisions (D-A…D-H), several of which changed what shipped.
+  - Same campaign — the state file recorded *what happened* at every transition, but the reasoning behind judgment calls (why a version was pinned, why a scope was refused, why a default was chosen) had no home until the decisions file existed.
+- **The pattern**: the state file is a chronology and the plan is a specification; neither is a good home for "I chose X over Y because Z, and here is the bound I held myself to." Without a separate log, unattended decisions are reconstructible only by reading the full transcript, which is exactly what the absent user cannot do.
+- **What to do differently**: when a run goes AUTONOMOUS — especially unattended — open a decisions artifact alongside the state file and write each judgment call as decision, reasoning, and the explicit bounds accepted. Record refusals too; a scope you declined to expand is a decision.
+- **What this overrides**: n/a. **Promoting this into mozart's standing artifact list is the user's call, not mine** — the protocol reserves promotion into discipline sections for human review.

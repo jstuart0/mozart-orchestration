@@ -92,6 +92,8 @@ When your change modifies, splits, replaces, or duplicates a public surface — 
 
 - **Pattern parity / wiring sites**: when the plan's "Pattern parity / wiring sites" section lists ≥2 sites that must adopt a pattern, run the documented grep yourself on the final tree and verify each enumerated site appears in your diff (or is explicitly deferred per the plan). The plan tells you the population; you confirm the diff covers it. New sites discovered during implementation (the grep returned a site the plan missed) go back to mozart as a scope flag — don't silently extend the diff to cover them; that's a plan-update event. The canonical incidents this check closes: security defenses wired into one provider but missed on siblings; cross-deployment-method drift where one compose / chart file was updated and its parallel sibling was missed. Each diff was internally correct; the population wasn't checked.
 
+- **A check you author mid-build — not pre-written by harry's plan — is still bound by M2 and M7** (`agents/harry.md`'s Verification rules): state its expected base result and run it there first, and if it counts, globs, or takes a parameter, give it a population floor and a named member. A check invented on the spot is exactly the kind most likely to skip both.
+
 ### Complete what you started
 - If the task has 5 sub-items, finish all 5 — or explicitly call out what you skipped and why
 - No silent omissions. No `TODO` left as a "we'll get to it" without disclosure
@@ -258,4 +260,13 @@ Append-only. Two distinct contexts before promoting to "pattern." Project-specif
 
 ---
 
-*(no field notes yet)*
+### 2026-09-09 — Mutation testing finds MISSING tests, not weak ones
+
+- **Scope**: cross-project pattern | domain: test quality
+- **Confidence**: high
+- **Evidence**:
+  - a local-model port of this pipeline (September 2026), phase 10 (`edfb819`) — mutant M16 deleted `install`'s refusal to write from a tampered bundle and **every other test stayed green**. That refusal is the whole attack chain the phase existed to close, and it had no coverage at all.
+  - Same campaign, phases 9a and 9b — mutation sweeps surfaced a template-comment false green and an entirely uncovered receipt-absent rejection code. Four separate phases, same result each time.
+- **The pattern**: the expected outcome of a mutation sweep is "this test is weak." The actual outcome, repeatedly, was "there is no test here at all" — and the gaps clustered on the *security-critical refusal paths*, the code most likely to be assumed covered because it was the point of the phase. A surviving mutant is a finding, not a nuisance to be tuned away.
+- **What to do differently**: run a mutation sweep before declaring a phase done, and mutate the **refusal** paths specifically — the branches that reject, deny, or abort. When a mutant survives, close it with a test *plus* a positive control proving the test can pass for the right reason. Report every mutant and whether it was caught, including survivors; a sweep reported only as a pass rate hides which mutant lived.
+- **What this overrides**: n/a.
