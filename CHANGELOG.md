@@ -4,6 +4,37 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — field-notes harvest: four prose entries, three mechanisms, ported to all three mozart ports
+
+Seven findings from the unmerged `learnings/2026-09-09-mozart-local-field-notes` branch (never merged,
+never pushed) land as live contract in `mozart-orchestration`, `mozart-codex`, and `mozart-copilot`.
+Four ship as **prose field notes** — `agents/mozart.md` gains three (state your own known-wrong facts
+in the brief; scope every empirical finding to platform/version/date; an unattended run needs a
+decision log), `agents/jackson.md` gains one (mutation testing finds missing tests, not weak ones).
+Three ship as **mechanisms** instead of prose, because the family's own 2026-09-12 campaigns proved
+prose contracts inside a persona don't reliably change behavior — the same four failure modes were
+hit 25 times despite being named three days earlier on the source branch: M2 (verify the measuring
+instrument against a known-FAIL case before trusting it) and M7 (every counting/globbed/parameterized
+check needs a population floor and a named member) are added to `agents/harry.md`'s Verification
+rules; M4 (after a plan revision, name the pre-revision sections a mechanism touches, in the revision
+message) is added to `agents/mozart.md`'s stage-6 Iterate procedure. Tessa's entry (vacuity vs.
+coincidence) becomes M7 rather than a field note of her own; she receives no separate prose entry.
+
+**Honest bound, stated once and not inflated**: field notes do not find defects — reviewers do. What
+changes is that a defect already characterized is not re-derived from scratch, a cut to discovery
+cost estimated at 15–20% of the 2026-09-12 campaigns' ~20 rounds, and only if actually applied.
+
+- **`scripts/check-field-note-parity.py`** — new pre-merge tool (documented in `CONTRIBUTING.md`) that
+  proves the field-note prose and mechanism bullets are identical across all three ports and agree
+  with the frozen canonical source under `.mozart/plans/active/canonical/`. Deliberately **not**
+  wired into `mozart-contract-gates.sh`: that script's `report()` has only a PASS/FAIL state (no
+  SKIP), so a cross-worktree check installed there would be permanently red in single-repo CI or
+  vacuously green having compared nothing. Run by hand across all three worktrees before merging any
+  change to the shared field notes or mechanisms.
+- The source branch `learnings/2026-09-09-mozart-local-field-notes` (`0d89cc8`) is superseded by this
+  change and disposed of per this campaign's plan — content-verified patch archived, an
+  `refs/archive/…` ref cut, then the branch deleted.
+
 ### Added — pre-plan specialist consults (stage `2b`, a stage-3 pull route) + the capability-vs-claim gate that makes them reachable
 
 A DELIVER campaign can now get a narrow, bounded constraint from xander or ian *before* harry drafts the plan — pushed automatically at a new stage `2b` when the task statement itself trips an authorization or published-guarantee trigger, or pulled on request from harry via a new `## Consult requested` return (four lenses on the pull side: xander, ian, librarian, otto — wider than `2b`'s push set on purpose, because a pull question is already narrow by construction). **Off by default, and near-zero cost when untriggered**: an untriggered `2b` costs exactly **four** touches, every one an existing mandatory-template field populated with its default rather than a new document — one state-file `## Stage progress` row, one flow-sketch `## Stage trace` line, one state-file `Paths: Constraints` line (reads `n/a`), and one clause in the intake rationale (`2b trigger: none`) — and nothing beyond those four: no `## Deviations from proposed` entry, no diagram node in either flow, no findings-ledger row, no `.constraints.md` file, no ticket transition. That claim was walked through artifact-by-artifact against a real untriggered run before it was written, not asserted from the design; `agents/mozart.md`'s `### 2b.` body carries the canonical statement, restated here because a changelog entry should stand alone rather than send a reader elsewhere for the promise it's making to them.
