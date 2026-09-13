@@ -115,6 +115,8 @@ Before opening a pull request, confirm:
 
 The `## Field notes (append-only)` section at the bottom of each specialist persona is an append-only log of cross-project patterns. See `agents/LEARNINGS.md` for the protocol and the entry template. Do not edit any other section of a persona file when adding a field note — those sections are human-authored contracts.
 
+`scripts/check-field-note-parity.py` is a **pre-merge tool, not a CI gate**: it proves the field-note prose and the M2/M7/M4 mechanism bullets are identical across this repo, `mozart-codex`, and `mozart-copilot`, and agree with a frozen canonical source. It is not wired into `mozart-contract-gates.sh` because that script's `report()` has only a PASS/FAIL state — no SKIP — and a cross-worktree check installed there would be permanently red in single-repo CI or vacuously green having compared nothing. Run it by hand across all three worktrees before merging any change to the shared field notes or mechanisms; see the script's own docstring for `parity` and `bullets` usage.
+
 ## Issue templates
 
 See `.github/ISSUE_TEMPLATE/` for the bug report, feature request, and new-agent proposal templates. Use them — they make triage faster.
