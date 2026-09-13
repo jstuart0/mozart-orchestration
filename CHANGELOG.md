@@ -4,6 +4,8 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-13
+
 ### Added — field-notes harvest: four prose entries, three mechanisms, ported to all three mozart ports
 
 Seven findings from the unmerged `learnings/2026-09-09-mozart-local-field-notes` branch (never merged,
