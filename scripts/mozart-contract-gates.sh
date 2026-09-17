@@ -1092,6 +1092,44 @@ done < <(printf '%s\n' "$v9_sites")
 report "V9" "$([ -z "$v9_bad" ] && echo 0 || echo 1)" \
   "${v9_bad:-all $v9_siten prose sites name exactly the reference letter-suffixed keys}"
 
+# ---------------------------------------------------------------------------
+# V10a — metrics placeholder-vs-real note-cell bug (PD10, phase 1)
+#
+# scripts/mozart-metrics.sh used to skip ANY findings-ledger row containing a
+# literal '<' anywhere on the line, and ANY escapes line containing '<'
+# anywhere - not just a row whose note/target cell IS a template placeholder.
+# A real finding whose note mentioned "n<3 cases", or a real escape whose
+# Traces-to target was followed by "n<3 affected", was silently dropped from
+# both the numerator (catches) and the denominator (escapes). PD10 narrows
+# the skip to: findings - the note cell, trimmed, is WHOLLY `<...>`;
+# escapes - the line says "none yet", or the Traces-to TARGET itself starts
+# with '<'. tests/fixtures/conductor/metrics-placeholder/ carries both a
+# `n<3 cases` fixed-High row and a `n<3 affected` Traces-to row that must
+# now count, alongside the untouched template rows that must still be
+# skipped. Runs $gate_root's OWN mozart-metrics.sh (so a base tree
+# reproduces the bug; the head tree proves the fix) against the corpus
+# resolved from this script's own repo, per PD8's split.
+# ---------------------------------------------------------------------------
+v10a_script_repo=$(dirname "$(dirname "$gatefile")")
+v10a_corpus="$v10a_script_repo/tests/fixtures/conductor/metrics-placeholder"
+v10a_expected="$v10a_corpus/expected.tsv"
+v10a_floor=$(grep -c "$(printf '^metrics\t')" "$v10a_expected" 2>/dev/null || echo 0)
+v10a_member='Confirmed catches (Critical/High, disposition=fixed): 2'
+v10a_out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v10a_corpus" 2>&1)
+v10a_rc=$?
+v10a_bad=""
+[ "$v10a_rc" -eq 0 ] || v10a_bad="$v10a_bad [exit=$v10a_rc want 0]"
+[ "$v10a_floor" -ge 2 ] || v10a_bad="$v10a_bad [expected-file floor $v10a_floor < 2 -- corpus file empty or truncated]"
+printf '%s\n' "$v10a_out" | grep -qxF "$v10a_member" || v10a_bad="$v10a_bad [named member absent: $v10a_member]"
+v10a_missing=""
+while IFS= read -r v10a_line; do
+  [ -n "$v10a_line" ] || continue
+  printf '%s\n' "$v10a_out" | grep -qxF "$v10a_line" || v10a_missing="$v10a_missing [$v10a_line]"
+done < <(cut -f2 "$v10a_expected")
+[ -z "$v10a_missing" ] || v10a_bad="$v10a_bad expected line(s) absent:$v10a_missing"
+report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
+  "${v10a_bad:-metrics-placeholder: exit=$v10a_rc, $v10a_floor expected line(s) present, named member present}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

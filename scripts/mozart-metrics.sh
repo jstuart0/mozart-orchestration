@@ -73,9 +73,10 @@ section == "## Findings ledger" && /^\|/ {
   line = $0
   if (line ~ /\| *id *\|/) next          # header
   if (line ~ /^\|[- |]+\|$/) next        # separator
-  if (line ~ /</) next                   # template placeholder row
   n = split(line, c, "|")
   if (n < 7) next
+  note = trim(c[7])
+  if (note ~ /^<[^<>]*>$/) next          # template placeholder row: note cell wholly <...>
   stage = trim(c[3]); lens = trim(c[4]); sev = trim(c[5]); disp = trim(c[6])
   if (stage == "" || sev == "") next
   findings++
@@ -101,7 +102,10 @@ section == "## Findings ledger" && /^\|/ {
 
 # --- Escapes ---------------------------------------------------------------
 section == "## Escapes" && /Traces-to:/ {
-  if ($0 ~ /</ || $0 ~ /none yet/) next
+  if ($0 ~ /none yet/) next
+  target = $0
+  sub(/^.*Traces-to:[ \t]*/, "", target)
+  if (target ~ /^</) next              # placeholder target, e.g. <DIAGNOSE/audit slug>
   escapes++
 }
 
