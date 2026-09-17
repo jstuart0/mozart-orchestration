@@ -1136,14 +1136,13 @@ report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
 # Same $gatefile/$gate_root split as V10a: corpus from this script's own
 # repo, script under test from $gate_root, so pointing gate_root at a base
 # worktree exercises base scripts against head fixtures. Category set is the
-# six K/L names for now; missing-2b joins in phase 5b once Check J is fixed
-# (step 31) — asserting it here, before that fix lands, would make this gate
-# fail for a reason outside what phase 5 shipped.
+# six K/L names plus missing-2b (phase 5b, step 31, now that Check J's
+# DELIVER-family gating is fixed).
 # ---------------------------------------------------------------------------
 v11_script_repo=$(dirname "$(dirname "$gatefile")")
 v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
-v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest'
+v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b'
 
 v11_floor=$(( $(find "$v11_corpus/.mozart/plans/active" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') \
              + $(find "$v11_corpus/.mozart/plans/finished" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') ))
@@ -1198,6 +1197,8 @@ do
 done
 printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
   && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
+printf '%s\n' "$v11_ov_triples" | grep -q "	2099-07-27-operate-j	" \
+  && v11_bad="$v11_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
 for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound; do
   printf '%s\n' "$v11_ov_triples" | grep -q "	${v11_slug}	" \
     && v11_bad="$v11_bad [pre-adoption slug $v11_slug produced a triple]"

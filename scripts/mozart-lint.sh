@@ -83,6 +83,29 @@ is_terminal() { # complete or aborted (including freeform "CAMPAIGN COMPLETE —
   case "$1" in *complete*|*aborted*) return 0 ;; *) return 1 ;; esac
 }
 
+# Flow field, CR stripped. Handles the template's pipe-separated tolerant
+# form and freeform two-part values ("OPERATE — plan → apply",
+# "FULL (DELIVER, escalated from a DIAGNOSE)", "INVESTIGATE-ONLY -> decision
+# point") by testing whether the trimmed value STARTS WITH a known token
+# (PD3's "starts with" rule: the token followed by a non-alnum char or EOL).
+flow_of() {
+  grep -m1 -E '^\*\*Flow\*\*:' "$1" 2>/dev/null | sed -E 's/^\*\*Flow\*\*:[[:space:]]*//' | tr -d '\r'
+}
+
+flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
+  local val="$1" tok
+  for tok in $CONDUCTOR_FLOWS_DELIVER; do
+    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo DELIVER; return; }
+  done
+  for tok in $CONDUCTOR_FLOWS_OPERATE; do
+    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo OPERATE; return; }
+  done
+  for tok in $CONDUCTOR_FLOWS_INCIDENT; do
+    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo INCIDENT; return; }
+  done
+  echo ""
+}
+
 
 # Checks K (conductor-*, decision-trigger) and L (mutation-manifest) -- PD24.
 # Parses one state file (plus its sibling decisions file, read via getline so
@@ -572,10 +595,27 @@ lint_root() {
   # active/ ONLY - never finished/, never the bare-slug glob. Same rationale
   # as Check I (:131-148) applies verbatim: a finished campaign's stage list
   # is a record of what ran, not a template to conform to.
+  #
+  # PD20 (log D5, phase 5b): a bare '3.' row is not evidence of a DELIVER
+  # campaign on its own -- OPERATE's stage 3 is "Change plan" and INCIDENT's
+  # is "Converge", neither of which has a 2b. Fires only when flow_family_of
+  # returns DELIVER, or returns empty (no parseable Flow field at all) AND
+  # the file has stage rows 2., 3. and 12. -- the shape of a DELIVER stage
+  # list with no Flow header to classify it by.
   for f in "$PLANS"/active/*.state.md "$PLANS"/active-*.state.md; do
     [ -f "$f" ] || continue
     if grep -qE '^\- \[[ x-]\] 3\. ' "$f" && ! grep -qE '^\- \[[ x-]\] 2b\.' "$f"; then
-      finding "missing-2b" "$f — has a '3. Plan' row but no '2b. Constraints' row (insert it in place between 2 and 3; record the trigger outcome or mark '[-] 2b. Constraints — skipped: no trigger')"
+      family=$(flow_family_of "$(flow_of "$f")")
+      fires=0
+      if [ "$family" = "DELIVER" ]; then
+        fires=1
+      elif [ -z "$family" ] && grep -qE '^\- \[[ x-]\] 2\. ' "$f" \
+           && grep -qE '^\- \[[ x-]\] 12\. ' "$f"; then
+        fires=1
+      fi
+      if [ "$fires" -eq 1 ]; then
+        finding "missing-2b" "$f — -: has a '3. Plan' row but no '2b. Constraints' row (insert it in place between 2 and 3; record the trigger outcome or mark '[-] 2b. Constraints — skipped: no trigger')"
+      fi
     fi
   done
 
