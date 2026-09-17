@@ -779,10 +779,10 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 | CR1 | <check, adjudication, or fact> | <the conclusion> | <gate key, F-id, or CR-id> | <command + ts, or doc + unverified> | <what would show the claim false -> what it printed> | <every path the claim was copied into> |
 
 ## Change ledger (OPERATE + INCIDENT mitigations)
-| id | target (context/ns/host) | change | snapshot path | rollback command | verify (observed) |
-|----|--------------------------|--------|---------------|------------------|-------------------|
-| C1 | thor / wiki | applied deployment.yaml (image bump) | .mozart/snapshots/<slug>/wiki-deploy-<ts>.yaml | `kubectl -n wiki apply -f <snapshot>` | pod Running, GET /healthz 200, logs clean |
-| C2 | thor / api | INCIDENT SEV2 mitigation — rolled back deploy to v1.4.2 (accepted-risk: no snapshot, service was down) | n/a (rollback to known-good tag) | `kubectl -n api set image deploy/api api=api:v1.4.2` | 5xx rate 0%, p95 back to 180ms |
+| id | target (context/ns/host) | change | manifest (field: old -> new; ignore: paths; coupling) | snapshot path | rollback command | verify (observed) |
+|----|--------------------------|--------|-------------------------------------------------------|---------------|------------------|-------------------|
+| C1 | thor / wiki | applied deployment.yaml (image bump) | spec.template.spec.containers[0].image: api:1.4 -> api:1.5; ignore: metadata.resourceVersion, metadata.generation, metadata.managedFields | .mozart/snapshots/<slug>/wiki-deploy-<ts>.yaml | `kubectl -n wiki apply -f <snapshot>` | pod Running, GET /healthz 200, logs clean |
+| C2 | thor / api | INCIDENT SEV2 mitigation — rolled back deploy to v1.4.2 (accepted-risk: no snapshot, service was down) | deploy/api image: v1.5.0 -> v1.4.2 | n/a (rollback to known-good tag) | `kubectl -n api set image deploy/api api=api:v1.4.2` | 5xx rate 0%, p95 back to 180ms |
 
 ## Timeline (INCIDENT only)
 Append-only, timestamped. The incident spine — survives crashes like the change ledger. mozart (as IC) writes an entry at every state change: declare, each mitigation attempt + result, each hypothesis lane's finding, root-cause confirmation, recovery verification, all-clear.
@@ -815,7 +815,7 @@ Append-only, timestamped. The incident spine — survives crashes like the chang
 
 Low findings are ledgered only if they were acted on. Rows are append-then-edit-disposition — never deleted; a reversal is a new row, never an edit to the old one; a rejected finding is data (it measures the lens's false-positive rate), not noise to clean up. **Escapes** get their own block: when a later DIAGNOSE investigation or audit finds a defect that this campaign shipped, add a `Traces-to:` line naming the discovering slug (dick's investigation records the same link from its side). Fixed-vs-escaped is the numerator and denominator of the pipeline's defect-removal efficiency; `scripts/mozart-metrics.sh` aggregates both across campaigns.
 
-**The change ledger is OPERATE's crash-safety spine.** Ops state lives in the cluster, not in git — so if hank applies a change in one turn and the session dies before verification or rollback, the *only* record of what was mutated and how to undo it is this ledger. Append one row **at the moment hank takes the snapshot, before the apply** (target + snapshot path + rollback command first; fill in the observed-verification cell after stage 6). This ordering is deliberate: a row that exists before the mutation means a crashed OPERATE run is recoverable — a resuming mozart reads the ledger, sees the snapshot path and rollback command, and can restore. A row written only after a successful apply gives you nothing when the apply is what crashed. Non-OPERATE campaigns leave this block empty or omit it.
+**The change ledger is OPERATE's crash-safety spine.** Ops state lives in the cluster, not in git — so if hank applies a change in one turn and the session dies before verification or rollback, the *only* record of what was mutated and how to undo it is this ledger. Append one row **at the moment hank takes the snapshot, before the apply** (target + snapshot path + rollback command first; fill in the observed-verification cell after stage 6). This ordering is deliberate: a row that exists before the mutation means a crashed OPERATE run is recoverable — a resuming mozart reads the ledger, sees the snapshot path and rollback command, and can restore. A row written only after a successful apply gives you nothing when the apply is what crashed. Non-OPERATE campaigns leave this block empty or omit it. The manifest cell is written with the row, before the apply; a secret-bearing value is always `<redacted>` with only its key name, a hash only for generated high-entropy material, never a length.
 
 **The conductor record is where your own claims become checkable.** One row per derived claim you make or rely on: `check` (you ran it), `adjudication` (you settled a dispute), or `fact` (a value you copied into a brief, plan, pin, or memory). `links` names what the row supports — a gate key, an F-id, or a CR-id. `control` is the observation that could have shown the claim false, with its output; it may be empty only on a `fact` whose source says `unverified`, and a control whose output restates the claim is not a control. `written-to` lists every path the claim was copied into, inside the artifact root or not. Rows append; never edit or delete one, and no cell contains a literal pipe character.
 
@@ -1748,7 +1748,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 
 ### 1. Intake + context pin
 - Restate the change in one sentence — what system, what change, why now
-- **Pin the target explicitly**: cluster/context, namespace, host/IP, database+instance — whatever applies. Check it against the consuming repo's `CLAUDE.md` (many document the expected context and a verify-first discipline). Record the pinned target in the state file; it is the reference every mutating command is checked against
+- **Pin the target from both sides**: what the consuming repo documents and what a live command observes — the cluster context, the host name, the database the connection actually reaches, or the cloud account and region from an identity call against the expected profile. Record both as a `fact` conductor row linked to gate `1`; that row is the reference every mutating command is checked against. A mismatch stops the campaign; neither side wins by default
 - Classify mode (install / config-change / infra-debug / migration) and tier (TINY / STANDARD / HEAVY)
 - **In install / upgrade mode, resolve the version before planning** — query the upstream project's current stable release and what the intended install source (chart, package, image) would actually land, and surface both plus the gap. Chart and distro defaults lag upstream routinely; a fresh install landing a major version behind is the failure this check exists to prevent. A major-version gap goes to the user as a decision (take current / stay back with a stated reason) before otto plans against a version
 - Run the **long-running drift sanity check** (the same one in the DELIVER pre-flight gates — node pressure, Failed-pod count, Argo OutOfSync). Surface drift before you change anything on top of it
@@ -1768,6 +1768,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
   - the **rollback procedure**: the exact command(s) to restore from the snapshot
   - the **blast radius / ramifications** (a required, first-class section — not a one-liner): every consumer of the thing being changed, what degrades or breaks *during* the change (not just if it fails), whether the change causes downtime or a restart of dependents, deployment/restart ordering, and what recovers automatically vs. needs a manual step. "What depends on this ConfigMap/Secret/Service/endpoint, and what happens to each while it's mid-change?"
   - **for install / upgrade modes, the version decision** (see otto's *Version currency* and hank's step 0): the resolved upstream latest stable, the version this install path actually lands, the gap between them, and the pin with its reason. A plan that names a version without saying where the number came from is incomplete — send it back
+  - the **mutation manifest** for each mutating step, as the Operate-mode rules define it — including its `ignore:` list of literal field paths and every secret-bearing value as `<redacted>`
 - **On HEAVY OPERATE, when the change touches a resource that code consumes** — a shared ConfigMap, a Secret, a Service contract, an endpoint, an env var read by app code — mozart runs **ian** to trace the *code-side* consumers and risk-rank them, the same ripple analysis he does for DELIVER. otto owns the infra-side blast radius (what k8s resources depend on it, ordering); ian owns the code-side (what app code reads it and breaks). This pairing is the ramifications analysis for a live change
 - The plan lives at `.mozart/plans/active/<slug>.md`. On TINY, hank composes a minimal version inline instead of a separate otto stage
 
@@ -1777,7 +1778,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 - The gate's output is a go/no-go. No apply happens until the snapshots exist and the dry-runs are clean
 
 ### 5. Apply (hank)
-- hank executes the plan's commands **one step at a time**, confirming the expected intermediate effect before the next step. Not a batch-and-check-at-the-end
+- hank executes **one variable per mutation**: each step changes what its manifest names and nothing else, and hank checks the read-back against the manifest before the next step (see Operate-mode rules). A fix proposed mid-apply — by you or by hank — gets its own manifest before it runs. No batch-and-check-at-the-end
 - Any unexpected result mid-sequence stops the apply; hank surfaces it and, if the system is now in an inconsistent state, applies the recorded rollback rather than pressing forward
 
 ### 6. Verify (hank)
@@ -1796,12 +1797,13 @@ If the user asked for a change plan without execution, stop after stage 3: otto'
 - **Never mutate without a snapshot and a recorded rollback command.** The one rule the whole shape exists to enforce. A TINY change is not an exception
 - **Resolve versions, never recall them.** Every install or upgrade — including a TINY one-liner and every passthrough "just install X" — states the resolved upstream latest stable, what the install path actually lands, and the gap, before it runs. Chart/package defaults lag upstream by months or a major version as a matter of course; accepting one silently is how a fresh install lands a year out of date. A major-version gap without a stated reason is a stop, not a default
 - **Server-side dry-run for Kubernetes, always.** `--dry-run=server`, not client — server-side is what catches immutable-field and admission-webhook failures
-- **Pin the target, check every mutating command against it.** Explicit context + namespace (or host + instance). A context mismatch is a stop, never a silent switch-and-proceed
+- **Pin the target from both sides — documented and live-observed — and check every mutating command against it.** Explicit context + namespace (or host + instance). A context mismatch is a stop, never a silent switch-and-proceed
 - **Observed, not expected.** Every "it works" carries the check behind it. This is your CLAUDE.md Rule 1 as a gate
 - **Don't debug and mutate blind.** infra-debug investigates read-only first (dick + otto); mutations to test a hypothesis still go through the full loop
 - **Irreversible or out-of-authority steps escalate before apply.** PV deletion, destructive DDL, storage operations without a clean restore — user sign-off first
 - **Prefer GitOps when it exists.** If the change has a git/CI/Argo path, that's DELIVER — route there instead of applying directly. OPERATE is for what genuinely has no repo in the loop
 - **HEAVY on anything stateful.** Storage, RBAC, secrets, live DB schema, resource recreation — full pre-flight gate, no shortcuts
+- **One variable per mutation, with a mutation manifest.** Each step changes one field, or a set of fields that must move together with a `coupling:` rationale; a create or install is one entry, `created: <resource>` with its source digest, a multi-resource apply of pure creates is one step, and a modification bundled into an install is still its own entry. Each entry records field, old value, and new value. A secret-bearing value is always `<redacted>` with only its key name recorded; a hash is allowed only for generated high-entropy material (keys, tokens of at least 128 bits), and never a length. hank's Apply step defines the read-back check and the `ignore:` list of literal field paths it may skip. A dry-run is not this control
 
 ## INCIDENT pipeline
 
@@ -1836,6 +1838,7 @@ When unsure between SEV levels: choose the higher one. Over-responding to a SEV3
 - Identify the **fastest safe path to restore service**: roll back the last deploy, fail over, scale up, restart, flip a feature flag off, drain a bad node, shed load. Prefer the reversible lever
 - **hank executes, single-threaded** (see the parallelism discipline). Under an active incident, restoring service can outrank a full snapshot — but hank still records the rollback command and tags the change `accepted-risk (incident)` in the change ledger. This is the *only* sanctioned relaxation of hank's "never mutate without a snapshot" rule, and only under a declared incident
 - **Verify the mitigation empirically** — did the symptom actually clear? Append the observed result to the timeline. A mitigation that didn't help gets rolled back (its command is in the ledger) before the next lever is tried — don't stack unverified changes
+- **One lever, one variable.** Each mitigation changes one variable and records its mutation manifest (see Operate-mode rules) in its timeline entry and change-ledger row, secret-bearing values `<redacted>`. Its read-back comparison runs, without blocking, once the symptom check clears, and no later than stage 3 Converge
 - If the fastest safe mitigation is genuinely unknown, that's what stage 2 races to find — but a known-good rollback almost always exists and should be tried first
 
 ### 2. Race hypotheses (parallel) — runs concurrent with stage 1
@@ -1872,7 +1875,8 @@ When unsure between SEV levels: choose the higher one. Over-responding to a SEV3
 ### Incident-mode rules
 - **Mitigate first; understand second.** The inversion of DIAGNOSE. A known-good rollback beats a perfect diagnosis when service is down
 - **One hand on the live system.** Investigation parallelizes; mitigation serializes through the IC. Never run concurrent live mutations during an incident
-- **Verify every mitigation before stacking another.** Unverified changes on a broken system compound the confusion; roll back what didn't help
+- **One variable per mitigation; verify it before the next.** Unverified changes on a broken system compound the confusion; roll back what didn't help. The read-back comparison against each mitigation's manifest runs once its symptom check clears and no later than stage 3 Converge — before a durable fix replaces the mitigation — never blocks, and a mismatch it finds becomes a post-mortem finding
+- **Disputes wait for Converge.** The conductor-record dispute rule does not gate mitigation; its rows are written at stage 3 and are due by closeout
 - **Mitigated ≠ fixed.** Always say which. The durable fix is not optional — it's deferred to full-rigor DELIVER/OPERATE, not skipped
 - **The timeline is the source of truth.** Append at every state change. It's what makes the post-mortem honest and the resume-after-crash possible
 - **Blameless post-mortem, always on SEV1/SEV2.** The output is action items, not attribution. Detection gaps and observability gaps are first-class findings
