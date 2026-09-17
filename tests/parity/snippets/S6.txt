@@ -1,0 +1,3 @@
+## Change ledger (OPERATE + INCIDENT mitigations)
+| id | target (context/ns/host) | change | manifest (field: old -> new; ignore: paths; coupling) | snapshot path | rollback command | verify (observed) |
+|----|--------------------------|--------|-------------------------------------------------------|---------------|------------------|-------------------|

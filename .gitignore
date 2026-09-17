@@ -15,3 +15,8 @@ thoughts/
 
 # Per-campaign git worktrees, when created inside the repo rather than as a sibling.
 .worktrees/
+
+# log D11: the conductor-self-verification fixture corpus commits synthetic
+# .mozart/ trees under tests/fixtures/conductor/ on purpose (V10-V13 read them).
+# Re-include those nested roots without lifting the blanket ignore above.
+!tests/fixtures/conductor/*/.mozart/

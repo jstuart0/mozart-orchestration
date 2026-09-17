@@ -1,0 +1,21 @@
+### 2026-09-09 — State your own known-wrong facts inside the brief
+
+- **Scope**: cross-project pattern | domain: agent briefing
+- **Confidence**: high
+- **Evidence**:
+  - A local-model port of this pipeline (September 2026) — I mis-cited exit codes (G3), `resolve_home()` semantics (Y7, which survived four of my own passes *after* I'd established the disproving fact), and `method` enum literals (G22, three of four wrong).
+  - Same campaign — briefs that carried the sentence "I have mis-cited X; where the tree and this brief disagree, the tree wins" came back with corrections: tessa's r12 corrected my framing on two of eleven items and traced my `method` error to its source in an artifact I had not suspected.
+- **The pattern**: specialists treat the conductor's brief as authoritative, so a wrong assertion in a brief is laundered into a finding and returns as corroboration. Explicitly licensing disagreement costs one sentence and converts the specialist from a transcriber into a check on the conductor.
+- **What to do differently**: in every brief, name the specific things you have already been wrong about this campaign, and state that the code wins over the brief. Ask for items that turn out **not** to be defects to be reported rather than quietly fixed — a "not a defect" finding is a real result and its absence hides the fact that you were wrong.
+- **What this overrides**: n/a.
+
+### 2026-09-09 — Scope every empirical finding to platform, tool version, and date
+
+- **Scope**: cross-project pattern | domain: measured findings
+- **Confidence**: high
+- **Evidence**:
+  - A local-model port of this pipeline (September 2026) — user instruction ("might be different on other platforms") adopted as a binding rule; every measured claim carries a (platform, version, date) triple.
+  - Same campaign — the harness under measurement (`claude-code`) drifted `2.1.265` → `2.1.266` **mid-run**, invalidating the scope of every claim measured against it and requiring a re-measure sweep in the final phase.
+- **The pattern**: findings about external tool behaviour are measurements of one build on one platform on one day, but they get written as timeless facts. They then outlive their truth silently, and the campaign that inherits them cannot tell which claims are still live. Restating an unscoped claim is not cheaper than re-measuring it — it is just a claim with unknown provenance.
+- **What to do differently**: record platform, exact version, and date on every empirical finding at the moment it is made. When a version drifts mid-campaign, re-measure the claims that could have changed rather than restating them. This applies at least as strongly to infrastructure work (cluster, storage, and identity versions drift the same way).
+- **What this overrides**: n/a.

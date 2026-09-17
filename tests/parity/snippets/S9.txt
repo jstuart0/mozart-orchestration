@@ -1,0 +1,1 @@
+  - the **mutation manifest** for each mutating step, as the Operate-mode rules define it — including its `ignore:` list of literal field paths and every secret-bearing value as `<redacted>`

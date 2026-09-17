@@ -1,0 +1,1 @@
+- **A check you author mid-build — not pre-written by harry's plan — is still bound by M2 and M7** (harry's Verification rules): state its expected base result and run it there first, and if it counts, globs, or takes a parameter, give it a population floor and a named member. A check invented on the spot is exactly the kind most likely to skip both.
