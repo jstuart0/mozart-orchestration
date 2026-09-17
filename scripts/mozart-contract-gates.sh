@@ -1277,6 +1277,53 @@ printf '%s\n' "$v12_incident_row" | grep -qF '`MITIGATE-ONLY`' || v12_bad="$v12_
 report "V12" "$([ -z "$v12_bad" ] && echo 0 || echo 1)" \
   "${v12_bad:-S3 table agrees with lint constants: 3 families, per-family keys and flow tokens set-equal, named members present, anchor found once}"
 
+# ---------------------------------------------------------------------------
+# V10b — metrics conductor section (PD9/PD11/PD13, phase 6)
+#
+# Runs the metrics-conductor and metrics-vacuity cases against $gate_root's
+# OWN mozart-metrics.sh, corpus resolved from this script's own repo (PD8).
+# ---------------------------------------------------------------------------
+v10b_script_repo=$(dirname "$(dirname "$gatefile")")
+v10b_bad=""
+
+v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
+  local case="$1" floor="$2" corpus expected out rc missing member
+  corpus="$v10b_script_repo/tests/fixtures/conductor/$case"
+  expected="$corpus/expected.tsv"
+  local n
+  n=$(grep -c "$(printf '^metrics\t')" "$expected" 2>/dev/null || echo 0)
+  [ "$n" -ge "$floor" ] || v10b_bad="$v10b_bad [$case expected-file floor $n < $floor]"
+  out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$corpus" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] || v10b_bad="$v10b_bad [$case exit=$rc want 0]"
+  missing=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s\n' "$out" | grep -qxF "$line" || missing="$missing [$line]"
+  done < <(cut -f2 "$expected")
+  [ -z "$missing" ] || v10b_bad="$v10b_bad [$case expected line(s) absent:$missing]"
+  shift 2
+  for member in "$@"; do
+    printf '%s\n' "$out" | grep -qxF "$member" || v10b_bad="$v10b_bad [$case named member absent: $member]"
+  done
+  if [ "$case" = "metrics-conductor" ]; then
+    lens_line=$(printf '%s\n' "$out" | grep '^  rejected by lens:')
+    for tok in "bob=1/1" "tessa=1/1" "ruby=1/1"; do
+      printf '%s' "$lens_line" | grep -qF "$tok" || v10b_bad="$v10b_bad [metrics-conductor rejected-by-lens token absent: $tok]"
+    done
+    printf '%s' "$lens_line" | grep -q 'xander=' && v10b_bad="$v10b_bad [metrics-conductor reversed lens xander= present in rejected-by-lens line]"
+  fi
+}
+
+v10b_run_case "metrics-conductor" 6 \
+  "Wrong-override rate: 1/3 rejected findings later reversed (33%)" \
+  "  rejected (judgment): 1 of 3"
+v10b_run_case "metrics-vacuity" 1 \
+  "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)"
+
+report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
+  "${v10b_bad:-metrics-conductor and metrics-vacuity: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"
