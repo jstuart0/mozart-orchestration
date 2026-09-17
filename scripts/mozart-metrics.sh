@@ -62,10 +62,26 @@ FNR == 1 {
   section = ""
 }
 
-/^\*\*Tier\*\*:/ {
-  t = trim($0); sub(/^\*\*Tier\*\*:[ \t]*/, "", t)
-  # Template files list all tiers pipe-separated; real files pick one.
-  if (t !~ /\|/) tier[FILENAME] = t
+# F40: the Tier field is not always the whole line -- a combined header
+# ("**Shape**: ... | **Tier**: HEAVY | **Mode**: ... | **Flow**: ...") puts
+# it after other fields on the same line, and a real tier value there is
+# ALSO followed by more fields on the same line -- the same shape as the
+# templates own "TINY | STANDARD | HEAVY" placeholder list this rule has
+# always had to reject. Distinguish them by what follows the first pipe:
+# another bold field name means a combined header (take the value before
+# it); anything else means the templates pipe-listed options (skip, stays
+# UNTIERED, as before).
+/\*\*Tier\*\*:/ {
+  t = $0; sub(/^.*\*\*Tier\*\*:[ \t]*/, "", t)
+  if (t ~ /\|/) {
+    rest = t; sub(/^[^|]*\|[ \t]*/, "", rest)
+    if (rest ~ /^\*\*[A-Za-z]/) {
+      sub(/[ \t]*\|.*$/, "", t)
+      tier[FILENAME] = trim(t)
+    }
+  } else {
+    tier[FILENAME] = trim(t)
+  }
 }
 
 /^## /      { section = trim($0) }
@@ -139,7 +155,7 @@ END {
   # ---- PD13 reversal accounting: resolve targets before any tally --------
   for (i = 1; i <= f_n; i++) {
     key = f_order[i]
-    if (match(f_note[key], /reverses F[0-9]+/)) {
+    if (match(f_note[key], /^reverses F[0-9]+/)) {
       tgt = substr(f_note[key], RSTART, RLENGTH)
       sub(/reverses /, "", tgt)
       tgtkey = f_file[key] SUBSEP tgt

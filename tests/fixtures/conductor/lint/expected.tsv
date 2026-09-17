@@ -33,3 +33,7 @@ lint	mutation-manifest	2099-07-31-operate-ignore	C3
 lint	mutation-manifest	2099-07-31-operate-ignore	C4
 lint	mutation-manifest	2099-07-31-operate-ignore	C5
 lint	mutation-manifest	2099-07-31-operate-ignore	C6
+lint	mutation-manifest	2099-08-05-deliver-ledger-postadopt	C1
+lint	missing-2b	2099-08-06-deliver-combined	-
+lint	conductor-unlinked	2099-08-07-deliver-exempt-bypass	5
+lint	decision-trigger	2099-08-10-deliver-revisit-placeholder	D1

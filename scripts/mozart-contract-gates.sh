@@ -1186,23 +1186,43 @@ v11_expected_triples=$(awk -F'\t' -v cats="$v11_cats" '
 
 v11_bad=""
 [ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
-[ "$v11_floor" -ge 34 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 34]"
+[ "$v11_floor" -ge 41 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 41]"
 [ "$v11_ov_triples" = "$v11_expected_triples" ] || v11_bad="$v11_bad [K/L triples not set-equal to expected.tsv]"
 for v11_member in \
   "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
   "$(printf 'conductor-unlinked\t2099-07-13-deliver-freeform\t10')" \
-  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')"
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')" \
+  "$(printf 'mutation-manifest\t2099-08-05-deliver-ledger-postadopt\tC1')" \
+  "$(printf 'missing-2b\t2099-08-06-deliver-combined\t-')" \
+  "$(printf 'conductor-unlinked\t2099-08-07-deliver-exempt-bypass\t5')" \
+  "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')"
 do
-  printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent]"
+  printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent: $v11_member]"
 done
 printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
   && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
 printf '%s\n' "$v11_ov_triples" | grep -q "	2099-07-27-operate-j	" \
   && v11_bad="$v11_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
-for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound; do
+for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
+  2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
   printf '%s\n' "$v11_ov_triples" | grep -q "	${v11_slug}	" \
-    && v11_bad="$v11_bad [pre-adoption slug $v11_slug produced a triple]"
+    && v11_bad="$v11_bad [pre-adoption or accepted-spelling slug $v11_slug produced a triple]"
 done
+
+# F45: two same-category triples in one file (fixture #3's CR1/CR2, #34's
+# C3-C6) could have their reasons swapped and still pass a key-only
+# set-equality check. Assert the actual message text too, so the gate
+# proves each fired for ITS OWN stated reason.
+v11_msg_check() { # $1=path-suffix (basename), $2=key, $3=expected message substring
+  printf '%s\n' "$v11_ov_out" | grep -F "$1" | grep -F -- "— $2:" | grep -qF "$3" \
+    || v11_bad="$v11_bad [message mismatch: $1 $2 does not contain '$3']"
+}
+v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR1" "control restates the claim"
+v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR2" "empty or placeholder control"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C3" "bad ignore token: spec.*"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C4" "bad ignore token: status.conditions[*]"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C5" "bad ignore token: spec."
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C6" "bad ignore token: status"
 printf '%s\n' "$v11_no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
   || v11_bad="$v11_bad [override-control triple absent from the no-override run]"
 printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \

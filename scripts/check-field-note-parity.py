@@ -196,21 +196,29 @@ LINT_CATEGORIES = frozenset({
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 34
+LINT_FIXTURE_FLOOR = 41
 LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(\S+) — ([^:]*):")
 
-# Named members (Fixture corpus, r5) — asserted independently of aggregate
+# Named members (Fixture corpus, r5+) — asserted independently of aggregate
 # set-equality, per M7: a check that counts or globs needs a member whose
 # presence/absence it would actually reject if it flipped.
 NAMED_PRESENT = (
     ("conductor-unlinked", "2099-07-02-deliver-k9", "9"),          # finished-dir scan
     ("conductor-unlinked", "2099-07-13-deliver-freeform", "10"),   # DELIVER-prefix match
     ("mutation-manifest", "2099-07-31-operate-ignore", "C4"),      # wildcard-index catch
+    ("mutation-manifest", "2099-08-05-deliver-ledger-postadopt", "C1"),  # F39: no grandfathering once enforced
+    ("missing-2b", "2099-08-06-deliver-combined", "-"),            # F40: combined-header Flow parsing
+    ("conductor-unlinked", "2099-08-07-deliver-exempt-bypass", "5"),  # F42: exempt line is not sole content
+    ("decision-trigger", "2099-08-10-deliver-revisit-placeholder", "D1"),  # F43: placeholder still fires
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
 )
-NAMED_ABSENT_SLUGS = ("2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound")
+NAMED_ABSENT_SLUGS = (
+    "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
+    "2000-01-03-deliver-legacy-ledger",                            # F39: pre-adoption, no grandfathering needed
+    "2099-08-08-deliver-revisit-trigger", "2099-08-09-deliver-revisit-when",  # F43: both spellings accepted
+)
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 
 

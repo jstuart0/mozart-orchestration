@@ -74,7 +74,11 @@ finding() {
 # tolerates freeform bodies by falling back to any "Status:" line.
 status_of() {
   local s
-  s=$(grep -m1 -E '^\*\*Status\*\*:' "$1" 2>/dev/null | sed -E 's/^\*\*Status\*\*:[[:space:]]*//')
+  # F40: **Status**: is not always the line's own field -- a combined header
+  # ("**Shape**: ... | **Status**: in-progress | **Flow**: ...") puts it
+  # after other fields on the same line. Match anywhere, take the value up
+  # to the next "|" (if any) or end of line.
+  s=$(grep -m1 -E '\*\*Status\*\*:' "$1" 2>/dev/null | sed -E 's/^.*\*\*Status\*\*:[[:space:]]*//; s/[[:space:]]*\|.*$//')
   [ -z "$s" ] && s=$(grep -m1 -iE '^status:' "$1" 2>/dev/null | sed -E 's/^[Ss]tatus:[[:space:]]*//')
   printf '%s' "$s" | tr '[:upper:]' '[:lower:]'
 }
@@ -89,7 +93,10 @@ is_terminal() { # complete or aborted (including freeform "CAMPAIGN COMPLETE —
 # point") by testing whether the trimmed value STARTS WITH a known token
 # (PD3's "starts with" rule: the token followed by a non-alnum char or EOL).
 flow_of() {
-  grep -m1 -E '^\*\*Flow\*\*:' "$1" 2>/dev/null | sed -E 's/^\*\*Flow\*\*:[[:space:]]*//' | tr -d '\r'
+  # F40: same combined-header hazard as status_of() -- match **Flow**:
+  # anywhere in the line, stop at the next "|" or end of line.
+  grep -m1 -E '\*\*Flow\*\*:' "$1" 2>/dev/null \
+    | sed -E 's/^.*\*\*Flow\*\*:[[:space:]]*//; s/[[:space:]]*\|.*$//' | tr -d '\r'
 }
 
 flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
@@ -165,9 +172,12 @@ BEGIN {
         d_trigger_ok[cur_d] = 0
         continue
       }
-      if (cur_d != "" && dline ~ /^- \*\*Revisit trigger\*\*:/) {
+      # F43 (log D20): S4 recommends "Revisit trigger", but "Revisit when"
+      # is an accepted spelling in the wild -- this campaign's own decisions
+      # log used it in 17 of 19 entries.
+      if (cur_d != "" && dline ~ /^- \*\*Revisit (trigger|when)\*\*:/) {
         dval = dline
-        sub(/^- \*\*Revisit trigger\*\*:[ \t]*/, "", dval)
+        sub(/^- \*\*Revisit (trigger|when)\*\*:[ \t]*/, "", dval)
         dval = trim(dval)
         if (dval != "" && !is_placeholder(dval)) d_trigger_ok[cur_d] = 1
       }
@@ -206,10 +216,15 @@ raw ~ /^## / {
   next
 }
 
-/^\*\*Flow\*\*:/ {
-  flow = raw
-  sub(/^\*\*Flow\*\*:[ \t]*/, "", flow)
-  flow = trim(flow)
+# F40: **Flow**: is not always the line's own field -- a combined header
+# ("**Shape**: ... | **Tier**: ... | **Flow**: OPERATE-FULL") puts it after
+# other fields on the same line. Match anywhere, take the value up to the
+# next "|" (if the line has more fields after it) or end of line.
+raw ~ /\*\*Flow\*\*:/ {
+  fv = raw
+  sub(/^.*\*\*Flow\*\*:[ \t]*/, "", fv)
+  sub(/[ \t]*\|.*$/, "", fv)
+  flow = trim(fv)
 }
 
 # Stage progress ticks (any family): "- [x] N[a-z]. "
@@ -221,8 +236,11 @@ raw ~ /^- \[x\] [0-9]+[a-z]?\. / {
   if (k == "3") incident_stage3 = 1
 }
 
-# Phase tracker ticks: "- [x] Phase N:"
-raw ~ /^- \[x\] Phase [0-9]+:/ {
+# Phase tracker ticks: "- [x] Phase N:" or "- [x] Phase Na:" (sub-phases,
+# e.g. "Phase 0a" / "Phase 0b" -- an established real-world convention, not
+# hypothetical: k8s-home-lab's own campaigns split gated sub-attempts this
+# way).
+raw ~ /^- \[x\] Phase [0-9]+[a-z]?:/ {
   k = raw
   sub(/^- \[x\] Phase /, "", k)
   sub(/:.*/, "", k)
@@ -244,15 +262,21 @@ in_conductor && trim(raw) != "" && raw !~ /^## / {
     if (cr_header_ok == -1) {
       for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
       idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
+      n_control = 0
       for (i = 1; i <= n; i++) {
         if (hdr[i] == "id") idx_id = i
         else if (hdr[i] == "kind") idx_kind = i
         else if (hdr[i] == "claim") idx_claim = i
         else if (hdr[i] == "links") idx_links = i
         else if (hdr[i] == "source") idx_source = i
-        else if (hdr[i] ~ /^control/) idx_control = i
+        else if (hdr[i] ~ /^control/) { idx_control = i; n_control++ }
         else if (hdr[i] == "written-to") idx_written = i
       }
+      # "control" is the one column resolved by prefix rather than exact
+      # name, so it is the one that can silently resolve twice if a header
+      # carries two control-prefixed columns; treat that as unresolved
+      # rather than quietly keeping the last match.
+      if (n_control > 1) idx_control = 0
       cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
       next
     }
@@ -285,13 +309,13 @@ in_change && raw ~ /^\|/ {
   clid = trim(c[idx_clid])
   cl_id_known[clid] = 1
   if (cl_header_ok == 0) {
-    emit("mutation-manifest", clid, "change-ledger row without a resolvable manifest column")
+    cl_bad[clid] = "change-ledger row without a resolvable manifest column"
     next
   }
   manifest = trim(c[idx_manifest])
   cl_manifest[clid] = manifest
   if (manifest == "" || is_placeholder(manifest)) {
-    emit("mutation-manifest", clid, "empty or placeholder manifest cell")
+    cl_bad[clid] = "empty or placeholder manifest cell"
     next
   }
   nseg = split(manifest, segs, ";")
@@ -309,17 +333,24 @@ in_change && raw ~ /^\|/ {
       fields++
     }
   }
-  bad = 0
-  if (fields >= 2 && !has_coupling) bad = 1
+  # F45: name the specific failing reason (which token, or the field count)
+  # rather than one generic sentence for every row -- a per-member message
+  # assertion is only meaningful if two different bad rows produce two
+  # different messages.
+  bad_reasons = ""
+  if (fields >= 2 && !has_coupling) bad_reasons = bad_reasons "; " fields " fields without coupling:"
   if (ignore_list != "") {
     ntok = split(ignore_list, toks, ",")
     for (t = 1; t <= ntok; t++) {
       tok = trim(toks[t])
       if (tok == "") continue
-      if (!valid_ignore_tok(tok)) bad = 1
+      if (!valid_ignore_tok(tok)) bad_reasons = bad_reasons "; bad ignore token: " tok
     }
   }
-  if (bad) emit("mutation-manifest", clid, "manifest shape violation (uncoupled fields or bad ignore token)")
+  if (bad_reasons != "") {
+    sub(/^; /, "", bad_reasons)
+    cl_bad[clid] = bad_reasons
+  }
 }
 
 # ---- Findings ledger section ----------------------------------------------
@@ -341,19 +372,35 @@ END {
   # ---- conductor-missing / exemption -------------------------------------
   post = (slug_date >= conductor_since)
   header_present = (conductor_lines > 0 || conductor_exempt != "")
+  # F42: the exempt line is an escape ONLY when it is the section's SOLE
+  # content (PD1) -- conductor_lines counts every OTHER non-blank line in
+  # the section (the exempt line itself never reaches that counter; see the
+  # "next" in the rule above), so conductor_lines > 0 alongside a set
+  # conductor_exempt means real content (a table, orphan text) coexists
+  # with it. Treat the exempt line as if absent in that case: it stops
+  # suppressing everything and normal row/gate-linkage checks proceed.
+  exempt_is_sole = (conductor_exempt != "" && conductor_lines == 0)
   if (post) {
     if (!header_present) {
       emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
       exit
     }
-    if (conductor_exempt != "" && conductor_exempt != "- exempt: pre-adoption persona") {
+    if (exempt_is_sole && conductor_exempt != "- exempt: pre-adoption persona") {
       emit("conductor-missing", "-", "invalid exemption line: " conductor_exempt)
       exit
     }
   } else {
     if (!header_present) exit   # pre-adoption, no header required
   }
-  if (conductor_exempt == "- exempt: pre-adoption persona") exit   # valid exemption
+  if (exempt_is_sole && conductor_exempt == "- exempt: pre-adoption persona") exit   # valid exemption
+
+  # ---- Check L (F39): shares this same PD1 adoption gate as Check K, not a
+  # second copy of it. A pre-adoption campaign's change-ledger rows -- even
+  # ones written before the manifest column existed -- are never flagged;
+  # reaching this line already means the file is enforced (post-adoption, or
+  # pre-adoption with a header already adopted, per PD1's "so does any
+  # campaign that already has the header"). No grandfathering once enforced.
+  for (clid in cl_bad) emit("mutation-manifest", clid, cl_bad[clid])
 
   # ---- header resolution ---------------------------------------------------
   if (conductor_is_table && cr_header_ok == 0) {
@@ -372,7 +419,7 @@ END {
     if (index(gkey, ":fact") > 0) { want_fact = 1; sub(/:fact/, "", gkey) }
     if (gkey == "P") {
       for (pk in ticked) {
-        if (pk ~ /^P[0-9]+$/) {
+        if (pk ~ /^P[0-9]+[a-z]?$/) {
           linked = 0
           for (id in cr_id_known) if (!cr_placeholder[id] && cr_links[id] == pk) linked = 1
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
@@ -412,7 +459,7 @@ END {
           emit("conductor-reference", "note", "rejected (judgment) note lacks a D<n>: citation")
         }
       }
-      if (match(f_note[fid], /reverses F[0-9]+/)) {
+      if (match(f_note[fid], /^reverses F[0-9]+/)) {
         rn = substr(f_note[fid], RSTART, RLENGTH)
         sub(/reverses F/, "", rn)
         tgt = "F" rn
