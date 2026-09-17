@@ -13,6 +13,6 @@
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
-| CR1 | check | 12 files | - | `grep -rl oldName . \| wc -l` 2026-09-03T00:00Z | 12 files | n/a |
+| CR1 | check | 12 files | - | `grep -rlc oldName .` 2026-09-03T00:00Z | 12 files | n/a |
 | CR2 | check | all fixtures resolved cleanly | - | `bash gate.sh` 2026-09-03T00:05Z | <what would show the claim false -> what it printed> | n/a |
 

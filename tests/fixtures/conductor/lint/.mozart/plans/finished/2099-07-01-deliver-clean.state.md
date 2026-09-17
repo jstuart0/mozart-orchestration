@@ -30,7 +30,7 @@
 | CR6 | check | phase 1 landed a working widget | P1 | `bash test.sh` 2026-09-01T00:30Z | `bash test.sh` -> exit 0 | .mozart/plans/finished/2099-07-01-deliver-clean.state.md |
 | CR7 | check | phase 2 wiring compiles clean | P2 | `bash build.sh` 2026-09-01T01:30Z | `bash build.sh` -> exit 0 | .mozart/plans/finished/2099-07-01-deliver-clean.state.md |
 | CR8 | adjudication | bob's F3 concern does not reproduce on head | F3 | `bash repro.sh` 2026-09-01T02:30Z | `bash repro.sh` -> no repro, distinct from bob's claim | .mozart/plans/finished/2099-07-01-deliver-clean.state.md |
-| CR9 | fact | corrects CR1: the recount gives 12 sites, not 11 | CR1 | `grep -rlc legacyCall . \| wc -l` 2026-09-15T00:00Z |  | agents/mozart.md |
+| CR9 | fact | corrects CR1: the recount gives 12 sites, not 11 | CR1 | doc unverified |  | agents/mozart.md |
 | CR10 | check | swept every written-to path of CR1 for the stale count of 11 | CR9 | `grep -rc '11 sites' agents/mozart.md` 2026-09-15T00:05Z | `grep -rc '11 sites' agents/mozart.md` -> 0 | n/a |
 
 ## Findings ledger

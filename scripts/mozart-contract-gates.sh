@@ -1130,6 +1130,152 @@ done < <(cut -f2 "$v10a_expected")
 report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
   "${v10a_bad:-metrics-placeholder: exit=$v10a_rc, $v10a_floor expected line(s) present, named member present}"
 
+# ---------------------------------------------------------------------------
+# V11 — lint Checks K/L behave per the committed corpus (PD24, phase 5)
+#
+# Same $gatefile/$gate_root split as V10a: corpus from this script's own
+# repo, script under test from $gate_root, so pointing gate_root at a base
+# worktree exercises base scripts against head fixtures. Category set is the
+# six K/L names for now; missing-2b joins in phase 5b once Check J is fixed
+# (step 31) — asserting it here, before that fix lands, would make this gate
+# fail for a reason outside what phase 5 shipped.
+# ---------------------------------------------------------------------------
+v11_script_repo=$(dirname "$(dirname "$gatefile")")
+v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
+v11_expected="$v11_corpus/expected.tsv"
+v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest'
+
+v11_floor=$(( $(find "$v11_corpus/.mozart/plans/active" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') \
+             + $(find "$v11_corpus/.mozart/plans/finished" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') ))
+
+v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restricted to $1 (pipe-joined)
+  awk -F'\t' -v cats="$1" '
+    BEGIN { n = split(cats, a, "|"); for (i = 1; i <= n; i++) catset[a[i]] = 1 }
+    /^LINT \[/ {
+      line = $0
+      rest = line
+      sub(/^LINT \[/, "", rest)
+      split(rest, p, "]")
+      cat = p[1]
+      if (!(cat in catset)) next
+      body = rest
+      sub(/^[^]]*\][ \t]*/, "", body)
+      nsep = split(body, q, " — ")
+      path = q[1]
+      keymsg = q[2]
+      for (i = 3; i <= nsep; i++) keymsg = keymsg " — " q[i]
+      split(keymsg, r, ": ")
+      key = r[1]
+      slug = path
+      sub(/^.*\//, "", slug)
+      sub(/\.state\.md$/, "", slug)
+      printf "%s\t%s\t%s\n", cat, slug, key
+    }
+  '
+}
+
+v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
+v11_ov_rc=$?
+v11_no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
+
+v11_ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
+v11_no_triples=$(printf '%s\n' "$v11_no_out" | v11_extract "$v11_cats" | sort -u)
+v11_expected_triples=$(awk -F'\t' -v cats="$v11_cats" '
+    BEGIN { n = split(cats, a, "|"); for (i = 1; i <= n; i++) catset[a[i]] = 1 }
+    $1 == "lint" && ($2 in catset) { printf "%s\t%s\t%s\n", $2, $3, $4 }
+  ' "$v11_expected" | sort -u)
+
+v11_bad=""
+[ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
+[ "$v11_floor" -ge 34 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 34]"
+[ "$v11_ov_triples" = "$v11_expected_triples" ] || v11_bad="$v11_bad [K/L triples not set-equal to expected.tsv]"
+for v11_member in \
+  "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
+  "$(printf 'conductor-unlinked\t2099-07-13-deliver-freeform\t10')" \
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')"
+do
+  printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent]"
+done
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
+  && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
+for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound; do
+  printf '%s\n' "$v11_ov_triples" | grep -q "	${v11_slug}	" \
+    && v11_bad="$v11_bad [pre-adoption slug $v11_slug produced a triple]"
+done
+printf '%s\n' "$v11_no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
+  || v11_bad="$v11_bad [override-control triple absent from the no-override run]"
+printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
+  || v11_bad="$v11_bad [override-visibility line absent from the override run]"
+printf '%s\n' "$v11_no_out" | grep -q '^conductor adoption date overridden:' \
+  && v11_bad="$v11_bad [no-override run printed an override line]"
+v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
+  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
+  v11_bad="$v11_bad [CONDUCTOR_SINCE default '$v11_default' < 2026-09-18]"
+fi
+report "V11" "$([ -z "$v11_bad" ] && echo 0 || echo 1)" \
+  "${v11_bad:-lint corpus: override rc=1, floor=$v11_floor, K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
+
+# ---------------------------------------------------------------------------
+# V12 — S3's row-required-gate table agrees with the lint constants (cut 2)
+#
+# Orchestration-only: parses agents/mozart.md's own table (scoped from the
+# "conductor record is where your own claims become checkable" sentence to
+# the next "### " heading) and compares it against
+# scripts/mozart-lint.sh's CONDUCTOR_GATES_*/CONDUCTOR_FLOWS_* constants —
+# so a future edit to either side that drifts from the other is caught
+# mechanically, not left to a reviewer's memory of what the other file says.
+# ---------------------------------------------------------------------------
+v12_lint_src="$gate_root/scripts/mozart-lint.sh"
+v12_const() { grep -oE "$1=\"[^\"]*\"" "$v12_lint_src" | head -1 | sed -E 's/^[^"]*"//; s/"$//'; }
+CONDUCTOR_GATES_DELIVER=$(v12_const CONDUCTOR_GATES_DELIVER)
+CONDUCTOR_GATES_OPERATE=$(v12_const CONDUCTOR_GATES_OPERATE)
+CONDUCTOR_GATES_INCIDENT=$(v12_const CONDUCTOR_GATES_INCIDENT)
+CONDUCTOR_FLOWS_DELIVER=$(v12_const CONDUCTOR_FLOWS_DELIVER)
+CONDUCTOR_FLOWS_OPERATE=$(v12_const CONDUCTOR_FLOWS_OPERATE)
+CONDUCTOR_FLOWS_INCIDENT=$(v12_const CONDUCTOR_FLOWS_INCIDENT)
+
+v12_mozart_md="$gate_root/agents/mozart.md"
+v12_section=$(awk '
+    /The conductor record is where your own claims become checkable/ { p = 1 }
+    p && /^### / && !/checkable/ { exit }
+    p { print }
+  ' "$v12_mozart_md")
+v12_rows=$(printf '%s\n' "$v12_section" | grep -E '^\| (DELIVER|OPERATE|INCIDENT) \|')
+v12_families=$(printf '%s\n' "$v12_rows" | awk -F'|' '{gsub(/ /,"",$2); print $2}' | sort -u)
+v12_bad=""
+[ "$(printf '%s\n' "$v12_families" | grep -c .)" -eq 3 ] || v12_bad="$v12_bad [families != 3: $v12_families]"
+v12_anchor_n=$(grep -cF 'The conductor record is where your own claims become checkable' "$v12_mozart_md")
+[ "$v12_anchor_n" -eq 1 ] || v12_bad="$v12_bad [anchor sentence found $v12_anchor_n times, want 1]"
+
+v12_check_family() { # $1=family name, $2=prose row grep pattern, $3=lint keys var, $4=lint flows var
+  local prow pkeys lkeys pflow_row
+  prow=$(printf '%s\n' "$v12_rows" | grep -E "^\| $1 \|")
+  pkeys=$(printf '%s' "$prow" | awk -F'|' '{print $4}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/^P<N>$/P/' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
+  lkeys=$(eval "printf '%s' \"\$$3\"")
+  if [ "$(printf '%s\n' "$pkeys" | tr ' ' '\n' | sort -u)" != "$(printf '%s\n' "$lkeys" | tr ' ' '\n' | sort -u)" ]; then
+    v12_bad="$v12_bad [$1 keys differ: prose={$pkeys} lint={$lkeys}]"
+  fi
+  pflow=$(printf '%s' "$prow" | awk -F'|' '{print $3}' | grep -oE '`[^`]+`' | tr -d '`' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
+  lflow=$(eval "printf '%s' \"\$$4\"")
+  if [ "$(printf '%s\n' "$pflow" | tr ' ' '\n' | sort -u)" != "$(printf '%s\n' "$lflow" | tr ' ' '\n' | sort -u)" ]; then
+    v12_bad="$v12_bad [$1 flow tokens differ: prose={$pflow} lint={$lflow}]"
+  fi
+}
+v12_check_family "DELIVER" "" "CONDUCTOR_GATES_DELIVER" "CONDUCTOR_FLOWS_DELIVER"
+v12_check_family "OPERATE" "" "CONDUCTOR_GATES_OPERATE" "CONDUCTOR_FLOWS_OPERATE"
+v12_check_family "INCIDENT" "" "CONDUCTOR_GATES_INCIDENT" "CONDUCTOR_FLOWS_INCIDENT"
+
+v12_deliver_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| DELIVER \|')
+printf '%s\n' "$v12_deliver_row" | grep -qF '`9`' || v12_bad="$v12_bad [DELIVER named member 9 absent from prose row]"
+v12_operate_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| OPERATE \|')
+printf '%s\n' "$v12_operate_row" | grep -qF '`1:fact`' || v12_bad="$v12_bad [OPERATE named member 1:fact absent from prose row]"
+v12_incident_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| INCIDENT \|')
+printf '%s\n' "$v12_incident_row" | grep -qF '`MITIGATE-ONLY`' || v12_bad="$v12_bad [INCIDENT named member MITIGATE-ONLY absent from prose row]"
+
+report "V12" "$([ -z "$v12_bad" ] && echo 0 || echo 1)" \
+  "${v12_bad:-S3 table agrees with lint constants: 3 families, per-family keys and flow tokens set-equal, named members present, anchor found once}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

@@ -8,6 +8,20 @@
 # path references inside finished ## Paths blocks, and active DELIVER campaigns
 # missing their 12b. Ship row or their 2b. Constraints row.
 #
+# Checks K (conductor-missing/-unlinked/-row/-reference, decision-trigger) and
+# L (mutation-manifest) scan the SAME active+finished, current+legacy glob set
+# as Checks C/D — unlike I/J, which are active/-only, K/L also read finished/
+# because the conductor record and decisions log are historical evidence, not
+# a template a closed campaign must still conform to. `lint_conductor()` reads
+# each state file's own `## Conductor record` / `## Change ledger` /
+# `## Findings ledger` sections plus its sibling `<slug>.decisions.md`, and
+# emits `category<TAB>key<TAB>message` lines that the caller turns into
+# `finding()` calls in the shared `LINT [<category>] <path> — <key>: <message>`
+# format. `MOZART_LINT_CONDUCTOR_SINCE` overrides the adoption-date constant
+# below — a fixture-corpus test hook (2026-09-17-deliver-conductor-self-
+# verification); every run that sets it prints the override-visibility line
+# below before any `LINT` line, so an override can never be silent.
+#
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
 # re-check) — that stays a manual sweep at intake. See agents/mozart.md.
 #
@@ -25,6 +39,20 @@ set -u
 ROOT="${1:-.}"
 FINDINGS=0
 STALE_DAYS=7
+
+# PD1/PD3/PD24. CONDUCTOR_SINCE defaults to the merge date (log D2); the
+# fixture-hook override is documented above and asserted by gate V11.
+CONDUCTOR_SINCE="${MOZART_LINT_CONDUCTOR_SINCE:-2026-09-18}"
+CONDUCTOR_GATES_DELIVER="5 9 10 13 P"
+CONDUCTOR_GATES_OPERATE="1:fact 4 6"
+CONDUCTOR_GATES_INCIDENT="1 5"
+CONDUCTOR_FLOWS_DELIVER="FULL PLAN-ONLY RESEARCH-ONLY VALIDATE-ONLY"
+CONDUCTOR_FLOWS_OPERATE="OPERATE"
+CONDUCTOR_FLOWS_INCIDENT="INCIDENT MITIGATE-ONLY"
+
+if [ -n "${MOZART_LINT_CONDUCTOR_SINCE:-}" ]; then
+  echo "conductor adoption date overridden: $MOZART_LINT_CONDUCTOR_SINCE"
+fi
 
 # Artifact roots, current first. A repo may have either, both, or neither.
 ROOTS=()
@@ -53,6 +81,393 @@ status_of() {
 
 is_terminal() { # complete or aborted (including freeform "CAMPAIGN COMPLETE — SHIPPED")
   case "$1" in *complete*|*aborted*) return 0 ;; *) return 1 ;; esac
+}
+
+
+# Checks K (conductor-*, decision-trigger) and L (mutation-manifest) -- PD24.
+# Parses one state file (plus its sibling decisions file, read via getline so
+# a missing decisions file never triggers the classic FNR==NR two-file trap
+# when the "first" file is empty) and emits category<TAB>key<TAB>message
+# lines. \r is stripped from every line so a CRLF-encoded state file (e.g. the
+# crlf fixture) parses identically to LF. Header names are normalized per
+# PD11 before resolving id/kind/claim/links/source/control/written-to: strip
+# \r, strip * and backtick, trim, lowercase.
+CONDUCTOR_AWK=$(cat <<'CONDUCTOR_AWK_EOF'
+function trim(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
+function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
+function starts_with_tok(val, tok,   re) {
+  re = "^" tok "([^A-Za-z0-9]|$)"
+  return (val ~ re)
+}
+function flow_family(val,   n, i, toks) {
+  n = split(flows_deliver, toks, " ")
+  for (i = 1; i <= n; i++) if (starts_with_tok(val, toks[i])) return "DELIVER"
+  n = split(flows_operate, toks, " ")
+  for (i = 1; i <= n; i++) if (starts_with_tok(val, toks[i])) return "OPERATE"
+  n = split(flows_incident, toks, " ")
+  for (i = 1; i <= n; i++) if (starts_with_tok(val, toks[i])) return "INCIDENT"
+  return ""
+}
+function emit(cat, key, msg) { printf "%s\t%s\t%s\n", cat, key, msg }
+
+function valid_ignore_tok(tok,   grammar) {
+  grammar = "^[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*(\\.[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*)*$"
+  if (tok !~ grammar) return 0
+  if (!(index(tok, ".") > 0 || index(tok, "[") > 0)) return 0
+  return 1
+}
+
+# extract the leading run of digits from s (POSIX-safe: no 3-arg match)
+function leading_digits(s,    t) {
+  t = s
+  sub(/[^0-9].*$/, "", t)
+  return t
+}
+
+# ---- decisions file, read via getline (never via a second ARGV file: the
+# FNR==NR idiom breaks when the first file has zero lines, which a missing
+# decisions file — /dev/null — always does) --------------------------------
+BEGIN {
+  cur_d = ""
+  if (decisions_file != "" && decisions_file != "/dev/null") {
+    while ((getline dline < decisions_file) > 0) {
+      gsub(/\r/, "", dline)
+      if (dline ~ /^## D[0-9]+ /) {
+        dd = dline
+        sub(/^## D/, "", dd)
+        dd = leading_digits(dd)
+        cur_d = dd
+        d_seen[cur_d] = 1
+        d_trigger_ok[cur_d] = 0
+        continue
+      }
+      if (cur_d != "" && dline ~ /^- \*\*Revisit trigger\*\*:/) {
+        dval = dline
+        sub(/^- \*\*Revisit trigger\*\*:[ \t]*/, "", dval)
+        dval = trim(dval)
+        if (dval != "" && !is_placeholder(dval)) d_trigger_ok[cur_d] = 1
+      }
+    }
+    close(decisions_file)
+  }
+}
+
+# ---- state file (the only file given on the awk command line) -----------
+FNR == 1 {
+  section = ""
+  flow = ""
+  in_conductor = 0; conductor_lines = 0; conductor_is_table = 0; conductor_exempt = ""
+  cr_header_ok = -1
+  ncr = 0
+  in_change = 0; cl_header_ok = -1; ncl = 0
+  in_findings = 0; nf = 0
+  incident_stage3 = 0
+  delete ticked
+  delete cr_kind; delete cr_claim; delete cr_links; delete cr_source; delete cr_control
+  delete cr_placeholder; delete cr_id_known
+  delete cl_manifest; delete cl_id_known
+  delete f_disp; delete f_note; delete f_id_known
+}
+
+{
+  raw = $0
+  gsub(/\r/, "", raw)
+}
+
+raw ~ /^## / {
+  section = trim(raw)
+  in_conductor = (section == "## Conductor record")
+  in_change = (section ~ /^## Change ledger/)
+  in_findings = (section == "## Findings ledger")
+  next
+}
+
+/^\*\*Flow\*\*:/ {
+  flow = raw
+  sub(/^\*\*Flow\*\*:[ \t]*/, "", flow)
+  flow = trim(flow)
+}
+
+# Stage progress ticks (any family): "- [x] N[a-z]. "
+raw ~ /^- \[x\] [0-9]+[a-z]?\. / {
+  k = raw
+  sub(/^- \[x\] /, "", k)
+  sub(/\..*/, "", k)
+  ticked[k] = 1
+  if (k == "3") incident_stage3 = 1
+}
+
+# Phase tracker ticks: "- [x] Phase N:"
+raw ~ /^- \[x\] Phase [0-9]+:/ {
+  k = raw
+  sub(/^- \[x\] Phase /, "", k)
+  sub(/:.*/, "", k)
+  ticked["P" k] = 1
+}
+
+# ---- Conductor record section -------------------------------------------
+in_conductor && raw ~ /^- exempt:/ {
+  conductor_exempt = trim(raw)
+  next
+}
+
+in_conductor && trim(raw) != "" && raw !~ /^## / {
+  conductor_lines++
+  if (raw ~ /^\|/) {
+    conductor_is_table = 1
+    if (raw ~ /^\|[- |]+\|$/) next  # separator
+    n = split(raw, c, "|")
+    if (cr_header_ok == -1) {
+      for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
+      idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
+      for (i = 1; i <= n; i++) {
+        if (hdr[i] == "id") idx_id = i
+        else if (hdr[i] == "kind") idx_kind = i
+        else if (hdr[i] == "claim") idx_claim = i
+        else if (hdr[i] == "links") idx_links = i
+        else if (hdr[i] == "source") idx_source = i
+        else if (hdr[i] ~ /^control/) idx_control = i
+        else if (hdr[i] == "written-to") idx_written = i
+      }
+      cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
+      next
+    }
+    if (cr_header_ok == 0) next
+    ncr++
+    id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
+    links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
+    cr_kind[id] = kind; cr_claim[id] = claim; cr_links[id] = links
+    cr_source[id] = source; cr_control[id] = control
+    cr_id_known[id] = 1
+    cr_placeholder[id] = (is_placeholder(claim) || is_placeholder(links)) ? 1 : 0
+  }
+}
+
+# ---- Change ledger section (Check L) -------------------------------------
+in_change && raw ~ /^\|/ {
+  if (raw ~ /^\|[- |]+\|$/) next
+  n = split(raw, c, "|")
+  if (cl_header_ok == -1) {
+    for (i = 1; i <= n; i++) clh[i] = normhdr(c[i])
+    idx_clid = idx_manifest = 0
+    for (i = 1; i <= n; i++) {
+      if (clh[i] == "id") idx_clid = i
+      else if (clh[i] ~ /^manifest/) idx_manifest = i
+    }
+    cl_header_ok = (idx_clid && idx_manifest) ? 1 : 0
+    next
+  }
+  ncl++
+  clid = trim(c[idx_clid])
+  cl_id_known[clid] = 1
+  if (cl_header_ok == 0) {
+    emit("mutation-manifest", clid, "change-ledger row without a resolvable manifest column")
+    next
+  }
+  manifest = trim(c[idx_manifest])
+  cl_manifest[clid] = manifest
+  if (manifest == "" || is_placeholder(manifest)) {
+    emit("mutation-manifest", clid, "empty or placeholder manifest cell")
+    next
+  }
+  nseg = split(manifest, segs, ";")
+  fields = 0; has_coupling = 0; ignore_list = ""
+  for (s = 1; s <= nseg; s++) {
+    seg = trim(segs[s])
+    if (seg == "") continue
+    if (seg ~ /^ignore:/) {
+      ig = seg; sub(/^ignore:[ \t]*/, "", ig); ignore_list = ig
+    } else if (seg ~ /^coupling:/) {
+      has_coupling = 1
+    } else if (seg ~ /^created:/ || seg ~ /^unverifiable:/) {
+      fields++
+    } else if (seg ~ /->/ || seg ~ /→/) {
+      fields++
+    }
+  }
+  bad = 0
+  if (fields >= 2 && !has_coupling) bad = 1
+  if (ignore_list != "") {
+    ntok = split(ignore_list, toks, ",")
+    for (t = 1; t <= ntok; t++) {
+      tok = trim(toks[t])
+      if (tok == "") continue
+      if (!valid_ignore_tok(tok)) bad = 1
+    }
+  }
+  if (bad) emit("mutation-manifest", clid, "manifest shape violation (uncoupled fields or bad ignore token)")
+}
+
+# ---- Findings ledger section ----------------------------------------------
+in_findings && raw ~ /^\|/ {
+  if (raw ~ /\| *id *\|/) next
+  if (raw ~ /^\|[- |]+\|$/) next
+  n = split(raw, c, "|")
+  if (n < 7) next
+  fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
+  if (fid == "") next
+  f_id_known[fid] = 1
+  f_disp[fid] = fdisp
+  f_note[fid] = fnote
+}
+
+END {
+  family = flow_family(flow)
+
+  # ---- conductor-missing / exemption -------------------------------------
+  post = (slug_date >= conductor_since)
+  header_present = (conductor_lines > 0 || conductor_exempt != "")
+  if (post) {
+    if (!header_present) {
+      emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
+      exit
+    }
+    if (conductor_exempt != "" && conductor_exempt != "- exempt: pre-adoption persona") {
+      emit("conductor-missing", "-", "invalid exemption line: " conductor_exempt)
+      exit
+    }
+  } else {
+    if (!header_present) exit   # pre-adoption, no header required
+  }
+  if (conductor_exempt == "- exempt: pre-adoption persona") exit   # valid exemption
+
+  # ---- header resolution ---------------------------------------------------
+  if (conductor_is_table && cr_header_ok == 0) {
+    emit("conductor-row", "header", "one or more of id/kind/claim/links/source/control/written-to did not resolve")
+  }
+
+  # ---- gate keys required for this family ----------------------------------
+  if (family == "DELIVER") { gate_str = gates_deliver }
+  else if (family == "OPERATE") { gate_str = gates_operate }
+  else if (family == "INCIDENT") { gate_str = gates_incident }
+  else { gate_str = "" }
+
+  ngates = split(gate_str, gs, " ")
+  for (g = 1; g <= ngates; g++) {
+    gkey = gs[g]; want_fact = 0
+    if (index(gkey, ":fact") > 0) { want_fact = 1; sub(/:fact/, "", gkey) }
+    if (gkey == "P") {
+      for (pk in ticked) {
+        if (pk ~ /^P[0-9]+$/) {
+          linked = 0
+          for (id in cr_id_known) if (!cr_placeholder[id] && cr_links[id] == pk) linked = 1
+          if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
+        }
+      }
+      continue
+    }
+    if (!(gkey in ticked)) continue
+    linked = 0; linked_kind = ""
+    for (id in cr_id_known) {
+      if (!cr_placeholder[id] && cr_links[id] == gkey) { linked = 1; linked_kind = cr_kind[id] }
+    }
+    if (!linked) {
+      emit("conductor-unlinked", gkey, "ticked required key has no linked row")
+    } else if (want_fact && linked_kind != "fact") {
+      emit("conductor-unlinked", gkey, "linked row is kind=" linked_kind ", want fact")
+    }
+  }
+
+  # ---- rejected findings need a linked adjudication (unless deferred) ------
+  defer_rejected = (family == "INCIDENT" && !incident_stage3)
+  if (!defer_rejected) {
+    for (fid in f_id_known) {
+      disp = f_disp[fid]
+      if (disp == "rejected") {
+        linked = 0
+        for (id in cr_id_known) {
+          if (!cr_placeholder[id] && cr_kind[id] == "adjudication" && cr_links[id] == fid) linked = 1
+        }
+        if (!linked) emit("conductor-unlinked", fid, "rejected finding has no linked adjudication row")
+      } else if (disp == "rejected (judgment)") {
+        note = f_note[fid]
+        if (note ~ /^D[0-9]+:/) {
+          dn = note; sub(/^D/, "", dn); dn = leading_digits(dn)
+          if (!(dn in d_seen)) emit("conductor-reference", "D" dn, "rejected (judgment) note cites a missing decisions-log entry")
+        } else {
+          emit("conductor-reference", "note", "rejected (judgment) note lacks a D<n>: citation")
+        }
+      }
+      if (match(f_note[fid], /reverses F[0-9]+/)) {
+        rn = substr(f_note[fid], RSTART, RLENGTH)
+        sub(/reverses F/, "", rn)
+        tgt = "F" rn
+        ok = 0
+        if (tgt in f_id_known) {
+          if (f_disp[tgt] ~ /^rejected/) ok = 1
+        }
+        if (!ok) emit("conductor-reference", tgt, "reverses a missing or non-rejected target")
+      }
+    }
+  }
+
+  # ---- conductor-row well-formedness (non-placeholder rows only) -----------
+  for (id in cr_id_known) {
+    if (cr_placeholder[id]) continue
+    kind = cr_kind[id]
+    if (kind != "check" && kind != "adjudication" && kind != "fact") {
+      emit("conductor-row", id, "unrecognized kind: " kind)
+      continue
+    }
+    if (kind == "check" || kind == "adjudication") {
+      ctl = cr_control[id]
+      if (ctl == "" || is_placeholder(ctl)) {
+        emit("conductor-row", id, "empty or placeholder control")
+      } else if (tolower(ctl) == tolower(cr_claim[id])) {
+        emit("conductor-row", id, "control restates the claim")
+      }
+    } else if (kind == "fact") {
+      src = cr_source[id]
+      if (src == "") {
+        emit("conductor-row", id, "fact row has no source")
+      } else if (cr_control[id] == "" && tolower(src) !~ /unverified/) {
+        emit("conductor-row", id, "fact has empty control and a source not marked unverified")
+      }
+    }
+    if (match(cr_claim[id], /^corrects CR[0-9]+:/)) {
+      linked = 0
+      for (oid in cr_id_known) {
+        if (!cr_placeholder[oid] && cr_kind[oid] == "check" && cr_links[oid] == id) linked = 1
+      }
+      if (!linked) emit("conductor-reference", id, "corrects-a-fact row has no check row linking the correction's id")
+    }
+  }
+
+  # ---- decision-trigger -----------------------------------------------------
+  if (post) {
+    for (d in d_seen) {
+      if (!d_trigger_ok[d]) emit("decision-trigger", "D" d, "decisions-log entry has no non-placeholder Revisit trigger")
+    }
+  }
+}
+CONDUCTOR_AWK_EOF
+)
+
+lint_conductor() {
+  local PLANS="$1"
+  local f slug slug_date dec cat key msg
+  for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md \
+           "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md; do
+    [ -f "$f" ] || continue
+    slug=$(basename "$f" .state.md)
+    slug_date=$(printf %s "$slug" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}')
+    [ -z "$slug_date" ] && slug_date="0000-00-00"
+    dec="${f%.state.md}.decisions.md"
+    [ -f "$dec" ] || dec=""
+    while IFS=$'\t' read -r cat key msg; do
+      [ -z "$cat" ] && continue
+      finding "$cat" "$f — $key: $msg"
+    done < <(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" \
+                  -v gates_deliver="$CONDUCTOR_GATES_DELIVER" \
+                  -v gates_operate="$CONDUCTOR_GATES_OPERATE" \
+                  -v gates_incident="$CONDUCTOR_GATES_INCIDENT" \
+                  -v flows_deliver="$CONDUCTOR_FLOWS_DELIVER" \
+                  -v flows_operate="$CONDUCTOR_FLOWS_OPERATE" \
+                  -v flows_incident="$CONDUCTOR_FLOWS_INCIDENT" \
+                  -v decisions_file="$dec" \
+                  "$CONDUCTOR_AWK" "$f")
+  done
 }
 
 lint_root() {
@@ -173,6 +588,9 @@ lint_root() {
       finding "stranded-artifacts" "$slug — state is in finished/ but sibling artifact(s) remain in active/: $stranded"
     fi
   done
+
+  # --- Checks K/L: conductor record + mutation manifest -----------------
+  lint_conductor "$PLANS"
 }
 
 for plans in "${ROOTS[@]}"; do
