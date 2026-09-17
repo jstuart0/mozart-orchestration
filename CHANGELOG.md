@@ -4,6 +4,78 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — conductor self-verification: mozart's own derived claims get a control, a linkage, and a lint
+
+mozart's own conclusions — a check it ran, a dispute it settled, a fact it copied into a brief —
+now carry the same discipline M2/M7 already demand of everyone else's checks. Seven changes land
+together in `agents/mozart.md` and its supporting scripts:
+
+1. **The conductor record** (`## Conductor record`, new state-file section) — one row per derived
+   claim (`check` | `adjudication` | `fact`), with a linked gate/finding/correction id and a control
+   that could have shown the claim false. A ticked row-required gate key (DELIVER `5 9 10 13 P<N>`,
+   OPERATE `1:fact 4 6`, INCIDENT `1 5`) needs a linked row; the section may stay empty only while no
+   such obligation exists.
+2. **Dispute handling when mozart is a party** — settled by a third source (a command neither side
+   wrote) in a linked `adjudication` row, or escalated to the operator or a fresh, unanchored dick.
+   A design judgment no command could settle is dispositioned **`rejected (judgment)`** with a
+   decisions-log citation; **`rejected (user)`** remains the user-overruled case. Both are new
+   findings-ledger dispositions alongside `fixed`/`rejected`/`accepted-risk`.
+3. **A decisions log** (`<slug>.decisions.md`), promoted from a field note to a standing artifact:
+   every judgment call gets a decision, reasoning, bounds, and a revisit trigger.
+4. **The mutation manifest** — one field (or a coupled set with a stated rationale) per OPERATE/
+   INCIDENT mutation, with literal `ignore:` field paths for what a read-back may skip and
+   `<redacted>` for secret-bearing values.
+5. **Lint Checks K and L** (`conductor-missing`, `conductor-unlinked`, `conductor-row`,
+   `conductor-reference`, `decision-trigger`, `mutation-manifest`) — fifteen categories total, up
+   from eight documented (the prose list had silently fallen behind `missing-2b`, which lint already
+   implemented). **`MOZART_LINT_CONDUCTOR_SINCE`** overrides the adoption-date constant as a fixture
+   test hook; every run that sets it prints `conductor adoption date overridden: <value>` before any
+   finding, so the override can never be silent. **Check L shares Check K's PD1 adoption boundary**
+   rather than a second copy of it — a pre-adoption campaign's change-ledger rows are never flagged,
+   even ones written before the manifest column existed, but a post-adoption campaign gets no
+   grandfathering once enforced (found live on k8s-home-lab: 155 `mutation-manifest` hits across 12
+   real campaigns before this fix, 0 after).
+6. **The Check J DELIVER-family fix** — `missing-2b` used to fire on any active campaign with a bare
+   `3.` stage row and no `2b.`, regardless of flow; OPERATE's own stage 3 ("Change plan") and a
+   Flow-less file with an unrelated stage 3 both false-positived as a DELIVER campaign. It now fires
+   only when the Flow field resolves to the DELIVER family, or is unparseable and the file has stage
+   rows `2.`, `3.` and `12.` (the shape of a DELIVER stage list with no Flow header to classify it
+   by). Confirmed on k8s-home-lab: 7 of 12 pre-fix hits were `OPERATE`/`INVESTIGATE-ONLY` campaigns.
+7. **PD4's widening**: the dispute-adjudication rule now covers any rejection mozart is a party to,
+   not only ones a command could settle immediately — the judgment-call and escalation paths above
+   are how the wider set gets a disposition.
+
+**Also fixed, found while building the above**: two field-reader anchor bugs (`status_of()`,
+`flow_of()` in `mozart-lint.sh`; the Tier reader in `mozart-metrics.sh`; the Flow reader inside
+Check K's own parser) all anchored their field to the start of the line and missed a combined
+single-line header (`**Shape**: ... | **Flow**: OPERATE-FULL`) that exists in the wild — all four
+now match the field anywhere on the line. An exempt-line bypass let `- exempt: pre-adoption persona`
+suppress Check K entirely even beside a real table with unlinked required gates; the exemption is
+now valid only when it is the section's sole content. `decision-trigger` recognizes both
+`**Revisit trigger**:` (the recommended form) and `**Revisit when**:` (an accepted spelling — this
+campaign's own decisions log used it in 17 of 19 entries). `reverses F<n>` detection is anchored to
+the start of the note in both the linter and the metrics aggregator, so a passing mention can no
+longer delete a real finding from the totals. The metrics aggregator's placeholder-detection bug is
+also fixed: `scripts/mozart-metrics.sh` used to skip any findings-ledger row or escapes line
+containing a literal `<` anywhere, not just a template placeholder cell — **this is a counting
+discontinuity**: a real finding whose note mentions "n<3 cases" now counts toward Confirmed catches
+where it previously didn't. The metrics aggregator also gains a `== conductor ==` block: campaigns
+carrying a conductor record (and how many are exempt), conductor rows by kind, controlled
+check/adjudication rows, unverified facts, and the wrong-override rate (rejected findings later
+reversed, with a `rejected (judgment)` share) — `V10a`/`V10b`/`V11`/`V12`/`V13` gate all of it.
+
+**Residue, stated once**: the linter proves conductor rows are linked and well-formed; it cannot
+prove every derived claim in prose got a row, that a `kind` is honest, or that a control
+discriminates beyond not restating the claim. EVAL's qualitative-sampling stage now covers that
+residue explicitly (Status notes, flow traces, and final reports for unlinked derived claims;
+`rejected (judgment)` notes sampled for disputes a command could have settled; OPERATE/INCIDENT
+manifest cells sampled for unredacted secrets Check L's shape check can't see).
+
+**Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
+land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
+`scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has
+not yet landed as of this entry.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added — field-notes harvest: four prose entries, three mechanisms, ported to all three mozart ports

@@ -1344,6 +1344,87 @@ v10b_run_case "metrics-vacuity" 1 \
 report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
   "${v10b_bad:-metrics-conductor and metrics-vacuity: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
 
+# ---------------------------------------------------------------------------
+# V13 — cross-file conductor-prose parity, section-scoped (phase 7)
+#
+# Proves specific terms landed in the SPECIFIC section named for them, not
+# just somewhere in the file (a whole-file grep can't tell "Decisions log
+# mentioned in the artifact list" from "mentioned once, in an unrelated
+# aside"). v13_scoped extracts the named section (anchor line to the next
+# heading at or above its own level) and counts term occurrences in it.
+# ---------------------------------------------------------------------------
+v13_scoped() { # $1=file $2=heading-anchor(literal prefix) $3=stop-regex $4=term -> match count
+  awk -v anchor="$2" -v stoppat="$3" -v term="$4" '
+    index($0, anchor) == 1 { p = 1; next }
+    p && $0 ~ stoppat { exit }
+    p && index($0, term) > 0 { c++ }
+    END { print c + 0 }
+  ' "$1" 2>/dev/null
+  [ -f "$1" ] || echo 0
+}
+L2='^## |^# '
+L3='^### |^## |^# '
+
+v13_bad=""
+v13_sites=0
+v13_named_hank_apply=0
+
+v13_check() { # $1=file $2=anchor $3=stoplevel $4=term $5=label
+  local n
+  n=$(v13_scoped "$1" "$2" "$3" "$4")
+  v13_sites=$((v13_sites + 1))
+  if [ "$n" -lt 1 ]; then
+    v13_bad="$v13_bad [absent: $5]"
+  fi
+  if [ "$2" = "### 4. Apply" ] && [ "$1" = "$gate_root/agents/hank.md" ]; then
+    [ "$n" -ge 1 ] && v13_named_hank_apply=1
+  fi
+}
+
+# (a) decisions.md across the five artifact-list sites
+v13_check "$gate_root/agents/mozart.md" "### Per-campaign artifacts" "$L3" "decisions.md" "mozart Per-campaign artifacts / decisions.md"
+v13_check "$gate_root/agents/mozart.md" "### Directory convention" "$L3" "decisions.md" "mozart Directory convention / decisions.md"
+v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
+v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
+v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
+
+# (d) manifest across the nine OPERATE/INCIDENT sections
+v13_check "$gate_root/agents/mozart.md" "### 3. Change plan (otto)" "$L3" "manifest" "mozart Change plan / manifest"
+v13_check "$gate_root/agents/mozart.md" "### 5. Apply (hank)" "$L3" "manifest" "mozart Apply (hank) / manifest"
+v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "manifest" "mozart Operate-mode rules / manifest"
+v13_check "$gate_root/agents/mozart.md" "### Incident-mode rules" "$L3" "manifest" "mozart Incident-mode rules / manifest"
+v13_check "$gate_root/agents/hank.md" "### 4. Apply" "$L3" "manifest" "hank 4. Apply / manifest"
+v13_check "$gate_root/agents/hank.md" "## Under a declared INCIDENT" "$L2" "manifest" "hank Under a declared INCIDENT / manifest"
+v13_check "$gate_root/agents/otto.md" "## Where you fit" "$L2" "manifest" "otto Where you fit / manifest"
+v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "manifest" "PIPELINE OPERATE pipeline / manifest"
+v13_check "$gate_root/agents/PIPELINE.md" "## INCIDENT pipeline" "$L2" "manifest" "PIPELINE INCIDENT pipeline / manifest"
+
+# (e) both sides across three pin-related sections
+v13_check "$gate_root/agents/mozart.md" "### 1. Intake + context pin" "$L3" "both sides" "mozart Intake + context pin / both sides"
+v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "both sides" "mozart Operate-mode rules / both sides"
+v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "both sides" "PIPELINE OPERATE pipeline / both sides"
+
+# (f) the dick heading itself, exactly once
+v13_dick_n=$(grep -cF '### Adjudicating a dispute' "$gate_root/agents/dick.md")
+v13_sites=$((v13_sites + 1))
+[ "$v13_dick_n" -eq 1 ] || v13_bad="$v13_bad [dick heading 'Adjudicating a dispute' count=$v13_dick_n, want 1]"
+
+# (b) the promoted-note phrase must be gone from mozart.md entirely
+v13_running_log_n=$(grep -cF 'running log of decisions' "$gate_root/agents/mozart.md")
+v13_sites=$((v13_sites + 1))
+[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad [agents/mozart.md still says 'running log of decisions': $v13_running_log_n]"
+
+# (c) the deleted field note's title must be gone from every persona
+v13_sites=$((v13_sites + 1))
+v13_deleted_note_n=$(grep -rlF 'An unattended run needs a decision log' "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+[ "$v13_deleted_note_n" -eq 0 ] || v13_bad="$v13_bad [deleted field note title still present in $v13_deleted_note_n agents/*.md file(s)]"
+
+[ "$v13_sites" -ge 20 ] || v13_bad="$v13_bad [scoped-site population $v13_sites < 20]"
+[ "$v13_named_hank_apply" -eq 1 ] || v13_bad="$v13_bad [named member absent: hank ### 4. Apply / manifest]"
+
+report "V13" "$([ -z "$v13_bad" ] && echo 0 || echo 1)" \
+  "${v13_bad:-$v13_sites scoped sites checked, named member (hank ### 4. Apply) present, both zero-count checks and the dick-heading-once check hold}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"
