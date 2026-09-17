@@ -356,6 +356,7 @@ Each campaign maintains its own (see *Run identification and prior-art discovery
 - **State file**: `.mozart/plans/<slug>.state.md`
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md`
 - **Plan file**: `.mozart/plans/<slug>.md`
+- **Decisions log**: `.mozart/plans/<slug>.decisions.md` (from the first judgment call)
 - **Validation report** (once stage 10 runs): `.mozart/plans/<slug>.validation.md`
 - **Investigation** (if DIAGNOSE): `.mozart/investigations/<slug>.md`
 - **ticket**: separate ticket per campaign in the repo's ticketing project
@@ -657,6 +658,7 @@ Concrete paths for an example slug `2026-05-04-deliver-paperless-deployment`:
     2026-05-04-deliver-paperless-deployment.state.md
     2026-05-04-deliver-paperless-deployment.flow.md
     2026-05-04-deliver-paperless-deployment.md           # the plan
+    2026-05-04-deliver-paperless-deployment.decisions.md
     2026-05-04-deliver-paperless-deployment.validation.md
 ```
 
@@ -677,7 +679,7 @@ The move is a single state transition: every file in one operation. If any move 
 
 **Same convention across all four artifact roots** when the artifact has a lifecycle:
 
-- `.mozart/plans/active/<slug>.*` — every artifact the slug owns: plan, state, flow, validation report, codex reviews
+- `.mozart/plans/active/<slug>.*` — every artifact the slug owns: plan, state, flow, decisions log, validation report, codex reviews
 - `.mozart/investigations/active/<slug>.md` — dick's findings doc (active while the investigation drives downstream remediation; moves to `finished/` when the campaign closes)
 - `.mozart/audits/active/<slug>.md` — audit synthesis (active while remediation is open; moves to `finished/` when all child remediation campaigns close)
 - `.mozart/research/active/<slug>.md` — sarah's brief (rarely has a long lifecycle; usually born-finished and lands directly in `finished/`)
@@ -712,6 +714,7 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 - Investigation: .mozart/investigations/<slug>.md (or n/a if not bug-shaped)
 - Research brief: <path or n/a>
 - Constraints: <path or n/a — constraint cards from a stage-3 consult or stage 2b>
+- Decisions: <.mozart/plans/active/<slug>.decisions.md, or "none yet">
 - Codex r1 (plan): <path or "not yet run">
 - Codex r2 (diff): <path or "not yet run">
 - Validation report: <path or "not yet run">
@@ -796,7 +799,7 @@ Append-only, timestamped. The incident spine — survives crashes like the chang
 <from harry's plan or surfaced during the run; "none" if resolved>
 
 ## Status notes
-<running log of decisions, escalations, anything a resuming agent should know>
+<chronology only: escalations, stops, hangs, cross-links, anything a resuming agent should know. Judgment calls go in the decisions log, not here>
 ```
 
 **Skip lines are mandatory.** A skipped stage is recorded in the stage list as `[-] <N>. <stage> — skipped: <rationale>` — never silently omitted and never left `[ ]` in a completed campaign. The observed failure is `Flow: FULL` in the header while stages 4–6 and 10 are simply absent from the record (persona-capability-honesty, July 2026 — shipped with zero plan review and no flow file, discoverable only by forensic diff). Every stage must be accounted for: `[x]` ran, `[-]` skipped with rationale, `[ ]` genuinely not yet reached. The same rule already works well on TINY campaigns — apply it uniformly on STANDARD, where stages tend to vanish silently.
@@ -833,6 +836,19 @@ A ticked gate whose key is listed here needs a linked row. The section may stay 
 - **What the linter cannot see.** It proves rows are linked and well-formed; it cannot prove that every derived claim in prose got a row, that a kind is honest, or that a control discriminates beyond not restating the claim. EVAL samples Status notes, flow traces, and `rejected (judgment)` notes for that residue.
 
 The campaign linter is `scripts/mozart-lint.sh`. Campaign artifacts named for the slug: `.mozart/**/<slug>*`.
+
+### Decisions log (`<slug>.decisions.md`)
+
+The state file records what happened; the decisions log records why. Every shape and mode keeps one beside its state file, created at the first judgment call — a choice between options, a scope refused, a default accepted, a risk called harmless, a user's go-ahead past a failed gate. Write each entry when you make the decision:
+
+```
+## D<n> — <decision> (<ISO ts>, stage <key>)
+- **Reasoning**: <why this over the alternatives>
+- **Bounds accepted**: <what you are knowingly not covering>
+- **Revisit trigger**: harmless while <X>; revisit when <Y>
+```
+
+The trigger is the point: "harmless today" with no condition for tomorrow is how a pitfall someone already flagged costs an afternoon. At each stage transition, check open triggers against what just changed. The campaign linter fails an entry without a revisit trigger, and a `rejected (judgment)` finding whose note cites a `D<n>` that is not here.
 
 ### When to update the state file
 
@@ -913,7 +929,7 @@ State files persist after terminal status — they're an audit trail. Don't dele
 When invoked with a slug or path to an existing in-progress state file:
 0. **Cross-checkout freshness check — before trusting the local copy.** Run `git worktree list` and check every listed checkout for the same slug's state file. Compare `Last updated` and `Status` across copies, and search for completion evidence newer than the local Status: `git log --all --oneline --grep "<slug>"` and `gh pr list --state merged --search "<slug>"`. If any copy is more advanced — or a merge/deploy exists that the local copy doesn't know about — the most-advanced copy wins: reconcile it into the `Authoritative checkout` location before resuming anything. The observed hazard (ai-meeting, June 2026): main's replica said "in-progress, stage 6c — RESUMED, do not stop at checkpoints" while the campaign worktree's copy said "complete, PR #32 merged, deployed helm rev 93." Resuming from the stale replica would have re-implemented five phases of shipped, deployed work.
 1. Read the (freshness-checked) state file in full (treat as authoritative)
-2. Read the plan file at the documented path, and the constraints file (`Paths: Constraints`) when one exists — its cards feed back into stage 3 alongside the plan
+2. Read the plan file at the documented path, and the constraints file (`Paths: Constraints`) when one exists — its cards feed back into stage 3 alongside the plan, and the decisions log (`Paths: Decisions`) when one exists
 3. Read any codex review files referenced
 4. Resume at `Current stage`. For stage 7, resume at the next unchecked phase
 5. Update `Last updated` and `Current stage` as you go
@@ -1234,7 +1250,7 @@ When the campaign will modify code that lands in CI or deploys to a cluster (any
    - **Missing toolchain on GREENFIELD → the plan MUST open with a toolchain-bootstrap phase** (linter + formatter + type-check + test runner + CI workflow, pre-commit hooks where the repo will take them) before any feature phase. The per-phase gate's "run lints/types/tests" is meaningless against a repo where none are configured — a greenfield campaign without this phase ships N phases of unverifiable code.
    - Missing toolchain on BROWNFIELD → surface to the user: bootstrap it as a phase in this campaign, as a separate TINY campaign, or acknowledge the degraded gate in the state file. Never silently run a campaign whose per-phase gate has nothing mechanical to hold.
 
-If any gate fails and the user opts to proceed anyway, record the acknowledgement in the state file's "Status notes" section so valerie sees it at signoff and downstream debugging knows the inherited baseline.
+If any gate fails and the user opts to proceed anyway, record it as a decision in `<slug>.decisions.md` and cite its D-id in Status notes so valerie sees it at signoff and downstream debugging knows the inherited baseline.
 
 ### 2. Research (sarah, optional — and parallel)
 
@@ -1584,6 +1600,7 @@ Then write the final report:
 
 **Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
 **Plan**: <path>
+**Decisions**: <path or "none">
 **Flow sketch**: .mozart/plans/<slug>.flow.md
 **Codex**: <r1-plan path>, <r2-diff path if run>
 **Research**: <path if produced>
@@ -2484,14 +2501,3 @@ Append-only. Two distinct contexts before promoting to "pattern." Project-specif
 - **The pattern**: findings about external tool behaviour are measurements of one build on one platform on one day, but they get written as timeless facts. They then outlive their truth silently, and the campaign that inherits them cannot tell which claims are still live. Restating an unscoped claim is not cheaper than re-measuring it — it is just a claim with unknown provenance.
 - **What to do differently**: record platform, exact version, and date on every empirical finding at the moment it is made. When a version drifts mid-campaign, re-measure the claims that could have changed rather than restating them. This applies at least as strongly to infrastructure work (cluster, storage, and identity versions drift the same way).
 - **What this overrides**: n/a.
-
-### 2026-09-09 — An unattended run needs a decision log, separate from the state file
-
-- **Scope**: cross-project pattern | domain: AUTONOMOUS operation
-- **Confidence**: medium
-- **Evidence**:
-  - A local-model port of this pipeline (September 2026) — user went unattended mid-run ("finish autonomously i will be asleep so not here to answer questions, keep a decision log"); a `<slug>.decisions.md` was created and accumulated eight lettered decisions (D-A…D-H), several of which changed what shipped.
-  - Same campaign — the state file recorded *what happened* at every transition, but the reasoning behind judgment calls (why a version was pinned, why a scope was refused, why a default was chosen) had no home until the decisions file existed.
-- **The pattern**: the state file is a chronology and the plan is a specification; neither is a good home for "I chose X over Y because Z, and here is the bound I held myself to." Without a separate log, unattended decisions are reconstructible only by reading the full transcript, which is exactly what the absent user cannot do.
-- **What to do differently**: when a run goes AUTONOMOUS — especially unattended — open a decisions artifact alongside the state file and write each judgment call as decision, reasoning, and the explicit bounds accepted. Record refusals too; a scope you declined to expand is a decision.
-- **What this overrides**: n/a. **Promoting this into mozart's standing artifact list is the user's call, not mine** — the protocol reserves promotion into discipline sections for human review.

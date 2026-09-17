@@ -246,6 +246,7 @@ For responding to a **live outage** — service is down or badly degraded *right
 ## Output paths
 
 - Plan: `.mozart/plans/<slug>.md`
+- **Decisions log**: `.mozart/plans/<slug>.decisions.md` (created at the first judgment call — why, not just what)
 - **State file**: `.mozart/plans/<slug>.state.md` (durable pipeline state — survives crashes, sessions, context resets)
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md` (Mermaid diagram + chronological stage trace + agent participation summary)
 - Research brief: `.mozart/research/<slug>.md` (when substantial)
