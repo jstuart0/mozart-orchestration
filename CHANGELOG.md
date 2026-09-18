@@ -71,6 +71,27 @@ residue explicitly (Status notes, flow traces, and final reports for unlinked de
 `rejected (judgment)` notes sampled for disputes a command could have settled; OPERATE/INCIDENT
 manifest cells sampled for unredacted secrets Check L's shape check can't see).
 
+**Reconciliation round 1** (external pre-merge review, F47-F51). Checks K/L claimed the same
+current+legacy scope as Checks C/D and did not have it: the legacy prefixless flat glob
+(`plans/<date>-<slug>.state.md`) was missing, and the slug date was read off the raw basename, so
+every `active-`/`finished-` prefixed file classified as pre-adoption no matter its date. Both are
+vacuous passes — a post-adoption state file with no `## Conductor record` linted clean in either
+layout. The corpus now carries a fixture for each of the six layouts K/L must reach, including the
+legacy `thoughts/shared/` root, and V11 asserts each layout is populated **and git-tracked** (the
+legacy-root fixture was initially swallowed by `.gitignore`'s blanket `thoughts/` rule and would
+have passed here while existing in no other checkout). Conductor and change-ledger rows were split
+on a raw `|`, so a `source` cell holding a shell pipeline shifted every later cell and an **empty
+control parsed as filled** — the rule `agents/mozart.md` stated as prose was never enforced. Both
+tables now honour `\|` as an escaped pipe and reject any row whose cell count disagrees with its
+header (`conductor-row` / `mutation-manifest`); `mozart-metrics.sh` applies the same rule and prints
+the count of rows it skipped, rather than tallying a shifted row as controlled. `mozart-metrics.sh`
+held its roots and file list in whitespace-delimited strings and `mozart-lint.sh` word-split an
+unquoted `$(find ...)`, so a checkout under a path containing a space reported "no state files" and
+a stale campaign there went unreported; both are NUL-delimited arrays now, gated by V14. Finally,
+V11 compares the corpus's **total** emitted lint lines against `expected.tsv`, not just the filtered
+K/L set — `2099-07-29-noflow-j` was also firing `missing-12b`, so it was not failing only for its
+intended reason and no gate could see it.
+
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
 `scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has

@@ -9,4 +9,3 @@
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
-

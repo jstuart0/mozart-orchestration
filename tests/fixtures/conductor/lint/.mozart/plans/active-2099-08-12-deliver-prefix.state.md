@@ -1,4 +1,4 @@
-# Pipeline state: 2099-06-01-deliver-boundary
+# Pipeline state: 2099-08-12-deliver-prefix
 
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
@@ -8,4 +8,4 @@
 **Mode**: AUTONOMOUS
 
 ## Stage progress
-- [x] 2b. Constraints — skipped: no trigger
+- [x] 5. Codex on plan — 2026-09-30T01:00Z

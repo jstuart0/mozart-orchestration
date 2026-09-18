@@ -1144,8 +1144,27 @@ v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
 v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b'
 
-v11_floor=$(( $(find "$v11_corpus/.mozart/plans/active" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') \
-             + $(find "$v11_corpus/.mozart/plans/finished" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ') ))
+# F47: the floor used to count only the two subdirs, so the legacy prefix,
+# legacy flat and legacy-root fixtures the corpus now carries were invisible
+# to it — a floor that cannot see the layouts the check was blind to cannot
+# notice them being deleted. Count every state file under the corpus.
+v11_floor=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+# ...and assert each of the six layouts K/L must reach is actually populated.
+# A total floor alone cannot tell "47 files, all in active/" from "47 files
+# across six layouts"; the second is what this corpus is for.
+v11_layout_missing=""
+v11_layout_probe() { # $1 = human label, $2.. = glob expansion
+  local label="$1"; shift
+  local hit=0 probe
+  for probe in "$@"; do [ -f "$probe" ] && hit=1 && break; done
+  [ "$hit" -eq 1 ] || v11_layout_missing="$v11_layout_missing [$label]"
+}
+v11_layout_probe "current/active"  "$v11_corpus/.mozart/plans/active"/*.state.md
+v11_layout_probe "current/finished" "$v11_corpus/.mozart/plans/finished"/*.state.md
+v11_layout_probe "legacy active- prefix" "$v11_corpus/.mozart/plans"/active-*.state.md
+v11_layout_probe "legacy finished- prefix" "$v11_corpus/.mozart/plans"/finished-*.state.md
+v11_layout_probe "legacy flat prefixless" "$v11_corpus/.mozart/plans"/[0-9]*.state.md
+v11_layout_probe "legacy root thoughts/shared" "$v11_corpus/thoughts/shared/plans"/[0-9]*.state.md
 
 v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restricted to $1 (pipe-joined)
   awk -F'\t' -v cats="$1" '
@@ -1173,6 +1192,13 @@ v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restric
   '
 }
 
+# F47 residual, closed here: the legacy-root fixture was gitignored by the
+# blanket `thoughts/` rule and passed locally while being absent from every
+# other checkout. A corpus file git cannot see is a phantom, so assert the
+# whole corpus is tracked rather than trusting that it is.
+v11_on_disk=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+v11_tracked=$(git -C "$v11_script_repo" ls-files -- "${v11_corpus#"$v11_script_repo/"}" 2>/dev/null | grep -c '\.state\.md$' || true)
+
 v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
 v11_ov_rc=$?
 v11_no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
@@ -1184,9 +1210,23 @@ v11_expected_triples=$(awk -F'\t' -v cats="$v11_cats" '
     $1 == "lint" && ($2 in catset) { printf "%s\t%s\t%s\n", $2, $3, $4 }
   ' "$v11_expected" | sort -u)
 
+# F49: every LINT line the corpus emits must be accounted for in
+# expected.tsv. Set-equality over a FILTERED category list cannot see a
+# fixture that also fires an unfiltered category -- 2099-07-29-noflow-j fired
+# missing-12b as well as its intended missing-2b, so it was not failing only
+# for its stated reason and nothing said so. Compare totals, not just the
+# filtered set: 45 emitted lines, 45 expected rows, 45 distinct triples.
+v11_emitted=$(printf '%s\n' "$v11_ov_out" | grep -c '^LINT \[' || true)
+v11_expected_n=$(grep -c '^lint	' "$v11_expected" || true)
+v11_triple_n=$(printf '%s\n' "$v11_ov_triples" | grep -c . || true)
+
 v11_bad=""
 [ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
-[ "$v11_floor" -ge 41 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 41]"
+[ "$v11_floor" -ge 47 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 47]"
+[ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
+[ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus state file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
+[ "$v11_emitted" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
+[ "$v11_triple_n" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [$v11_triple_n distinct triples vs $v11_expected_n expected rows]"
 [ "$v11_ov_triples" = "$v11_expected_triples" ] || v11_bad="$v11_bad [K/L triples not set-equal to expected.tsv]"
 for v11_member in \
   "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
@@ -1195,12 +1235,27 @@ for v11_member in \
   "$(printf 'mutation-manifest\t2099-08-05-deliver-ledger-postadopt\tC1')" \
   "$(printf 'missing-2b\t2099-08-06-deliver-combined\t-')" \
   "$(printf 'conductor-unlinked\t2099-08-07-deliver-exempt-bypass\t5')" \
-  "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')"
+  "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')" \
+  "$(printf 'conductor-missing\t2099-08-11-deliver-flat\t-')" \
+  "$(printf 'conductor-missing\tactive-2099-08-12-deliver-prefix\t-')" \
+  "$(printf 'conductor-unlinked\tfinished-2099-08-13-deliver-prefix\t5')" \
+  "$(printf 'conductor-unlinked\t2099-08-14-deliver-legacyroot\t9')" \
+  "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
+  "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')"
 do
   printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent: $v11_member]"
 done
 printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
   && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
+# F48 control: the escaped-pipe fixture's CR2 carries `\|` in BOTH source and
+# control and is otherwise well formed. It must stay silent — otherwise the
+# width rule is just rejecting every row that mentions a pipe, and CR1's
+# finding would prove nothing about column alignment.
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" \
+  && v11_bad="$v11_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
+  && v11_bad="$v11_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
 printf '%s\n' "$v11_ov_triples" | grep -q "	2099-07-27-operate-j	" \
   && v11_bad="$v11_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
 for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
@@ -1223,6 +1278,13 @@ v11_msg_check "2099-07-31-operate-ignore.state.md" "C3" "bad ignore token: spec.
 v11_msg_check "2099-07-31-operate-ignore.state.md" "C4" "bad ignore token: status.conditions[*]"
 v11_msg_check "2099-07-31-operate-ignore.state.md" "C5" "bad ignore token: spec."
 v11_msg_check "2099-07-31-operate-ignore.state.md" "C6" "bad ignore token: status"
+# F48: the two pipe fixtures are the same shape modulo the escape, so a
+# key-only assertion would pass if both produced the same finding. Name the
+# distinct reasons: the raw row is rejected on WIDTH, the escaped row parses
+# and is then rejected on its genuinely empty control.
+v11_msg_check "2099-08-15-deliver-pipe-raw.state.md" "CR1" "row has 8 cells, header has 7"
+v11_msg_check "2099-08-16-deliver-pipe-escaped.state.md" "CR1" "empty or placeholder control"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C7" "row has 8 cells, header has 7"
 printf '%s\n' "$v11_no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
   || v11_bad="$v11_bad [override-control triple absent from the no-override run]"
 printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
@@ -1235,7 +1297,7 @@ if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf 
   v11_bad="$v11_bad [CONDUCTOR_SINCE default '$v11_default' < 2026-09-18]"
 fi
 report "V11" "$([ -z "$v11_bad" ] && echo 0 || echo 1)" \
-  "${v11_bad:-lint corpus: override rc=1, floor=$v11_floor, K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
+  "${v11_bad:-lint corpus: override rc=1, floor=$v11_floor across 6 layouts, $v11_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
 
 # ---------------------------------------------------------------------------
 # V12 — S3's row-required-gate table agrees with the lint constants (cut 2)
@@ -1424,6 +1486,87 @@ v13_deleted_note_n=$(grep -rlF 'An unattended run needs a decision log' "$gate_r
 
 report "V13" "$([ -z "$v13_bad" ] && echo 0 || echo 1)" \
   "${v13_bad:-$v13_sites scoped sites checked, named member (hank ### 4. Apply) present, both zero-count checks and the dick-heading-once check hold}"
+
+# ---------------------------------------------------------------------------
+# V14 — campaign scripts survive a path containing a space (F50)
+#
+# mozart-metrics.sh held its roots and its file list in whitespace-delimited
+# STRINGS, so a checkout under "~/Google Drive/..." split into two
+# nonexistent roots and reported "no state files"; a state FILENAME with a
+# space was handed to awk as two truncated paths. mozart-lint.sh had the same
+# defect in one place only — Check F word-split an unquoted $(find ...), so a
+# stale campaign under a spaced path went unreported.
+#
+# The corpus is BUILT here rather than committed: the point is the path, and a
+# committed directory with a space in its name would have to be mirrored
+# byte-for-byte into the ports' fixture trees for no added signal. Both
+# dimensions codex verified are exercised — a spaced ROOT and a spaced
+# FILENAME — and the lint arm backdates one file so Check F actually has
+# something to find rather than passing on an empty sweep.
+# ---------------------------------------------------------------------------
+v14_bad=""
+v14_tmp=$(mktemp -d)
+v14_root="$v14_tmp/dir with a space"
+v14_act="$v14_root/.mozart/plans/active"
+mkdir -p "$v14_act"
+v14_spaced="$v14_act/2099-02-05-deliver-spaced name.state.md"
+cat > "$v14_spaced" <<'V14_EOF'
+# Pipeline state: 2099-02-05-deliver-spaced name
+
+**Last updated**: 2026-09-17T00:00Z
+**Status**: in-progress
+**Flow**: FULL
+**Tier**: STANDARD
+**Context**: BROWNFIELD
+**Mode**: AUTONOMOUS
+
+## Conductor record
+| id | kind | claim | links | source | control (command -> observed) | written-to |
+|----|------|-------|-------|--------|-------------------------------|------------|
+| CR1 | check | the spaced path is discoverable | - | `ls` 2026-09-17T00:00Z | `ls` -> the file | n/a |
+| CR2 | fact | the upstream API is unversioned | - | doc unverified |  | n/a |
+V14_EOF
+cat > "$v14_act/2099-02-06-deliver-plain.state.md" <<'V14_EOF'
+# Pipeline state: 2099-02-06-deliver-plain
+
+**Last updated**: 2026-09-17T00:00Z
+**Status**: in-progress
+**Flow**: FULL
+**Tier**: STANDARD
+**Context**: BROWNFIELD
+**Mode**: AUTONOMOUS
+
+## Conductor record
+- exempt: pre-adoption persona
+V14_EOF
+# Population floor + named member: without these the two runs below could
+# both "pass" against an empty corpus that proves nothing about spaces.
+v14_floor=$(find "$v14_root" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+[ "$v14_floor" -ge 2 ] || v14_bad="$v14_bad [spaced-path corpus has $v14_floor state file(s), floor 2]"
+[ -f "$v14_spaced" ] || v14_bad="$v14_bad [named member absent: the spaced FILENAME fixture was not created]"
+
+v14_m_out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v14_root" 2>&1)
+v14_m_rc=$?
+[ "$v14_m_rc" -eq 0 ] || v14_bad="$v14_bad [metrics exit=$v14_m_rc want 0 under a spaced root]"
+printf '%s\n' "$v14_m_out" | grep -q 'nothing to aggregate' \
+  && v14_bad="$v14_bad [metrics reported 'nothing to aggregate' under a spaced root]"
+# The spaced FILE must reach the tally, not merely fail to crash the run: its
+# two conductor rows are the ONLY rows in this corpus, so these counts are
+# non-zero if and only if awk opened the spaced path intact.
+v14_m_member='Conductor rows: check=1 adjudication=0 fact=1'
+printf '%s\n' "$v14_m_out" | grep -qxF "$v14_m_member" \
+  || v14_bad="$v14_bad [named member absent from metrics output: $v14_m_member]"
+
+# Check F needs a file older than STALE_DAYS to have anything to report.
+touch -t 200001010000 "$v14_spaced" 2>/dev/null
+v14_l_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v14_root" 2>&1)
+v14_l_rc=$?
+[ "$v14_l_rc" -eq 1 ] || v14_bad="$v14_bad [lint exit=$v14_l_rc want 1 under a spaced root]"
+printf '%s\n' "$v14_l_out" | grep -F 'LINT [stale-active]' | grep -qF 'deliver-spaced name.state.md' \
+  || v14_bad="$v14_bad [named member absent: no stale-active finding naming the spaced filename]"
+rm -rf "$v14_tmp"
+report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
+  "${v14_bad:-spaced root + spaced filename: metrics exit=0 and counts the rows in the spaced file, lint exit=1 and names it in a stale-active finding, floor=$v14_floor}"
 
 echo
 if [ "$gate_fail" -eq 0 ]; then

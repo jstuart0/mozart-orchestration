@@ -15,4 +15,3 @@
 | id | target (context/ns/host) | change | snapshot path | rollback command | verify (observed) |
 |----|--------------------------|--------|---------------|------------------|-------------------|
 | C1 | prod / api | applied deployment.yaml | .mozart/snapshots/y.yaml | `kubectl apply -f y.yaml` | pods Ready |
-

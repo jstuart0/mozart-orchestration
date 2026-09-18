@@ -14,4 +14,3 @@
 | ref | type | statement | pointer | evidence | check | copied-to |
 |-----|------|-----------|---------|----------|-------|-----------|
 | CR1 | check | some claim | - | doc |  | n/a |
-

@@ -11,4 +11,4 @@
 | id | target (context/ns/host) | change | snapshot path | rollback command | verify (observed) |
 |----|--------------------------|--------|---------------|------------------|-------------------|
 | C1 | prod / api | applied deployment.yaml | .mozart/snapshots/x.yaml | `kubectl apply -f x.yaml` | pods Ready |
-
+| C2 | prod / api | scaled the deployment | .mozart/snapshots/y.yaml | `kubectl get deploy -o name | xargs -n1 kubectl scale --replicas=1` | pods Ready |

@@ -10,4 +10,3 @@
 ## Stage progress
 - [x] 2b. Constraints — skipped: no trigger
 - [x] 5. Codex on plan — 2026-09-05T00:00Z
-

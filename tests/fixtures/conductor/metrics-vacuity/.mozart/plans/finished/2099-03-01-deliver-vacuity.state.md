@@ -16,4 +16,3 @@
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | the fix compiles clean | - | `bash build.sh` 2026-09-03T00:00Z | `bash build.sh` -> exit 0 | n/a |
-

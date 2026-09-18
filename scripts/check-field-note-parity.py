@@ -196,12 +196,23 @@ LINT_CATEGORIES = frozenset({
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 41
+LINT_FIXTURE_FLOOR = 47
 LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(\S+) — ([^:]*):")
 
 # Named members (Fixture corpus, r5+) — asserted independently of aggregate
 # set-equality, per M7: a check that counts or globs needs a member whose
 # presence/absence it would actually reject if it flipped.
+# Layout probes (F47). A total floor cannot tell "47 files, all in active/"
+# from "47 files across six layouts", and six layouts is what K/L must reach.
+LINT_LAYOUTS = (
+    ("current/active", ".mozart/plans/active", "*.state.md"),
+    ("current/finished", ".mozart/plans/finished", "*.state.md"),
+    ("legacy active- prefix", ".mozart/plans", "active-*.state.md"),
+    ("legacy finished- prefix", ".mozart/plans", "finished-*.state.md"),
+    ("legacy flat prefixless", ".mozart/plans", "[0-9]*.state.md"),
+    ("legacy root thoughts/shared", "thoughts/shared/plans", "[0-9]*.state.md"),
+)
+
 NAMED_PRESENT = (
     ("conductor-unlinked", "2099-07-02-deliver-k9", "9"),          # finished-dir scan
     ("conductor-unlinked", "2099-07-13-deliver-freeform", "10"),   # DELIVER-prefix match
@@ -210,9 +221,28 @@ NAMED_PRESENT = (
     ("missing-2b", "2099-08-06-deliver-combined", "-"),            # F40: combined-header Flow parsing
     ("conductor-unlinked", "2099-08-07-deliver-exempt-bypass", "5"),  # F42: exempt line is not sole content
     ("decision-trigger", "2099-08-10-deliver-revisit-placeholder", "D1"),  # F43: placeholder still fires
+    ("conductor-missing", "2099-08-11-deliver-flat", "-"),         # F47: legacy flat prefixless glob
+    ("conductor-missing", "active-2099-08-12-deliver-prefix", "-"),  # F47: date read through the active- prefix
+    ("conductor-unlinked", "finished-2099-08-13-deliver-prefix", "5"),  # F47: finished- prefix layout
+    ("conductor-unlinked", "2099-08-14-deliver-legacyroot", "9"),  # F47: legacy thoughts/shared root
+    ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1"),       # F48: unescaped pipe rejected on width
+    ("conductor-row", "2099-08-16-deliver-pipe-escaped", "CR1"),   # F48: escape honoured, empty control seen
+    ("mutation-manifest", "2099-07-31-operate-ignore", "C7"),      # F48: change ledger width-guarded too
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
+    # F48 control: a correctly escaped row must stay silent, or the width rule
+    # is just rejecting every row that mentions a pipe and CR1 proves nothing.
+    ("conductor-row", "2099-08-16-deliver-pipe-escaped", "CR2"),
+    ("mutation-manifest", "2099-07-31-operate-ignore", "C8"),      # the escaped change-ledger twin
+)
+# F48: the two pipe fixtures are the same shape modulo the escape, so a
+# key-only assertion would pass if both produced the same finding. Name the
+# distinct reasons.
+NAMED_MESSAGES = (
+    ("2099-08-15-deliver-pipe-raw", "CR1", "row has 8 cells, header has 7"),
+    ("2099-08-16-deliver-pipe-escaped", "CR1", "empty or placeholder control"),
+    ("2099-07-31-operate-ignore", "C7", "row has 8 cells, header has 7"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -273,11 +303,17 @@ def cmd_behaviour(corpus, scripts_roots):
     lint_root = corpus / "lint"
     expected_lint = {(r[1], r[2], r[3]) for r in read_tsv(lint_root / "expected.tsv")
                       if r[0] == "lint"}
-    state_floor = len(list((lint_root / ".mozart/plans/active").glob("*.state.md"))) + \
-                  len(list((lint_root / ".mozart/plans/finished").glob("*.state.md")))
+    expected_rows = len([r for r in read_tsv(lint_root / "expected.tsv") if r[0] == "lint"])
+    state_floor = len(list(lint_root.rglob("*.state.md")))
     if state_floor < LINT_FIXTURE_FLOOR:
         print(f"FAIL  behaviour: corpus has {state_floor} lint fixtures, below floor "
               f"{LINT_FIXTURE_FLOOR} — population would be vacuous")
+        return 1
+    unpopulated = [label for label, sub, pat in LINT_LAYOUTS
+                   if not list((lint_root / sub).glob(pat))]
+    if unpopulated:
+        print(f"FAIL  behaviour: corpus layout(s) unpopulated: {unpopulated} — "
+              f"K/L must reach all six and only a populated layout can show it")
         return 1
 
     overall_fail = 0
@@ -296,6 +332,7 @@ def cmd_behaviour(corpus, scripts_roots):
             overall_fail = 1
             continue
         triples_ov, override_present = parse_lint_output(proc_ov.stdout)
+        emitted = sum(1 for l in proc_ov.stdout.splitlines() if l.startswith("LINT ["))
 
         proc_no, err = run_script(lint_script, lint_root, {})
         if err:
@@ -306,6 +343,17 @@ def cmd_behaviour(corpus, scripts_roots):
 
         if proc_ov.returncode != 1:
             print(f"FAIL  {port}  lint: exit={proc_ov.returncode}, want 1")
+            port_fail = 1
+        # F49: set-equality over a FILTERED category list cannot see a fixture
+        # that ALSO fires an unfiltered category — 2099-07-29-noflow-j fired
+        # missing-12b alongside its intended missing-2b, so it was not failing
+        # only for its stated reason and nothing said so. Compare totals too.
+        if emitted != expected_rows:
+            print(f"FAIL  {port}  lint: corpus emitted {emitted} LINT line(s), expected.tsv "
+                  f"records {expected_rows} — a fixture is firing a category nothing accounts for")
+            port_fail = 1
+        if len(triples_ov) != expected_rows:
+            print(f"FAIL  {port}  lint: {len(triples_ov)} distinct triples vs {expected_rows} expected rows")
             port_fail = 1
         if triples_ov != expected_lint:
             missing = expected_lint - triples_ov
@@ -325,6 +373,12 @@ def cmd_behaviour(corpus, scripts_roots):
         for slug in NAMED_ABSENT_SLUGS:
             if any(t[1] == slug for t in triples_ov):
                 print(f"FAIL  {port}  lint: pre-adoption slug {slug} produced a triple")
+                port_fail = 1
+        for slug, key, want in NAMED_MESSAGES:
+            hit = [l for l in proc_ov.stdout.splitlines()
+                   if slug in l and f"— {key}:" in l and want in l]
+            if not hit:
+                print(f"FAIL  {port}  lint: message mismatch — {slug} {key} does not contain {want!r}")
                 port_fail = 1
         if not override_present:
             print(f"FAIL  {port}  lint: override run missing '{OVERRIDE_LINE_PREFIX} {OVERRIDE_DATE}'")

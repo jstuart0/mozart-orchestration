@@ -28,4 +28,5 @@
 | C4 | prod / api | scaled replicas | spec.replicas: 4 -> 5; ignore: status.conditions[*] |  n/a  | `kubectl -n api scale deploy/api --replicas=4` | pods Ready |
 | C5 | prod / api | scaled replicas | spec.replicas: 5 -> 6; ignore: spec. |  n/a  | `kubectl -n api scale deploy/api --replicas=5` | pods Ready |
 | C6 | prod / api | scaled replicas | spec.replicas: 6 -> 7; ignore: status |  n/a  | `kubectl -n api scale deploy/api --replicas=6` | pods Ready |
-
+| C7 | prod / api | scaled replicas via `kubectl get deploy | xargs` | spec.replicas: 7 -> 8 |  n/a  | `kubectl -n api scale deploy/api --replicas=7` | pods Ready |
+| C8 | prod / api | scaled replicas via `kubectl get deploy \| xargs` | spec.replicas: 8 -> 9 |  n/a  | `kubectl -n api scale deploy/api --replicas=8` | pods Ready |

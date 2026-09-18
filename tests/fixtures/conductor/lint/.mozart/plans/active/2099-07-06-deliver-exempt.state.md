@@ -13,4 +13,3 @@
 
 ## Conductor record
 - exempt: pre-adoption persona
-

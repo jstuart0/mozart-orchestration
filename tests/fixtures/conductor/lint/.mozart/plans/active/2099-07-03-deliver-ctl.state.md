@@ -15,4 +15,3 @@
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | 12 files | - | `grep -rlc oldName .` 2026-09-03T00:00Z | 12 files | n/a |
 | CR2 | check | all fixtures resolved cleanly | - | `bash gate.sh` 2026-09-03T00:05Z | <what would show the claim false -> what it printed> | n/a |
-

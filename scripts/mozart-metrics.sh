@@ -24,37 +24,63 @@ set -u
 
 ROOT="${1:-.}"
 
-ROOTS=""
+# F50: roots and the file list are ARRAYS. They used to be whitespace-
+# delimited strings, so a repo root containing a space split into two
+# nonexistent roots ("no state files"), and a state FILENAME containing a
+# space was handed to awk as two truncated paths it then failed to open.
+# Neither is hypothetical -- "~/Google Drive/..." and "~/My Repos/..." are
+# ordinary macOS checkout locations.
+ROOTS=()
 for candidate in "$ROOT/.mozart/plans" "$ROOT/thoughts/shared/plans"; do
-  [ -d "$candidate" ] && ROOTS="$ROOTS $candidate"
+  [ -d "$candidate" ] && ROOTS+=("$candidate")
 done
 
-if [ -z "$ROOTS" ]; then
+if [ "${#ROOTS[@]}" -eq 0 ]; then
   echo "mozart-metrics: no $ROOT/.mozart/plans (or legacy $ROOT/thoughts/shared/plans) — nothing to aggregate"
   exit 2
 fi
 
 # Union of all state-file layouts across both roots (same probes as
-# mozart-lint.sh / intake).
-FILES=$(for PLANS in $ROOTS; do
-          ls "$PLANS"/active/*.state.md 2>/dev/null
-          ls "$PLANS"/finished/*.state.md 2>/dev/null
-          ls "$PLANS"/aborted/*.state.md 2>/dev/null
-          ls "$PLANS"/active-*.state.md 2>/dev/null
-          ls "$PLANS"/finished-*.state.md 2>/dev/null
-          ls "$PLANS"/[0-9]*.state.md 2>/dev/null
-        done | sort -u )
+# mozart-lint.sh / intake). NUL-delimited end to end: a newline is legal in a
+# POSIX filename, so even `while read -r` on a sorted list is not safe.
+FILES=()
+while IFS= read -r -d '' f; do
+  FILES+=("$f")
+done < <(
+  for PLANS in "${ROOTS[@]}"; do
+    for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md \
+             "$PLANS"/aborted/*.state.md "$PLANS"/active-*.state.md \
+             "$PLANS"/finished-*.state.md "$PLANS"/[0-9]*.state.md; do
+      [ -f "$f" ] && printf '%s\0' "$f"
+    done
+  done | sort -zu
+)
 
-if [ -z "$FILES" ]; then
-  echo "mozart-metrics: no state files under$ROOTS — nothing to aggregate"
+if [ "${#FILES[@]}" -eq 0 ]; then
+  echo "mozart-metrics: no state files under ${ROOTS[*]} — nothing to aggregate"
   exit 2
 fi
 
-# shellcheck disable=SC2086
 awk '
 function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
 function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
 function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
+# F48 -- identical rule to scripts/mozart-lint.sh: honour `\|` as an escaped
+# pipe, strip a trailing delimiter so trailing-pipe style does not change the
+# count, and let the caller reject a row whose width does not match its
+# header. Splitting on a raw pipe made a `source` cell holding a shell
+# pipeline shift every later cell, so an empty `control` was counted as
+# controlled -- the metric read higher than the evidence supported.
+function split_cells(line, arr,   t, i, n) {
+  t = line
+  sub(/\|[ \t]*$/, "", t)
+  gsub(/\\\|/, SENT, t)
+  n = split(t, arr, "|")
+  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
+  return n
+}
+
+BEGIN { SENT = sprintf("%c", 1) }
 
 FNR == 1 {
   campaigns++
@@ -94,7 +120,10 @@ section == "## Findings ledger" && /^\|/ {
   line = $0
   if (line ~ /\| *id *\|/) next          # header
   if (line ~ /^\|[- |]+\|$/) next        # separator
-  n = split(line, c, "|")
+  # Positional read, so there is no header width to compare against; `\|` is
+  # honoured, an unescaped pipe in a note cell still shifts it. Same residual
+  # the linter states at its own findings-ledger rule.
+  n = split_cells(line, c)
   if (n < 7) next
   note = trim(c[7])
   if (note ~ /^<[^<>]*>$/) next          # template placeholder row: note cell wholly <...>
@@ -126,8 +155,9 @@ section == "## Conductor record" && /^- exempt:/ {
 section == "## Conductor record" && /^\|/ {
   line = $0
   if (line ~ /^\|[- |]+\|$/) next
-  n = split(line, c, "|")
+  n = split_cells(line, c)
   if (!(FILENAME in cr_hdr_seen)) {
+    cr_ncols[FILENAME] = n
     for (i = 1; i <= n; i++) {
       h = normhdr(c[i])
       if (h == "kind") idx_kind[FILENAME] = i
@@ -138,6 +168,10 @@ section == "## Conductor record" && /^\|/ {
     next
   }
   if (!(FILENAME in idx_kind) || !(FILENAME in idx_control) || !(FILENAME in idx_source)) next
+  # F48: a shifted row addresses the wrong columns. Do not tally it -- but do
+  # not drop it silently either: the count is printed in the conductor section
+  # so a corpus that stopped being countable says so instead of reading low.
+  if (n != cr_ncols[FILENAME]) { cr_malformed++; next }
   kind = trim(c[idx_kind[FILENAME]])
   ctl = trim(c[idx_control[FILENAME]])
   src = trim(c[idx_source[FILENAME]])
@@ -258,6 +292,7 @@ END {
   printf "Conductor rows: check=%d adjudication=%d fact=%d\n", kind_check, kind_adj, fact_total
   printf "  controlled check/adjudication rows: %d of %d; unverified facts: %d of %d\n", \
     ca_controlled, ca_total, fact_unverified, fact_total
+  printf "  malformed conductor rows skipped (cell count != header): %d\n", cr_malformed
   if (d == 0) {
     printf "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)\n"
   } else {
@@ -265,4 +300,4 @@ END {
     printf "  rejected (judgment): %d of %d\n", j, d
   }
 }
-' $FILES
+' "${FILES[@]}"

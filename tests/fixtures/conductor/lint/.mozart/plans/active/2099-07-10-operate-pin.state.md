@@ -19,4 +19,3 @@
 | id | target (context/ns/host) | change | manifest (field: old -> new; ignore: paths; coupling) | snapshot path | rollback command | verify (observed) |
 |----|--------------------------|--------|-------------------------------------------------------|---------------|------------------|-------------------|
 | C1 | prod / api | scaled replicas and bumped image | a: 1 -> 2; b: x → y |  n/a  | `kubectl -n api scale deploy/api --replicas=1` | pods Ready |
-

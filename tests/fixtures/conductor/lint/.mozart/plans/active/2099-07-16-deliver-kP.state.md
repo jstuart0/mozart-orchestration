@@ -18,4 +18,3 @@
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | phase 1 landed a working widget | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-

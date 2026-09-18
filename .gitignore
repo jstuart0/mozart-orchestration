@@ -13,6 +13,9 @@ node_modules/
 # Legacy artifact root (pre-.mozart); kept ignored for older checkouts.
 thoughts/
 
+# Python bytecode from running scripts/*.py out of the checkout.
+__pycache__/
+
 # Per-campaign git worktrees, when created inside the repo rather than as a sibling.
 .worktrees/
 
@@ -20,3 +23,8 @@ thoughts/
 # .mozart/ trees under tests/fixtures/conductor/ on purpose (V10-V13 read them).
 # Re-include those nested roots without lifting the blanket ignore above.
 !tests/fixtures/conductor/*/.mozart/
+# F47: the same exception is needed for the LEGACY artifact root. The lint
+# corpus now carries a thoughts/shared/plans/ tree so Checks K/L are proven to
+# sweep both roots, not just .mozart/ — without this the fixture is silently
+# untracked and the gate passes against a file no other checkout has.
+!tests/fixtures/conductor/*/thoughts/

@@ -15,4 +15,3 @@
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 - exempt: pre-adoption persona
-

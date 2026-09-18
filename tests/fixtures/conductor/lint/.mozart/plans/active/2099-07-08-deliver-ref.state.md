@@ -20,4 +20,3 @@
 | id | stage | lens | severity | disposition | note |
 |----|-------|------|----------|-------------|------|
 | F5 | 9-codex-r2 | mozart | High | fixed (a1a1a1a) | reverses F9 — see decisions log D1 |
-

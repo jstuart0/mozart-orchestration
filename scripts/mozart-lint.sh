@@ -29,10 +29,21 @@
 # Exit:  0 = clean, 1 = findings, 2 = nothing to lint
 #
 # Covers both artifact roots — .mozart/ (current) and thoughts/shared/ (legacy,
-# never migrated) — and within each, both the current subdir convention
-# (plans/active/, plans/finished/) and the legacy prefix convention
-# (active-*.state.md, finished-*.state.md). Legacy prefixless flat files are
-# checked for staleness/limbo only.
+# never migrated) — and within each, three layouts: the current subdir
+# convention (plans/active/, plans/finished/), the legacy prefix convention
+# (active-*.state.md, finished-*.state.md), and legacy prefixless flat files
+# (<date>-<slug>.state.md directly under plans/).
+#
+# Flat prefixless files are scanned by every check whose subject does not
+# depend on knowing the campaign's lifecycle state from its path: C
+# (paths-vs-checkbox), D (duplicate stages), F (staleness), K (conductor) and
+# L (mutation manifest). A/B (status-vs-location), E (unclosed stages), G
+# (stale paths), H (stranded siblings), I (12b) and J (2b) skip them by
+# construction — each of those asks "is this file where its status says it
+# should be" or "does this in-flight campaign conform to the current
+# template", and a flat file answers neither question from its path. F47:
+# K/L used to skip flat files too, which let a post-adoption flat state file
+# with no ## Conductor record lint clean.
 
 set -u
 
@@ -124,6 +135,25 @@ flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
 # \r, strip * and backtick, trim, lowercase.
 CONDUCTOR_AWK=$(cat <<'CONDUCTOR_AWK_EOF'
 function trim(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+# F48. Markdown table rows were split on a RAW pipe, so a `source` cell
+# holding a shell pipeline shifted every later cell and the linter read the
+# next cell along as `control` — an empty control parsed as filled, and the
+# row passed clean. Two halves, both needed:
+#   (a) `\|` is honoured as an escaped pipe: it stays inside its cell, so a
+#       piped command is WRITABLE rather than merely banned by prose;
+#   (b) the caller compares each row's cell count against the header's and
+#       rejects a mismatch, so an UNESCAPED pipe fails loudly instead of
+#       parsing into a wrong answer.
+# A trailing delimiter is stripped first so `| a | b |` and `| a | b` count
+# the same — the count check tests column shift, not trailing-pipe style.
+function split_cells(line, arr,   t, i, n) {
+  t = line
+  sub(/\|[ \t]*$/, "", t)
+  gsub(/\\\|/, SENT, t)
+  n = split(t, arr, "|")
+  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
+  return n
+}
 function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
 function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
 function starts_with_tok(val, tok,   re) {
@@ -159,6 +189,7 @@ function leading_digits(s,    t) {
 # FNR==NR idiom breaks when the first file has zero lines, which a missing
 # decisions file — /dev/null — always does) --------------------------------
 BEGIN {
+  SENT = sprintf("%c", 1)
   cur_d = ""
   if (decisions_file != "" && decisions_file != "/dev/null") {
     while ((getline dline < decisions_file) > 0) {
@@ -198,7 +229,7 @@ FNR == 1 {
   incident_stage3 = 0
   delete ticked
   delete cr_kind; delete cr_claim; delete cr_links; delete cr_source; delete cr_control
-  delete cr_placeholder; delete cr_id_known
+  delete cr_placeholder; delete cr_id_known; delete cr_width_bad
   delete cl_manifest; delete cl_id_known
   delete f_disp; delete f_note; delete f_id_known
 }
@@ -258,8 +289,9 @@ in_conductor && trim(raw) != "" && raw !~ /^## / {
   if (raw ~ /^\|/) {
     conductor_is_table = 1
     if (raw ~ /^\|[- |]+\|$/) next  # separator
-    n = split(raw, c, "|")
+    n = split_cells(raw, c)
     if (cr_header_ok == -1) {
+      cr_ncols = n
       for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
       idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
       n_control = 0
@@ -281,6 +313,20 @@ in_conductor && trim(raw) != "" && raw !~ /^## / {
       next
     }
     if (cr_header_ok == 0) next
+    # F48: a row whose width does not match the header's is shifted, so every
+    # cell index past the break addresses the wrong column. Report the row and
+    # skip it -- reading `control` out of a shifted row is how an empty control
+    # was accepted as filled.
+    # RECORDED, not emitted here: every Check K finding is gated on PD1's
+    # adoption boundary in END, and an emit from inside a record rule would
+    # bypass it -- flagging a pre-adoption file this check is not allowed to
+    # touch. Same reason Check L's cl_bad[] is deferred.
+    if (n != cr_ncols) {
+      rid = (n >= 2) ? trim(c[2]) : ""
+      if (rid == "") rid = "row"
+      cr_width_bad[rid] = "row has " (n - 1) " cells, header has " (cr_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
+      next
+    }
     ncr++
     id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
     links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
@@ -294,8 +340,9 @@ in_conductor && trim(raw) != "" && raw !~ /^## / {
 # ---- Change ledger section (Check L) -------------------------------------
 in_change && raw ~ /^\|/ {
   if (raw ~ /^\|[- |]+\|$/) next
-  n = split(raw, c, "|")
+  n = split_cells(raw, c)
   if (cl_header_ok == -1) {
+    cl_ncols = n
     for (i = 1; i <= n; i++) clh[i] = normhdr(c[i])
     idx_clid = idx_manifest = 0
     for (i = 1; i <= n; i++) {
@@ -303,6 +350,15 @@ in_change && raw ~ /^\|/ {
       else if (clh[i] ~ /^manifest/) idx_manifest = i
     }
     cl_header_ok = (idx_clid && idx_manifest) ? 1 : 0
+    next
+  }
+  # F48: same width rule as the conductor table -- a rollback command with an
+  # unescaped pipe would otherwise shift the manifest cell out from under the
+  # index and get read as whatever landed there.
+  if (cl_ncols != 0 && n != cl_ncols) {
+    rid = (n >= 2) ? trim(c[2]) : ""
+    if (rid == "") rid = "row"
+    cl_bad[rid] = "row has " (n - 1) " cells, header has " (cl_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
     next
   }
   ncl++
@@ -357,7 +413,12 @@ in_change && raw ~ /^\|/ {
 in_findings && raw ~ /^\|/ {
   if (raw ~ /\| *id *\|/) next
   if (raw ~ /^\|[- |]+\|$/) next
-  n = split(raw, c, "|")
+  # F48 residual, stated plainly: this table is read POSITIONALLY (no header
+  # resolution), so there is no width to compare a row against. `\|` is
+  # honoured; an unescaped pipe in a note cell still shifts this read. The
+  # conductor and change-ledger tables, which carry the checked claims, are
+  # width-guarded above.
+  n = split_cells(raw, c)
   if (n < 7) next
   fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
   if (fid == "") next
@@ -406,6 +467,7 @@ END {
   if (conductor_is_table && cr_header_ok == 0) {
     emit("conductor-row", "header", "one or more of id/kind/claim/links/source/control/written-to did not resolve")
   }
+  for (wid in cr_width_bad) emit("conductor-row", wid, cr_width_bad[wid])
 
   # ---- gate keys required for this family ----------------------------------
   if (family == "DELIVER") { gate_str = gates_deliver }
@@ -516,12 +578,27 @@ CONDUCTOR_AWK_EOF
 
 lint_conductor() {
   local PLANS="$1"
-  local f slug slug_date dec cat key msg
+  local f slug slug_date slug_date_src dec cat key msg
+  # F47: the legacy prefixless flat glob belongs here for the same reason it
+  # belongs on C/D — the adoption gate is read from the SLUG DATE, not the
+  # path, so a flat file classifies itself and a pre-adoption one exits early
+  # inside the awk. Omitting it (as I and J deliberately do, for a different
+  # reason stated at their own sites) made a post-adoption flat file invisible.
   for f in "$PLANS"/active/*.state.md "$PLANS"/finished/*.state.md \
-           "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md; do
+           "$PLANS"/active-*.state.md "$PLANS"/finished-*.state.md \
+           "$PLANS"/[0-9]*.state.md; do
     [ -f "$f" ] || continue
     slug=$(basename "$f" .state.md)
-    slug_date=$(printf %s "$slug" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}')
+    # F47: the legacy prefix convention puts active-/finished- BEFORE the
+    # date, so reading the date off the raw slug always failed and classified
+    # every prefix-legacy file as pre-adoption (0000-00-00) — the same
+    # vacuous pass the flat glob hole produced, one layout over.
+    slug_date_src="$slug"
+    case "$slug_date_src" in
+      active-*)   slug_date_src="${slug_date_src#active-}" ;;
+      finished-*) slug_date_src="${slug_date_src#finished-}" ;;
+    esac
+    slug_date=$(printf %s "$slug_date_src" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}')
     [ -z "$slug_date" ] && slug_date="0000-00-00"
     dec="${f%.state.md}.decisions.md"
     [ -f "$dec" ] || dec=""
@@ -595,13 +672,17 @@ lint_root() {
   done
 
   # --- Check F: stale active campaigns ---------------------------------------
-  for f in $(find "$PLANS"/active "$PLANS" -maxdepth 1 \( -name '*.state.md' -o -name 'active-*.state.md' \) -mtime +"$STALE_DAYS" 2>/dev/null | sort -u); do
+  # F50: word-splitting an unquoted $(find ...) broke on any path containing a
+  # space -- the same defect class as mozart-metrics.sh's whitespace-delimited
+  # roots/file list. NUL-delimited end to end (find -print0 | sort -zu | read
+  # -d ''), because a newline is legal in a POSIX filename too.
+  while IFS= read -r -d '' f; do
     [ -f "$f" ] || continue
     # flat-dir sweep: only flag files that are actually non-terminal
     s=$(status_of "$f")
     is_terminal "$s" && continue
     finding "stale-active" "$f — Status '$s', untouched >${STALE_DAYS} days (needs a disposition: resume / stopped / aborted)"
-  done
+  done < <(find "$PLANS"/active "$PLANS" -maxdepth 1 \( -name '*.state.md' -o -name 'active-*.state.md' \) -mtime +"$STALE_DAYS" -print0 2>/dev/null | sort -zu)
 
   # --- Check G: finished state files still referencing plans/active/ ---------
   # Scoped to the ## Paths block. A whole-file grep re-trips on any narrative or

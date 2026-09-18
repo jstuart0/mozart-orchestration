@@ -21,4 +21,3 @@
 | id | stage | lens | severity | disposition | note |
 |----|-------|------|----------|-------------|------|
 | F1 | 1-stabilize | dick | Medium | rejected | claimed contributing factor didn't hold up |
-

@@ -39,4 +39,3 @@
 | F3 | 4-plan-review | bob | Medium | rejected | doesn't reproduce on head — see CR8 |
 | F4 | 10-validate | tessa | Low | rejected (user) | user judged it a false positive |
 | F5 | 4-plan-review | ruby | Medium | rejected (judgment) | D1: design call recorded in the decisions log |
-

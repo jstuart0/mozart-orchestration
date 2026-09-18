@@ -24,4 +24,3 @@
 | CR2 | check | codex on diff raised no criticals | 9 | `bash gate.sh` 2026-09-13T01:00Z | `grep -c Critical out` -> 0 | n/a |
 | CR3 | check | the report matches the diff | 13 | `git diff --stat` 2026-09-13T03:00Z | `git diff --stat` -> matches | n/a |
 | CR4 | check | phase 1 lands the escalated fix | P1 | `bash test.sh` 2026-09-13T00:30Z | `bash test.sh` -> exit 0 | n/a |
-
