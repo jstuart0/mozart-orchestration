@@ -92,6 +92,13 @@ V11 compares the corpus's **total** emitted lint lines against `expected.tsv`, n
 K/L set — `2099-07-29-noflow-j` was also firing `missing-12b`, so it was not failing only for its
 intended reason and no gate could see it.
 
+PD1's adoption gate has two limbs — slug date on or after the cutoff, **or** a header already
+present — and the linter implemented only the first for `decision-trigger`, so a campaign carrying a
+conductor record with a pre-cutoff slug date had its rows and gate linkages checked while its
+decisions log went unchecked. The gate is now the union (`is_post_adoption`), with the date-only form
+(`post_by_date`) kept for the one thing it actually decides: whether a *missing* section is an
+obligation. `decision-trigger` was the only conductor-family check gated on the date alone.
+
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
 `scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has

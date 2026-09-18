@@ -431,8 +431,20 @@ END {
   family = flow_family(flow)
 
   # ---- conductor-missing / exemption -------------------------------------
-  post = (slug_date >= conductor_since)
+  # PD1 has TWO limbs: a campaign whose slug date is on or after the adoption
+  # date carries this section, "and so does any campaign that already has the
+  # header". post_by_date is the first limb alone — it decides only whether a
+  # MISSING section is an obligation (a pre-cutoff campaign never gains one on
+  # resume). is_post_adoption is the union, and it is what every check of the
+  # section's CONTENT must ask.
+  #
+  # F52: decision-trigger asked post_by_date instead, so a campaign with a
+  # conductor record and a pre-cutoff slug date had its rows and gate linkages
+  # checked while its decisions log went unchecked — the one conductor-family
+  # check sitting outside the control flow that already implements the union.
+  post_by_date = (slug_date >= conductor_since)
   header_present = (conductor_lines > 0 || conductor_exempt != "")
+  is_post_adoption = (post_by_date || header_present)
   # F42: the exempt line is an escape ONLY when it is the section's SOLE
   # content (PD1) -- conductor_lines counts every OTHER non-blank line in
   # the section (the exempt line itself never reaches that counter; see the
@@ -441,7 +453,7 @@ END {
   # with it. Treat the exempt line as if absent in that case: it stops
   # suppressing everything and normal row/gate-linkage checks proceed.
   exempt_is_sole = (conductor_exempt != "" && conductor_lines == 0)
-  if (post) {
+  if (post_by_date) {
     if (!header_present) {
       emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
       exit
@@ -567,7 +579,11 @@ END {
   }
 
   # ---- decision-trigger -----------------------------------------------------
-  if (post) {
+  # F52: the union, not the date. Reaching this line at all already means the
+  # file is enforced -- the pre-cutoff-without-header case exited above -- so
+  # this test is belt-and-braces, and it is written as the union so a future
+  # reader does not reinstate the date-only reading.
+  if (is_post_adoption) {
     for (d in d_seen) {
       if (!d_trigger_ok[d]) emit("decision-trigger", "D" d, "decisions-log entry has no non-placeholder Revisit trigger")
     }

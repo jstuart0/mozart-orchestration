@@ -1222,7 +1222,7 @@ v11_triple_n=$(printf '%s\n' "$v11_ov_triples" | grep -c . || true)
 
 v11_bad=""
 [ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
-[ "$v11_floor" -ge 47 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 47]"
+[ "$v11_floor" -ge 48 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 48]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus state file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 [ "$v11_emitted" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
@@ -1242,7 +1242,8 @@ for v11_member in \
   "$(printf 'conductor-unlinked\t2099-08-14-deliver-legacyroot\t9')" \
   "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
   "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
-  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')"
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')" \
+  "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')"
 do
   printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent: $v11_member]"
 done

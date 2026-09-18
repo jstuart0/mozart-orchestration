@@ -1,3 +1,4 @@
+lint	decision-trigger	2099-05-30-deliver-precutoff-header	D1
 lint	conductor-missing	2099-06-01-deliver-boundary	-
 lint	conductor-unlinked	2099-07-02-deliver-k9	9
 lint	conductor-row	2099-07-03-deliver-ctl	CR1

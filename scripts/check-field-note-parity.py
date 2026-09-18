@@ -196,7 +196,7 @@ LINT_CATEGORIES = frozenset({
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 47
+LINT_FIXTURE_FLOOR = 48
 LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(\S+) — ([^:]*):")
 
 # Named members (Fixture corpus, r5+) — asserted independently of aggregate
@@ -228,6 +228,10 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1"),       # F48: unescaped pipe rejected on width
     ("conductor-row", "2099-08-16-deliver-pipe-escaped", "CR1"),   # F48: escape honoured, empty control seen
     ("mutation-manifest", "2099-07-31-operate-ignore", "C7"),      # F48: change ledger width-guarded too
+    # F52: PD1's adoption gate is header-present OR date-on-or-after. This
+    # slug is BEFORE the override cutoff and carries a conductor record, so
+    # only the union reaches its decisions log.
+    ("decision-trigger", "2099-05-30-deliver-precutoff-header", "D1"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
