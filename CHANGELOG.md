@@ -117,6 +117,16 @@ proves it end to end: every script-shipping port's lint case is run a second tim
 the corpus under `dir with a space/`, with a control that refuses to pass if no output line actually
 names the spaced path.
 
+**Reconciliation round 3** (F63). V15's own registry-completeness test was the defect class it was
+built to close, one level up: it compared the registry's row COUNT against the file count and
+checked that each registered file exists, which a duplicated row satisfies while some other snippet
+goes unchecked. Replaced with set-equality in both directions plus an explicit duplicate-key
+rejection, so the failure names the stranded snippet rather than a count. The floor and the named
+member are unchanged. Fixing it surfaced a second defect in the same block: the duplicate-key
+message continues with an em-dash, and without braces bash reads the multibyte character as part of
+the variable name, so under `set -u` the gate aborted on the exact path it exists to report — the
+control produced no verdict at all rather than a FAIL, which is how it was caught.
+
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
 `scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has

@@ -1649,8 +1649,33 @@ v15_occurrences() { # $1 = snippet file, $2 = target file
 v15_bad=""
 v15_rows=$(printf '%s\n' "$v15_registry" | grep -c .)
 v15_files=$(find "$v15_snipdir" -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')
+
+# F63: completeness used to be a COUNT comparison (rows == files) plus a
+# per-row existence test. Both hold when a row is duplicated and another is
+# dropped — the count is preserved, every registered file still exists, and the
+# dropped snippet is simply never checked. That is a vacuity path inside the
+# check that was added to close a vacuity path, so compare the SETS instead,
+# in both directions, and reject duplicate keys explicitly.
+#
+# Set-equality plus no-duplicates implies rows == files, so the old count test
+# is not kept alongside: it would add a second, weaker message for a condition
+# already named precisely below.
+v15_keys=$(printf '%s\n' "$v15_registry" | awk -F'\t' 'NF { print $1 }' | sort)
+v15_stems=$(find "$v15_snipdir" -name '*.txt' 2>/dev/null | sed 's#.*/##; s#\.txt$##' | sort)
+v15_dupes=$(printf '%s\n' "$v15_keys" | uniq -d | tr '\n' ' ')
+v15_only_registry=$(comm -23 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
+v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
+
 [ "$v15_rows" -ge 25 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 25]"
-[ "$v15_rows" -eq "$v15_files" ] || v15_bad="$v15_bad [$v15_files snippet file(s) on disk but $v15_rows registered — an unregistered snippet would go unchecked]"
+# Braces are load-bearing on ${v15_dupes}: the message continues with an
+# em-dash, and bash reads the multibyte character as part of the variable NAME
+# without them, so under `set -u` the gate aborts with "unbound variable" on
+# the very path it exists to report. Caught by control 1 producing no verdict
+# at all rather than a FAIL -- a check that cannot print its own finding is
+# indistinguishable from one that has nothing to report.
+[ -z "$v15_dupes" ] || v15_bad="${v15_bad} [duplicate registry key(s): ${v15_dupes}— a duplicate preserves the row count while some other snippet goes unchecked]"
+[ -z "$v15_only_registry" ] || v15_bad="${v15_bad} [registered with no snippet file: ${v15_only_registry}]"
+[ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
 printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/mozart.md')" \
   || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/mozart.md]"
 
@@ -1667,7 +1692,7 @@ while IFS=$'\t' read -r v15_snip v15_target; do
 done < <(printf '%s\n' "$v15_registry")
 [ "$v15_checked" -eq "$v15_rows" ] || v15_bad="$v15_bad [checked $v15_checked of $v15_rows registered snippets]"
 report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
-  "${v15_bad:-$v15_checked frozen snippet(s) each occur exactly once in their orchestration target; registry accounts for all $v15_files file(s); named member S3 present}"
+  "${v15_bad:-$v15_checked frozen snippet(s) each occur exactly once in their orchestration target; registry key set == the $v15_files file(s) on disk, no duplicate keys; named member S3 present}"
 
 echo
 if [ "$gate_fail" -eq 0 ]; then
