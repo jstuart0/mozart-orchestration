@@ -1569,6 +1569,106 @@ rm -rf "$v14_tmp"
 report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
   "${v14_bad:-spaced root + spaced filename: metrics exit=0 and counts the rows in the spaced file, lint exit=1 and names it in a stale-active finding, floor=$v14_floor}"
 
+# ---------------------------------------------------------------------------
+# V15 — every frozen parity snippet still matches its orchestration target
+#       (F58)
+#
+# The canonical snippets under tests/parity/snippets/ are the frozen text that
+# check-field-note-parity.py's `bullets` mode (A13) asserts appears exactly
+# once at each of four ports. A13 cannot be a CI gate — no single repo's CI can
+# see the other three checkouts, and report() has no SKIP — so it is a manual
+# pre-merge run, and a snippet can go stale between runs. It did: F48 reworded
+# the conductor-record paragraph in all four repos and S3.txt kept the old
+# sentence, so A13 read 0/4 for a snippet that had been 4/4.
+#
+# The CROSS-PORT half still needs four checkouts. The ORCHESTRATION half does
+# not: a snippet that no longer matches THIS repo's own target file is stale by
+# definition, and that is exactly the divergence a reword creates at the moment
+# it is made. Gating it here turns "remember to run A13" into "the edit that
+# strands a snippet fails the suite it already runs".
+#
+# Vacuity controls: the registry below must account for every file in the
+# snippets directory (an unregistered snippet fails rather than being skipped),
+# the row count carries a floor, and S3 — the one that actually went stale — is
+# asserted by name.
+# ---------------------------------------------------------------------------
+v15_snipdir="$gate_root/tests/parity/snippets"
+v15_registry=$(cat <<'V15_REGISTRY_EOF'
+S1	agents/mozart.md
+S2	agents/mozart.md
+S3	agents/mozart.md
+S4	agents/mozart.md
+S5	agents/mozart.md
+S6	agents/mozart.md
+S7	agents/mozart.md
+S8	agents/mozart.md
+S9	agents/mozart.md
+S10	agents/mozart.md
+S11	agents/mozart.md
+S12	agents/mozart.md
+S13	agents/mozart.md
+S14	agents/dick.md
+S15	agents/hank.md
+S16	agents/otto.md
+S17	agents/jackson.md
+S18	agents/mozart.md
+S19	agents/hank.md
+S21	agents/hank.md
+M2	agents/harry.md
+M4	agents/mozart.md
+M7	agents/harry.md
+MP	agents/mozart.md
+JP	agents/jackson.md
+V15_REGISTRY_EOF
+)
+
+# Count occurrences of a whole snippet FILE inside a target FILE. Pure awk (no
+# python3, no perl) so the suite keeps running unchanged under mawk in A10's
+# bare container. RS is a control char the corpus never contains, so the target
+# arrives as one record; the snippet is read line-by-line and trimmed, which is
+# what `bullets` compares with .strip().
+v15_occurrences() { # $1 = snippet file, $2 = target file
+  awk -v snipf="$1" '
+    BEGIN {
+      RS = "\034"; c = 0
+      while ((getline l < snipf) > 0) { needle = needle (c++ ? "\n" : "") l }
+      close(snipf)
+      gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", needle)
+    }
+    {
+      if (needle == "") { print -1; exit }
+      hay = $0; cnt = 0
+      pos = index(hay, needle)
+      while (pos > 0) { cnt++; hay = substr(hay, pos + length(needle)); pos = index(hay, needle) }
+      print cnt
+      exit
+    }
+  ' "$2"
+}
+
+v15_bad=""
+v15_rows=$(printf '%s\n' "$v15_registry" | grep -c .)
+v15_files=$(find "$v15_snipdir" -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')
+[ "$v15_rows" -ge 25 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 25]"
+[ "$v15_rows" -eq "$v15_files" ] || v15_bad="$v15_bad [$v15_files snippet file(s) on disk but $v15_rows registered — an unregistered snippet would go unchecked]"
+printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/mozart.md')" \
+  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/mozart.md]"
+
+v15_checked=0
+while IFS=$'\t' read -r v15_snip v15_target; do
+  [ -n "$v15_snip" ] || continue
+  if [ ! -f "$v15_snipdir/$v15_snip.txt" ]; then
+    v15_bad="$v15_bad [registered snippet file missing: $v15_snip.txt]"
+    continue
+  fi
+  v15_n=$(v15_occurrences "$v15_snipdir/$v15_snip.txt" "$gate_root/$v15_target")
+  v15_checked=$((v15_checked + 1))
+  [ "$v15_n" = "1" ] || v15_bad="$v15_bad [$v15_snip.txt occurs $v15_n time(s) in $v15_target, want exactly 1]"
+done < <(printf '%s\n' "$v15_registry")
+[ "$v15_checked" -eq "$v15_rows" ] || v15_bad="$v15_bad [checked $v15_checked of $v15_rows registered snippets]"
+report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
+  "${v15_bad:-$v15_checked frozen snippet(s) each occur exactly once in their orchestration target; registry accounts for all $v15_files file(s); named member S3 present}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

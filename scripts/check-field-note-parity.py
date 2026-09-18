@@ -26,7 +26,7 @@ raw file bytes: the agent receives the parsed string, and in a TOML basic
 multi-line string (triple-double-quote) a backslash escape is processed, so two
 files can be byte-different but value-identical, and vice versa.
 """
-import sys, os, re, hashlib, pathlib, argparse, subprocess
+import sys, os, re, hashlib, pathlib, argparse, subprocess, shutil, tempfile
 
 try:
     import tomllib
@@ -197,7 +197,13 @@ LINT_CATEGORIES = frozenset({
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
 LINT_FIXTURE_FLOOR = 48
-LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(\S+) — ([^:]*):")
+# F59: the path was parsed as \S+, so a corpus under a path containing a space
+# parsed ZERO triples while the linter it was checking emitted all of them
+# correctly — the harness carried the very defect F50 fixed in the shell
+# scripts. The linter's own format is `<path> — <key>: <msg>`, so take the path
+# non-greedily up to the FIRST " — ", which is how the bash-side extractor in
+# mozart-contract-gates.sh has always split it.
+LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(.+?) — ([^:]*):")
 
 # Named members (Fixture corpus, r5+) — asserted independently of aggregate
 # set-equality, per M7: a check that counts or globs needs a member whose
@@ -254,6 +260,10 @@ NAMED_ABSENT_SLUGS = (
     "2099-08-08-deliver-revisit-trigger", "2099-08-09-deliver-revisit-when",  # F43: both spellings accepted
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
+# F59: the spaced-path arm gets its own named member rather than borrowing
+# NAMED_PRESENT[0], so deleting this line is a visible edit rather than a
+# silently weaker assertion.
+SPACED_NAMED_MEMBER = ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1")
 
 
 def read_tsv(path):
@@ -319,6 +329,16 @@ def cmd_behaviour(corpus, scripts_roots):
         print(f"FAIL  behaviour: corpus layout(s) unpopulated: {unpopulated} — "
               f"K/L must reach all six and only a populated layout can show it")
         return 1
+
+    # F59 coverage: a copy of the lint corpus under a path containing a space,
+    # so the END-TO-END proof (script + this harness's parse) covers the case
+    # V14 proves for the shell scripts alone. Built here rather than committed:
+    # the point is the path, and a committed spaced directory would have to be
+    # mirrored byte-for-byte into copilot's fixture tree for no added signal.
+    spaced_tmp = tempfile.mkdtemp()
+    spaced_root = pathlib.Path(spaced_tmp) / "dir with a space"
+    shutil.copytree(lint_root, spaced_root / "lint")
+    spaced_lint = spaced_root / "lint"
 
     overall_fail = 0
     for port in REQUIRED_PORTS:
@@ -394,6 +414,32 @@ def cmd_behaviour(corpus, scripts_roots):
             print(f"FAIL  {port}  lint: no-override control triple absent: {OVERRIDE_CONTROL_TRIPLE}")
             port_fail = 1
 
+        # --- F59: same corpus, spaced path, same expected triples -----------
+        proc_sp, err = run_script(lint_script, spaced_lint, {"MOZART_LINT_CONDUCTOR_SINCE": OVERRIDE_DATE})
+        if err:
+            print(f"FAIL  {port}  lint (spaced path): {err}")
+            port_fail = 1
+        else:
+            # Control: without this the arm could be running against a path with
+            # no space in it and prove nothing about the parse.
+            if "dir with a space" not in proc_sp.stdout:
+                print(f"FAIL  {port}  lint (spaced path): no output line names the spaced path — "
+                      f"the arm is not exercising what it claims to")
+                port_fail = 1
+            triples_sp, _ = parse_lint_output(proc_sp.stdout)
+            if triples_sp != expected_lint:
+                missing = expected_lint - triples_sp
+                extra = triples_sp - expected_lint
+                print(f"FAIL  {port}  lint (spaced path): triples mismatch — "
+                      f"missing={sorted(missing)} extra={sorted(extra)}")
+                port_fail = 1
+            elif SPACED_NAMED_MEMBER not in triples_sp:
+                print(f"FAIL  {port}  lint (spaced path): named member absent: {SPACED_NAMED_MEMBER}")
+                port_fail = 1
+            else:
+                print(f"ok    {port}  lint (spaced path): {len(triples_sp)}/{len(expected_lint)} "
+                      f"triples set-equal under a path containing a space")
+
         metrics_script = root / "scripts" / "mozart-metrics.sh"
         for case in CASES[1:]:
             case_root = corpus / case
@@ -428,6 +474,7 @@ def cmd_behaviour(corpus, scripts_roots):
         if port_fail:
             overall_fail = 1
 
+    shutil.rmtree(spaced_tmp, ignore_errors=True)
     return overall_fail
 
 

@@ -99,6 +99,24 @@ decisions log went unchecked. The gate is now the union (`is_post_adoption`), wi
 (`post_by_date`) kept for the one thing it actually decides: whether a *missing* section is an
 obligation. `decision-trigger` was the only conductor-family check gated on the date alone.
 
+**Reconciliation round 2** (F58-F59). The F48 reword stranded the frozen parity snippet that pins
+the same sentence: `tests/parity/snippets/S3.txt` kept the pre-fix text, so `bullets` (A13) read
+0 of 4 sites for a snippet that had been 4 of 4. Re-frozen — and the class is closed rather than the
+instance, because A13 is a manual pre-merge run across four checkouts and nothing ran it
+automatically. New gate **V15** asserts every frozen snippet still occurs exactly once in its
+*orchestration* target file. That half needs no other checkout, and it is the half that goes stale:
+the divergence is created by the edit, in this repo, at the moment it is made. The registry must
+account for every file in the snippets directory, so a new snippet cannot be silently unchecked.
+All 25 snippets are covered; S3 was the only stale one across all ten A13 invocations (92 sites).
+
+`scripts/check-field-note-parity.py` carried the defect it was verifying fixed: its `LINT_LINE_RE`
+parsed the lint path as `\S+`, so a corpus under a path containing a space parsed **zero** triples
+while the linter under test emitted all 47 correctly. The path is now taken non-greedily up to the
+first `" — "`, matching how the bash-side extractor has always split it, and the `behaviour` runner
+proves it end to end: every script-shipping port's lint case is run a second time against a copy of
+the corpus under `dir with a space/`, with a control that refuses to pass if no output line actually
+names the spaced path.
+
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
 `scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has
