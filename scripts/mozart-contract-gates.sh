@@ -1790,6 +1790,7 @@ agents/INTAKE.md	19900
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
+agents/TICKETS.md	24700
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

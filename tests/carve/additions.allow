@@ -74,3 +74,6 @@ pointer	**Before deciding the slug or searching for prior art** — read `FLOWS.
 # --- phase 5.4 (WORKTREES) ---------------------------------------------------
 pointer	**Before cutting a campaign worktree** — read `WORKTREES.md` (*Worktree isolation (default for code-changing campaigns)*).
 pointer	**Before running more than one campaign at a time** — read `WORKTREES.md` (*Multi-campaign mode (parallel orchestration)*).
+#
+# --- phase 5.5 (TICKETS) -----------------------------------------------------
+pointer	**Before resolving a ticketing project, creating a ticket, or posting a phase comment** — read `TICKETS.md` (*Ticket lifecycle*).
