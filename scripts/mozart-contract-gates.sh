@@ -1862,10 +1862,10 @@ report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
 #
 # Two gates, deliberately separate:
 #
-#   V17_carve_selftest  the gate's own 11-mutation self-test. Runs on a synthetic
+#   V17_carve_selftest  the gate's own 12-mutation self-test. Runs on a synthetic
 #                       mktemp fixture and never reads the repo tree, so it is
 #                       valid from Phase 1 onward - before any destination file
-#                       exists. A run reporting fewer than 11 mutations FAILS: the
+#                       exists. A run reporting fewer than 12 mutations FAILS: the
 #                       floor is what stops a stale implementation from satisfying
 #                       this gate while C3 inverse and C3c go untested (F36/F43).
 #
@@ -1890,10 +1890,10 @@ else
   v17_st_out=$(python3 "$v17_script" --self-test --quiet 2>&1); v17_st_rc=$?
   v17_st_n=$(printf '%s\n' "$v17_st_out" | sed -n 's/.*carve_selftest *\([0-9]*\) of \([0-9]*\) mutations.*/\1 \2/p')
   v17_st_caught=${v17_st_n%% *}; v17_st_total=${v17_st_n##* }
-  if [ "$v17_st_rc" -eq 0 ] && [ "${v17_st_caught:-0}" -ge 11 ] && [ "${v17_st_caught:-0}" = "${v17_st_total:-0}" ]; then
-    report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 11); positive control green"
+  if [ "$v17_st_rc" -eq 0 ] && [ "${v17_st_caught:-0}" -ge 12 ] && [ "${v17_st_caught:-0}" = "${v17_st_total:-0}" ]; then
+    report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 12); positive control green"
   else
-    report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 11): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
+    report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 12): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
   fi
 
   v17_phase_file="$gate_root/tests/carve/PHASE"

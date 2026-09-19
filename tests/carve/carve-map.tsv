@@ -124,6 +124,21 @@ pre_start	pre_end	destination	order	phase	heading
 # absence	V13_deleted_note	scripts/mozart-contract-gates.sh:1482	glob	NO ACTION - model form	grep -rlF ... "$gate_root"/agents/*.md - auto-widens to the carved files because D-A lands them flat in agents/. This is the idiom to copy when re-scoping the two path-literal sites above.
 #
 # ============================================================================
+# RESIDUE - PRE-EXISTING DEFECTS THE CARVE EXPOSED BUT DID NOT INTRODUCE.
+#
+# All four predate this campaign; each was verified against 8ec105c. None is fixed
+# here, and that is the rule working rather than laziness: three of the four sit
+# INSIDE MAPPED RANGES, so editing them would be a substitution inside a mapped range,
+# which D7 declares a STOP. The sequencing that made this carve provable also forbids
+# opportunistic cleanup - you cannot have the first property without accepting the
+# second. Route them to a follow-on TINY campaign.
+#
+# residue	agents/AUDIT.md:49	stale artifact convention	says artifacts stay `active-` and promote to `finished-`; the current convention is the `active/` and `finished/` DIRECTORIES. PRE 1677, inside mapped range 1629-1690 -> AUDIT.md. Present at 8ec105c.
+# residue	agents/DIAGNOSE.md:24	stale artifact convention	same text, same defect. PRE 1714, inside mapped range 1691-1725 -> DIAGNOSE.md. Present at 8ec105c.
+# residue	`*The conductor record*`	dangling prose reference	resolves to no heading anywhere in agents/*.md, and `git grep` at 8ec105c finds none either. Named in check-manual-bundle.py's WEAK_KNOWN_DANGLING so a THIRD one fails rather than being absorbed.
+# residue	`*Project creation, fallback only*`	dangling prose reference	same shape, same evidence, same treatment.
+#
+# ============================================================================
 # D1 - the three real divergences from the ports (F20). Recorded rather than
 # glossed: claiming convergence where there is none is the r1 lesson again.
 #

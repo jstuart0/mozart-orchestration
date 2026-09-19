@@ -124,8 +124,23 @@ def main():
         f"positive floor is what stops the two absences being satisfied by deletion")
 
     # --- POINTERS (Pattern 1, both directions) ------------------------------
+    # A BACKTICKED FILENAME IS NOT A POINTER. The first version of this gate asked
+    # only whether `<FILE>.md` appeared anywhere in the persona, while pointer-form
+    # validation lived in V21 - so deleting a file's activation trigger and leaving an
+    # inert prose mention behind kept this gate green while the persona had lost the
+    # thing that sends mozart to read it. D2's whole point is that "see X" is not
+    # enough. The naming line must now SATISFY THE D2 POINTER FORM (either shape,
+    # routed included) and name the file among its backticked *.md files - the same
+    # routed-aware resolution V21's strict tier uses, not a second implementation.
     persona = f["mozart.md"]
-    uncited = [n for n in MANUAL if f"`{n}.md`" not in persona]
+    persona_pointer_lines = [l for l in persona.split("\n")
+                             if PLEAD_RE.search(l) and CITE_RE.search(l)]
+    def named_by_pointer(n):
+        want = f"{n}.md"
+        return any(want in [x.split("/")[-1] for x in FILE_RE.findall(l)]
+                   for l in persona_pointer_lines)
+    uncited = [n for n in MANUAL if not named_by_pointer(n)]
+    inert = [n for n in MANUAL if not named_by_pointer(n) and f"`{n}.md`" in persona]
     dangling = []
     for n in [x+".md" for x in PARTITION]:
         for i, l in enumerate(f[n].split("\n"), 1):
@@ -135,11 +150,22 @@ def main():
                 if base not in f and not (root / fn).exists() and not (root/"agents"/base).exists():
                     dangling.append(f"{n}:{i} -> {fn}")
     bad = []
-    if uncited: bad.append(f"manual-set file(s) no pointer names: {uncited}")
+    if uncited:
+        bad.append(f"manual-set file(s) named by no D2-POINTER-FORM line: {uncited}")
+    if inert:
+        bad.append(f"...and {inert} appear only as INERT PROSE MENTIONS - a backticked "
+                   f"filename with no trigger is exactly what D2 forbids")
     if dangling: bad.append(f"pointer(s) naming a non-existent file: {dangling[:5]}")
+    if len(persona_pointer_lines) < 14:
+        bad.append(f"persona carries {len(persona_pointer_lines)} pointer-form line(s), floor 14")
+    if not named_by_pointer("INTAKE"):
+        bad.append("named member absent: INTAKE.md must be named by the unconditional "
+                   "stage-1 boot read, which is Pattern 1's named member (D-F/F13)")
     rep("V20_pointers", not bad,
-        "; ".join(bad) or f"all {len(MANUAL)} manual-set files are cited by >=1 pointer "
-        f"in agents/mozart.md, and every file named by a pointer exists (both directions)")
+        "; ".join(bad) or f"all {len(MANUAL)} manual-set files are named by a line that "
+        f"SATISFIES the D2 pointer form ({len(persona_pointer_lines)} such lines, floor 14; "
+        f"routed shape included), every file a pointer names exists (both directions), "
+        f"named member INTAKE.md present via the stage-1 boot read")
 
     # --- REFS (D18 two tiers) ----------------------------------------------
     strict_n = strict_bad = 0
@@ -194,14 +220,27 @@ def main():
     rows = [l for l in cm.split("\n") if l.startswith("# absence\t")]
     bad = []
     if len(rows) < 3: bad.append(f"absence table has {len(rows)} row(s), floor 3")
+    DISPOSITIONS = ("RE-SCOPE", "RECORD REASON", "NO ACTION")
     for r in rows:
         parts = r.split("\t")
-        if len(parts) < 5: bad.append(f"malformed absence row: {r[:60]}")
-        elif parts[3] not in ("path-literal","glob","roster-derived"):
-            bad.append(f"row {parts[1]} names no known idiom: {parts[3]}")
+        if len(parts) < 6:
+            bad.append(f"malformed absence row ({len(parts)} cells, want 6): {r[:60]}")
+            continue
+        if parts[3] not in ("path-literal","glob","roster-derived"):
+            bad.append(f"row {parts[1]} names no known idiom: {parts[3]!r}")
+        # The disposition cell is the one a reader acts on, so it is validated rather
+        # than merely counted: a blank or garbled cell used to pass while the gate's
+        # own PASS text claimed every row named a disposition.
+        disp = parts[4].strip()
+        if not disp:
+            bad.append(f"row {parts[1]} has an EMPTY disposition cell")
+        elif not any(disp.upper().startswith(d) for d in DISPOSITIONS):
+            bad.append(f"row {parts[1]} disposition {disp[:40]!r} is none of {DISPOSITIONS}")
+        if not parts[5].strip():
+            bad.append(f"row {parts[1]} has an empty rationale cell")
     rep("V23_absence", not bad,
-        "; ".join(bad) or f"{len(rows)} Pattern-2 absence site(s) (floor 3), each naming "
-        f"its idiom and disposition")
+        "; ".join(bad) or f"{len(rows)} Pattern-2 absence site(s) (floor 3), each naming a "
+        f"known idiom, a non-empty disposition from {DISPOSITIONS}, and a rationale")
 
     return emit(results)
 

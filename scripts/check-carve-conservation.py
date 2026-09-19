@@ -32,7 +32,7 @@ never a skip. BASE_SHA is a commit on the campaign branch, so this campaign MUST
 merge --no-ff (D8) - a squash would orphan the baseline and break the gate
 retroactively.
 
-The 11-mutation self-test runs on a synthetic mktemp fixture and never reads the
+The 12-mutation self-test runs on a synthetic mktemp fixture and never reads the
 repo tree, which is what makes it valid from Phase 1 onward, before any
 destination file exists. It runs on EVERY invocation: a discriminator observed
 failing once and then never again is an assertion about the past.
@@ -500,6 +500,20 @@ def control_c5(w, present, additions_floor):
         if post[plus] != 1:
             fails.append(f"C5: declared `changed` replacement occurs {post[plus]}x in POST, want 1: "
                          f"{plus[:70]!r}")
+        # THE PREDECESSOR MUST ACTUALLY BE CONSUMED. Without this a `~ changed` pair
+        # only asserts that the NEW line appeared, and nothing asserts the OLD line
+        # went away - so a pure addition can be declared a replacement and both C1
+        # (which subtracts declared `-` lines) and C5 (which subtracts declared `+`
+        # lines) wave it through. The pair means "this line BECAME that line", and
+        # that is a claim about the predecessor too.
+        if pre[minus] == 0:
+            fails.append(f"C5: declared `changed` predecessor is not a PRE line at all, so "
+                         f"there is nothing for it to replace: {minus[:70]!r}")
+        elif post[minus] != pre[minus] - 1:
+            fails.append(f"C5: declared `changed` predecessor was NOT consumed - PRE x"
+                         f"{pre[minus]}, POST x{post[minus]}, want x{pre[minus] - 1}. A pair "
+                         f"whose predecessor survives is a pure addition wearing a "
+                         f"replacement's clothes: {minus[:60]!r}")
 
     n_entries = len(w.additions.typed) + len(w.additions.changed)
     if n_entries < additions_floor:
@@ -830,6 +844,25 @@ def _self_test_body(tmp, verbose):
         assert cov[11] == 2, "mutation 10 did not create an overlap"
         return w, None, "map row for PRE 12-15 widened to 11-15; PRE line 11 now claimed twice", "C3 partition"
 
+    # 12 - C5 predecessor consumption: a COMPLETE pair whose `-` line survives
+    def m12():
+        w = fixture_world()
+        keep = "alpha rule one"
+        new = "alpha rule one, revised"
+        assert any(norm(l) == keep for l in w.files["persona.md"]), "m12 fixture missing predecessor"
+        before = len(w.files["persona.md"])
+        w.files["persona.md"] = w.files["persona.md"] + [new]      # ADD, do not replace
+        w.additions = parse_additions("pointer\t" + FIXTURE_POINTER +
+                                      f"\n~ changed\n- {keep}\n+ {new}\n")
+        assert len(w.additions.changed) == 1 and not w.additions.errors, \
+            f"m12 pair did not parse: {w.additions.errors}"
+        assert len(w.files["persona.md"]) == before + 1, "mutation 12 did not apply"
+        assert any(norm(l) == keep for l in w.files["persona.md"]), \
+            "mutation 12 must LEAVE the predecessor in place - that is the whole point"
+        return w, None, ("a complete `~ changed` pair declared, but the predecessor "
+                         "'alpha rule one' is still present - a pure addition wearing a "
+                         "replacement's clothes"), "C5"
+
     # 11 - C3b: pre-move a `phase > N` range
     def m11():
         w = fixture_world()
@@ -837,7 +870,7 @@ def _self_test_body(tmp, verbose):
         assert nonblank(w.files["CHARLIE.md"]), "mutation 11 fixture empty"
         return w, 2, "run at --phase 2 with CHARLIE.md (ordinal 3) already carved out of the persona", "C3b"
 
-    for fn in (m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11):
+    for fn in (m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12):
         mutations.append(fn)
 
     rows_out = []
@@ -864,7 +897,7 @@ def _self_test_body(tmp, verbose):
             print(f"           observed: {got[:170]}")
     print(f"{'PASS' if caught == len(mutations) else 'FAIL'}  carve_selftest       "
           f"{caught} of {len(mutations)} mutations rejected, each by its named control "
-          f"(floor 11); positive control green")
+          f"(floor 12); positive control green")
     return 0 if caught == len(mutations) else 1
 
 
@@ -875,7 +908,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phase", help="campaign ordinal (decimal, e.g. 5.3). Omit for the full check.")
     ap.add_argument("--self-test", action="store_true",
-                    help="run the 11-mutation self-test on a synthetic mktemp fixture and exit")
+                    help="run the 12-mutation self-test on a synthetic mktemp fixture and exit")
     ap.add_argument("--additions-floor", type=int, default=0)
     ap.add_argument("--repo-root", default=None)
     ap.add_argument("--quiet", action="store_true")
