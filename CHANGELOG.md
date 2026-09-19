@@ -127,6 +127,22 @@ message continues with an em-dash, and without braces bash reads the multibyte c
 the variable name, so under `set -u` the gate aborted on the exact path it exists to report — the
 control produced no verdict at all rather than a FAIL, which is how it was caught.
 
+**Reconciliation round 4** (F66). `agents/mozart.md` was over the 269,000-byte ceiling log D14
+accepted, and no gate said so: A7 was written as a hand-run command and wired into nothing
+(`grep -c 269000 scripts/mozart-contract-gates.sh` returned 0), so three rounds of green suites ran
+past a real breach. New gate **V16** enforces A7's per-file budgets — mozart, hank, dick and otto —
+naming the file and its exact overage rather than reporting a repo-wide total, with a floor on the
+table, a named member, and a missing tracked file treated as a failure rather than a skip. It is
+scoped to this repo's files and says so at the site: the ports enforce their own ceilings with their
+own tooling, which this gate cannot see.
+
+The F48 change-ledger sentence is tightened to the same rule in half the bytes, in all four repos.
+That recovers 94 of the 393-byte overage. **The remaining 299 bytes are not recoverable by
+tightening**: the campaign's additions to `agents/mozart.md` outside frozen snippet text total 2,325
+bytes, all of it rule and mechanism prose, so closing the gap means deleting a rule or re-opening the
+snippet churn D14 closed. That is a content decision, not an implementation one, and V16 is left
+reporting the breach until it is made.
+
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
 `scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has

@@ -1694,6 +1694,59 @@ done < <(printf '%s\n' "$v15_registry")
 report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
   "${v15_bad:-$v15_checked frozen snippet(s) each occur exactly once in their orchestration target; registry key set == the $v15_files file(s) on disk, no duplicate keys; named member S3 present}"
 
+# ---------------------------------------------------------------------------
+# V16 — per-file size ceilings for this repo's personas (F66)
+#
+# These are the plan's A7 budgets. A7 was written as a hand-run command and
+# wired into nothing, so three reconciliation rounds of green suites ran while
+# agents/mozart.md sat over its ceiling: `grep -c 269000` across this file
+# returned 0. A budget nobody runs is not a budget.
+#
+# SCOPE: orchestration's own files only. The ports enforce their own ceilings
+# with their own tooling — copilot via scripts/check_agents.py against the
+# table in its check.yml, local via the 30,000-char cap on MANIFEST.jsonc's
+# derived_chars — and this gate cannot see their checkouts. It says nothing
+# about them; do not read a PASS here as four-repo coverage.
+#
+# Ceilings are per-file and named, not a repo-wide total: the failure has to
+# say WHICH file and by how much, or the next person is back to bisecting
+# `wc -c`. Vacuity controls: a floor on how many files are tracked, every
+# tracked file must exist (a vanished file fails rather than being skipped),
+# and agents/mozart.md is asserted present in the table by name.
+# ---------------------------------------------------------------------------
+v16_budgets=$(cat <<'V16_BUDGETS_EOF'
+agents/mozart.md	269000
+agents/hank.md	22300
+agents/dick.md	23490
+agents/otto.md	21700
+V16_BUDGETS_EOF
+)
+
+v16_bad=""
+v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
+[ "$v16_rows" -ge 4 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 4]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269000')" \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269000]"
+
+v16_checked=0
+v16_sizes=""
+while IFS=$'\t' read -r v16_file v16_limit; do
+  [ -n "$v16_file" ] || continue
+  if [ ! -f "$gate_root/$v16_file" ]; then
+    v16_bad="$v16_bad [tracked file missing: $v16_file]"
+    continue
+  fi
+  v16_n=$(wc -c < "$gate_root/$v16_file" | tr -d ' ')
+  v16_checked=$((v16_checked + 1))
+  v16_sizes="$v16_sizes $v16_file=$v16_n/$v16_limit"
+  if [ "$v16_n" -gt "$v16_limit" ]; then
+    v16_bad="$v16_bad [$v16_file is $v16_n bytes, over its $v16_limit ceiling by $((v16_n - v16_limit))]"
+  fi
+done < <(printf '%s\n' "$v16_budgets")
+[ "$v16_checked" -eq "$v16_rows" ] || v16_bad="$v16_bad [checked $v16_checked of $v16_rows tracked file(s)]"
+report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
+  "${v16_bad:-$v16_checked orchestration file(s) within their per-file ceilings:$v16_sizes}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"
