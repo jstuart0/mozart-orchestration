@@ -49,8 +49,8 @@ import sys
 import tempfile
 
 # --- pins (D-D, F10, D5's per-campaign re-pin) ------------------------------
-BASE_SHA = "fdfad2884c9adf61bb015977fe21d4ddd0e0c494"
-BASE_BLOB_SHA256 = "3314c73c8544662ce4540a81e490c2f60353229121b27ac8dd6c7106be88e127"
+BASE_SHA = "6180afa7ca36d52183dda9b1a31c7f30b989dac4"
+BASE_BLOB_SHA256 = "778983d64cf3ec25569599d73a6587c8a260e79bc4e72336b8b104729959796f"
 BASE_PATH = "agents/mozart.md"
 
 PERSONA = "agents/mozart.md"

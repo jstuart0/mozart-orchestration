@@ -515,16 +515,32 @@ report "V4_section" "$([ -z "$v4_bad" ] && echo 0 || echo 1)" \
 v4c_en=$(printf '\xe2\x80\x93')
 v4c_exempt="1${v4c_en}13"
 
-# Shapes derived from the UNION of both files: PIPELINE.md alone yields five
-# (it has no ## EVAL pipeline section); mozart.md supplies the sixth.
-v4c_shapes=$(cat agents/PIPELINE.md agents/mozart.md \
+# Shapes derived from the UNION over the GLOB agents/*.md, not from a path pair.
+# Before the carve this was `cat agents/PIPELINE.md agents/mozart.md`: PIPELINE.md
+# alone yields five (it has no ## EVAL pipeline section) and mozart.md supplied the
+# sixth. The carve moves ## AUDIT / ## DIAGNOSE / ## EVAL pipeline into their own
+# files, and a two-path scope cannot see them - measured: the pair form drops EVAL
+# and reports five shapes, taking V4c_role_shapes down with it.
+#
+# The glob is the model form from the carve plan's Pattern 2 table: it auto-widens
+# to every carved file because D-A lands them flat in agents/. Verified the widening
+# is clean - of the 24 files agents/*.md matches, only PIPELINE.md and mozart.md (and
+# now the carved shape files) contain a '^## <SHAPE> pipeline' heading, so the union
+# is identical to the pair form's at base and gains nothing spurious.
+#
+# POPULATION FLOOR, because a glob that matches nothing also derives no shapes and
+# would report "MISSING: everything" rather than going quietly green - but a glob
+# that matched only ONE file could still satisfy a naive check, so the floor is real.
+v4c_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v4c_shapes=$(cat agents/*.md 2>/dev/null \
   | grep -oE '^## [A-Z]+ pipeline' | sed 's/^## //; s/ pipeline$//' | sort -u)
 v4c_missing=""
 for want in DELIVER AUDIT DIAGNOSE OPERATE INCIDENT EVAL; do
   printf '%s\n' "$v4c_shapes" | grep -qx "$want" || v4c_missing="$v4c_missing $want"
 done
+[ "$v4c_files" -ge 20 ] || v4c_missing="$v4c_missing [population: agents/*.md matched only $v4c_files file(s), floor 20]"
 report "V4c_shapes" "$([ -z "$v4c_missing" ] && echo 0 || echo 1)" \
-  "shapes derived from the union=$(printf '%s' "$v4c_shapes" | paste -sd, -)${v4c_missing:+ MISSING:$v4c_missing}"
+  "shapes derived from the union over $v4c_files agents/*.md file(s)=$(printf '%s' "$v4c_shapes" | paste -sd, -)${v4c_missing:+ MISSING:$v4c_missing}"
 
 # The roster's Role cell is prose, so V4c's Stages-cell comparison is blind to
 # it - it read "orchestrates all three pipeline shapes" while the file added in
@@ -1726,6 +1742,10 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # ---------------------------------------------------------------------------
 v16_budgets=$(cat <<'V16_BUDGETS_EOF'
 agents/mozart.md	269500
+agents/AUDIT.md	4700
+agents/CONTEXT-BUDGET.md	1800
+agents/DIAGNOSE.md	5500
+agents/EVAL.md	6300
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

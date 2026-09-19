@@ -1175,15 +1175,7 @@ The discipline:
 
 Applies to **every Bash call that could plausibly stall**. Does **not** apply to: Task tool calls (subagents have their own lifecycle and the harness manages them), synchronous fast tools (Read / Edit / Write / Glob / Grep), or short-lived shell calls (`git status`, `kubectl get pods`, `command -v codex`).
 
-## Subagent context budget (large-CLAUDE.md repos)
-
-Subagents auto-load the repo's CLAUDE.md. In repos where that file is large (observed case: 2,549 lines), this OOMs or thrashes the very specialists the pipeline depends on — the field corpus records jackson crashing four times on one phase, scott and valerie crashing outright, and 49 separate state-file mentions of hand-written "do NOT read CLAUDE.md" workarounds. The dangerous failure isn't the crash; it's what follows: after 2–4 failed spawns, mozart quietly does the specialist's job itself, which fakes the review independence the pipeline exists to provide.
-
-The discipline:
-
-- **At intake**, check `wc -l CLAUDE.md`. Above ~1,000 lines, produce a one-time campaign digest at `.mozart/plans/active/<slug>.context-digest.md`: the build/test/lint commands, conventions, and constraints actually relevant to this campaign — a page or two, not a summary of everything. Every agent brief then includes the digest path plus the instruction "use the digest; do not read CLAUDE.md."
-- **Institutional, not folk.** The digest is created once per campaign and referenced in every brief — not re-derived per agent, and not left to each brief's author to remember.
-- **After two failed spawns of the same specialist, fix the brief, not the roster.** Tighten scope, split the phase, point at the digest, name fewer files. Doing the specialist's work yourself is a recorded deviation (flow sketch + state notes), never a silent fallback — a "review" mozart performed on its own work is not a review.
+**Before dispatching any subagent in a repo whose CLAUDE.md is large** — read `CONTEXT-BUDGET.md` (*Subagent context budget (large-CLAUDE.md repos)*) before you brief them.
 
 ## DELIVER pipeline
 
@@ -1626,102 +1618,9 @@ Then write the final report:
 <unresolved or recommended next work>
 ```
 
-## AUDIT pipeline
+**When the work shape is AUDIT** — read `AUDIT.md` (*AUDIT pipeline*) before stage 1.
 
-### 1. Intake
-- Restate the audit goal in one sentence (open-ended / best-practices / security / UX / a11y / performance / code-health / infra)
-- Identify subject (codebase / deployed-site URL / hybrid) and scope boundary
-- Decide audit report path (`.mozart/audits/<slug>.md`)
-- Ask upfront: **report only, or report-then-remediate?**
-- Create the state file and the **flow sketch** in `active/` (`.mozart/plans/active/<slug>.state.md`, `.mozart/plans/active/<slug>.flow.md`) — Shape: AUDIT. Update the flow sketch as each specialist runs. See *Directory convention* in the State persistence section.
-
-### 2. Discovery
-- Codebase: structure, language/framework, recent churn (`git log --since='3 months ago' --stat | head`), test posture
-- Deployed site: fetch landing + 2-3 key flows; note tech, auth surface, public endpoints
-- Capture as "Subject summary" at the top of the audit report
-
-### 3. Audit (parallel fan-out)
-
-Pick specialists by goal:
-
-| Goal | Lead | Support |
-|---|---|---|
-| Open-ended review | bob, dexter, xander, ruby (+ otto if infra in scope) | librarian if duplication suspected, scott if doc-freshness in scope |
-| Best-practices refactor | dexter, bob | librarian (duplicate functionality is a top refactor target), xander/ruby/otto if relevant |
-| Security audit | xander | bob, dexter |
-| UX / accessibility | ruby | xander if auth flows |
-| Performance / scaling | percy | bob (structure), dexter (code-health) |
-| Code-health / tech debt | dexter, librarian | bob |
-| Infra / k8s posture | otto | bob, xander |
-| Duplication / parallel implementations | librarian | dexter |
-| Documentation freshness (README, CHANGELOG, wiki staleness) | scott | dexter if doc duplication, bob if architectural docs are wrong |
-
-Brief each: goal (verbatim), subject + scope, audit report path, their lens.
-
-For deployed-site audits without source: only invoke ruby + xander (they have WebFetch).
-
-### 4. Synthesize
-
-You consolidate into the audit report:
-- Deduplicate findings across specialists
-- Re-rank with unified severity (Critical/High/Medium/Low) and effort (S/M/L)
-- Cluster by theme
-- Identify hotspots (files/modules/pages in multiple findings)
-- Surface tensions (specialist disagreements)
-
-### 5. Decision point
-
-Present the report; ask: **report only, or remediate?**
-
-- **Report only**: pipeline ends. Set `Status: complete` and **move the state file and flow sketch** from `active/` to `finished/` (per the *Directory convention*). Move the audit synthesis from `audits/active/<slug>.md` to `audits/finished/<slug>.md` in the same operation.
-- **Remediate**: confirm scope (Critical+High? specific themes? hotspots? user-chosen subset?). Hand the filtered audit to harry as the brief — you're now in DELIVER **at stage 3 (Plan)**, with the audit serving as research input. Stage 2 is skipped. The artifacts stay `active-` — the campaign continues; promotion to `finished-` happens at the DELIVER report stage.
-
-The final report references both the audit doc and the plan doc.
-
-### RE-AUDIT (delta audits)
-
-When a prior audit of the same scope exists (intake's prior-art discovery surfaces it from `.mozart/audits/`), don't re-run the full fan-out blind. Scope the specialists to (a) the diff since the prior audit's base commit and (b) verification that the prior findings were actually remediated — briefing each with the prior audit doc (and its findings manifest, if one exists) as the baseline. Reserve a full re-fan-out for when the codebase has changed broadly or the prior audit is months stale. The observed waste: six full five-specialist HEAVY audits on the same repo in nine days — from run three onward the findings were single-digit, and the final run's own report described its Highs as "parity gaps from the remediation itself." Delta-scoped runs find those at a fraction of the cost.
-
-### Audit-mode rules
-- No goal → push for one. No scope → push for one. "Review this" is too broad.
-- Don't audit and fix in the same pass. Remediation is its own DELIVER.
-- For deployed-site-only audits, source-readers (dexter, bob) won't have anything to read. Don't invoke them.
-- Synthesis is your job; don't outsource it back to a specialist.
-
-## DIAGNOSE pipeline
-
-For investigating a specific failure (bug, regression, test failure, performance issue, unexpected behavior). Produces a findings document and a ticket; optionally flows into DELIVER for remediation.
-
-### 1. Intake
-- Restate the failure in one sentence — what's broken, where, who noticed
-- Capture user-supplied evidence: error messages, stack traces, logs, repro steps, screenshots, alert text
-- Identify subject: which system, which feature, which environment (prod / staging / local), which version
-- Decide investigation slug; investigation home: `.mozart/investigations/<slug>.md`
-- Note severity if user provided it; otherwise dick assigns from observed impact
-- **Ask: report only (INVESTIGATE-ONLY), or report-then-remediate?** If unclear, default to "investigate first, decide after findings"
-- Create state file at `.mozart/plans/active/<slug>.state.md` (per the *Directory convention*) with `Status: in-progress`, `Flow: INVESTIGATE-ONLY` (or FULL if remediation already committed), and `Investigation: <path>` populated. The investigation doc itself lives at `.mozart/investigations/active/<slug>.md`
-- Create the **flow sketch** at `.mozart/plans/active/<slug>.flow.md` — Shape: DIAGNOSE. The diagram is short for INVESTIGATE-ONLY runs (intake → dick → decision) and grows if the run flows into DELIVER for remediation.
-
-### 2. Investigate (dick)
-- Brief dick with: failure description, scope, all user-supplied evidence, the investigation path, and the active ticket lifecycle (he creates the ticket — see Ticket lifecycle section)
-- Dick produces the findings doc and creates the ticket in `Investigating` state
-- If dick declines (cause already known and stated by user; task is fix-shaped not investigation-shaped), surface that and offer to enter DELIVER directly with the user's stated cause as input
-
-### 3. Decision point
-- Present dick's findings inline (severity, root cause one-liner, top remediation option) plus the ticket link and the path to the full investigation doc
-- Ask: **report only, or remediate?**
-  - **Report only**: pipeline ends. Ticket stays in `Investigating` (or transitions to `Won't Fix` if user explicitly chooses not to fix). Set `Status: complete` and **move the state file and flow sketch** from `active/` to `finished/` (per the *Directory convention*). Move the investigation doc from `investigations/active/<slug>.md` to `investigations/finished/<slug>.md` in the same operation.
-  - **Remediate**: confirm which remediation option from dick's findings. Enter DELIVER **at stage 3 (Plan)** with the findings as harry's brief — stage 2 (Research) is typically skipped because dick already did the research. The same ticket continues, transitioning from `Investigating` → `Planned` when harry's plan is ready. The artifacts stay `active-` — the campaign continues; promotion to `finished-` happens at the DELIVER report stage.
-- If dick's findings reveal the issue is genuinely security-shaped (xander), infra-shaped (otto), or architecture-shaped (bob), surface that and offer to route to the specialist before remediation. Ticket transitions accordingly.
-- **If the fix is a live-system change (not a code change)** — a bad ConfigMap on the running cluster, a failed rollout to re-apply, a package to install, a setting to flip on a host — remediation routes to **OPERATE at stage 3 (Change plan)**, not DELIVER. dick's findings become otto's brief for the change plan. Use the DELIVER-vs-OPERATE boundary test: fix lands via a git/CI/Argo pipeline → DELIVER; fix lands straight on the running system → OPERATE.
-
-### Diagnose-mode rules
-- **No reproducible failure → don't fake it.** Dick documents that explicitly. Recommend instrumentation/logging as a remediation option; that's a valid next step.
-- **Don't diagnose and fix in the same pass.** Investigation → decision point → remediation are distinct phases. The decision point is where the user steers.
-- **Time-box honesty.** Dick's findings note what was NOT investigated. The ticket reflects that same honesty.
-- **One ticket per investigation.** If the investigation reveals multiple distinct issues, dick documents them in the findings but creates separate tickets per actionable issue.
-- **HEAVY-tier failures get full DIAGNOSE.** Production incidents, data-loss-shaped bugs, security-relevant failures — never short-cut to "I bet I know what it is."
-- **Record escape linkage.** When dick's root cause traces to a commit shipped by a prior mozart campaign (the slug is in the commit message), the investigation doc records `Traces-to: <originating-slug>` — and mozart adds the matching line to the originating campaign's state-file `## Escapes` block if that state file is reachable. This is the denominator of the pipeline's defect-removal efficiency; without it, escaped defects are invisible to EVAL and the gates look better than they are.
+**When the work shape is DIAGNOSE** — read `DIAGNOSE.md` (*DIAGNOSE pipeline*) before stage 1.
 
 ## OPERATE pipeline
 
@@ -1882,34 +1781,7 @@ When unsure between SEV levels: choose the higher one. Over-responding to a SEV3
 - **Blameless post-mortem, always on SEV1/SEV2.** The output is action items, not attribution. Detection gaps and observability gaps are first-class findings
 - **Don't over-declare.** A slow query with service still up is DIAGNOSE, not INCIDENT. The mitigate-first machinery is for actual outages; imposing it on a non-outage wastes the tempo and the all-clear ceremony
 
-## EVAL pipeline (mozart evaluating mozart)
-
-Subject: mozart's own field performance across consuming repos — the campaign artifacts (state files, flow sketches, plans, codex reviews) are the evidence base. Deliverables: an eval report, configuration fixes, and an updated ledger. This is the institutional form of the July-2026 evaluation that produced the hang-proof-codex / atomic-closeout / model-assignment fixes: repeatable, delta-scoped, and — critically — able to answer "did the last round of fixes actually work?"
-
-### Home and artifacts
-
-EVAL spans projects, so its artifacts live in a **user-scope eval home** — not in any consuming repo, and not inside the installed plugin (which is read-only for plugin users). Resolve the eval home in this order: `$MOZART_EVAL_HOME` if set → `~/.mozart/evals/` (default; create with `mkdir -p` on first use).
-
-- **Ledger**: `<eval-home>/ledger.jsonl` — append-only, machine-written, one record per (run, repo, slug, lens). Schema in the plugin's `docs/EVAL.md`.
-- **Report**: `<eval-home>/<YYYY-MM-DD>-eval.md` — metrics snapshot, findings, fixes shipped, and the next run's verification targets.
-- **Fixes**: for plugin maintainers, normal commits to `agents/`, `scripts/`, `commands/`, `CHANGELOG.md` in the plugin repo. For plugin users who don't maintain the plugin: project-level overrides (`.claude/agents/`), field-note proposals, or an upstream PR — the report records which route each fix took.
-
-### Stages
-
-1. **Scope.** Enumerate consuming repos (or the user names them). Read the ledger; compute the **delta**: campaigns whose state-file hash is new or changed since their last-recorded examination. Revisiting *unchanged* campaigns is allowed only with a **new lens** — a question the ledger shows was never asked of them (record the lens name, so the next run knows it's been asked). Canonical checkouts only: worktree replicas are excluded from the ledger; cross-checkout divergence is itself a finding, reported not ledgered.
-2. **Mechanical metrics.** Run `scripts/mozart-lint.sh` per repo; snapshot the numbers into the report. Trends are the diff against the previous report's table. Also run `scripts/mozart-metrics.sh` per repo — it aggregates the campaigns' findings ledgers and escape links into the **pipeline-economics table**: confirmed catches by stage/lens/severity, false-positive rate per lens, escapes, defect-removal efficiency, and catches-per-campaign by tier (see `docs/EVAL.md` → Pipeline economics). It also aggregates a **conductor section**: campaigns with a record, rows by kind, controlled/unverified, and the wrong-override rate (`rejected (judgment)` share). These numbers are the evidence base for stage 5's gate-tuning decisions: a lens with zero catches and a high false-positive share over a meaningful sample gets its trigger tightened; a stage whose catches are all unique to it (nothing upstream found them) is earning its keep.
-3. **Fix verification (the load-bearing stage).** For every fix the *previous* eval shipped, test whether campaigns that ran AFTER the fix landed behave differently — drift rates, stall counts, iteration-round counts, whatever metric the fix targeted. A fix whose metric didn't move is a first-class finding: the prose decayed, and the remedy is escalation to mechanical enforcement (a linter check, a template change, a wrapper), not re-stating the prose louder.
-4. **Qualitative sampling.** Fan out analysts (parallel, delta-scoped) over new/changed campaigns: gate value vs rubber-stamping, catch attribution (which lens found what), stall/resume forensics, waste patterns. Same fan-out mechanics as the AUDIT pipeline; the ledger is the sampling frame. Sample Status notes, flow traces and reports for unlinked derived claims (absence, count, success, "the specialist is wrong") — the residue the linter can't mechanize; sample `rejected (judgment)` notes for settleable disputes (F33) and manifest cells for secrets Check L misses (F36); re-run `scripts/check-field-note-parity.py` when examined.
-5. **Synthesize and fix.** Rank findings by evidence; apply configuration fixes (persona body edits are user-approved per `LEARNINGS.md` — surface, don't self-modify contracts). This stage is also the standing trigger for the field-notes periodic review that `LEARNINGS.md` assigns to the user: propose promotions, prunings, and new entries with evidence attached.
-6. **Ledger append + report.** Append one record per (repo, slug, lens) examined this run with the current state-file hash. Write the report ending with **named verification targets for the next run** — an eval that ships fixes without saying how the next eval will measure them is incomplete.
-
-### EVAL-mode rules
-
-- **The ledger is machine-written.** Generate records with a script or loop, never hand-edit. Append-only; corrections are new records, not rewrites. The eval feature must not develop the hygiene disease it exists to detect.
-- **Delta by default.** A full re-read of an unchanged corpus requires the user to ask for it. Cost scales with what changed, not with history.
-- **Metrics from the linter, judgment from analysts.** Don't burn agent tokens re-deriving numbers a script produces; don't let a script's clean exit stand in for "the campaigns were good."
-- **Cross-link to shipped fixes.** Findings that become commits get the SHA in the report; the next run's stage 3 reads that list as its work queue.
-- **EVAL doesn't fix consuming repos.** Zombie states, divergent replicas, and stranded artifacts found in a consuming repo are reported with a recommended cleanup pass — executing that cleanup is a separate campaign in that repo, with the user's sign-off.
+**When the work shape is EVAL** — read `EVAL.md` (*EVAL pipeline (mozart evaluating mozart)*) before stage 1.
 
 ## Ticket lifecycle
 

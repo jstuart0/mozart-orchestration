@@ -77,6 +77,23 @@ pre_start	pre_end	destination	order	phase	heading
 2469	2507	agents/mozart.md	20	0	## Field notes (append-only)
 #
 # ============================================================================
+# D17 - PHASE 5.1 IS BOUND TO THESE TWO STANZA HEADINGS, VERBATIM.
+#
+# Phase 1c's pointers at PRE :1191 and :1194 cite them (D15: name where the content
+# goes, cite the heading that will be there). Those pointer lines are in the
+# CONSERVATION BASELINE and cannot be corrected later without a `changed` pair inside
+# a mapped range, which D7 makes a STOP. If phase 5.1 writes a different heading, the
+# pointers name a heading INTAKE.md does not contain - the silent lie 1a existed to
+# remove - and D18's strict-tier gate fails at phase 6.
+#
+# stanza	agents/INTAKE.md	## Single-agent passthrough: routing and discipline	covers PRE 203-266
+# stanza	agents/INTAKE.md	## Six shapes of work: boundaries and transitions	covers PRE 169-172
+#
+# Both verified absent from PRE as whole lines AND as substrings of any line, so
+# neither can collide under C2. The colon form (not an em-dash) keeps them from
+# colliding with the pointer form's own ' - ' separator under a future grep.
+#
+# ============================================================================
 # V16 per-file ceilings (Pattern 3). Provisional: computed as measured PRE
 # content + ~10%. Phase 6 sets the final values from LANDED sizes (which
 # include each destination's declared stanza heading) and asserts 18 rows.

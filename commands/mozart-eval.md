@@ -12,7 +12,7 @@ Like `/mozart`, this must run at the top level of a Claude Code session — stag
 
 ### 1. Read the persona's EVAL pipeline in full
 
-The single source of truth is the **EVAL pipeline** section of the bundled `agents/mozart.md`, plus the ledger/report reference in `docs/EVAL.md`. Read both before doing anything else. Internalize the six stages (scope → mechanical metrics → fix verification → qualitative sampling → synthesize and fix → ledger append + report) and the EVAL-mode rules (machine-written append-only ledger, delta by default, canonical checkouts only, named verification targets for the next run).
+The single source of truth is the bundled **`agents/EVAL.md`** (the *EVAL pipeline* section, carved out of `agents/mozart.md`), plus the ledger/report reference in `docs/EVAL.md`. These are two different files one character apart — `agents/EVAL.md` is the procedure, `docs/EVAL.md` is the ledger schema. Read both before doing anything else. Internalize the six stages (scope → mechanical metrics → fix verification → qualitative sampling → synthesize and fix → ledger append + report) and the EVAL-mode rules (machine-written append-only ledger, delta by default, canonical checkouts only, named verification targets for the next run).
 
 ### 2. Resolve the eval home
 

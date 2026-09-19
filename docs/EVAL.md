@@ -2,7 +2,9 @@
 
 EVAL is the fourth work shape: mozart examines the campaign artifacts its past runs left behind in your projects, measures how well the pipeline actually performed, verifies whether the previous eval's fixes worked, and proposes configuration improvements. Invoke it with `/mozart-eval` (or "run a mozart eval" through `/mozart`).
 
-The authoritative pipeline definition lives in the **EVAL pipeline** section of `agents/mozart.md`. This document covers the artifacts: where they live, the ledger schema, and the report format.
+The authoritative pipeline definition lives in **`agents/EVAL.md`** (the *EVAL pipeline* section of the bundled manual, carved out of `agents/mozart.md`). This document covers the artifacts: where they live, the ledger schema, and the report format.
+
+**`agents/EVAL.md` is not this file.** `agents/EVAL.md` is the pipeline *procedure* — the six stages mozart runs. `docs/EVAL.md` — this file — is the ledger schema and report format. Cite the full path whenever both could be meant.
 
 ## Eval home
 

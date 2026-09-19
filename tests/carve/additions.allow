@@ -3,7 +3,9 @@
 # Types:
 #   pointer   a D2 call-site pointer. Asserted MECHANICALLY against the form
 #             `**<Trigger>** - read `<FILE>.md` (*<Original section heading>*)`,
-#             not merely listed.
+#             not merely listed. Each is also asserted to occur EXACTLY once in
+#             POST - that is where the duplication guarantee for declared lines
+#             lives, since C2 is scoped to PRE lines and cannot see them (F32).
 #   stanza    a split's new carved-body heading, or the intake skeleton's heading.
 #   ~ changed a REWORDED line, written as a PAIRED block:
 #                 ~ changed
@@ -11,20 +13,25 @@
 #                 + <the POST line that replaces it>
 #             Subtracted from BOTH channels: from C1 (so a replaced line is not
 #             "lost") and from C5 (so its replacement is not "fabricated"). A `-`
-#             without its `+`, or a `+` without its `-`, FAILS - an unpaired half
-#             is exactly how a deletion masquerades as a move.
+#             without its `+`, or a `+` without its `-`, FAILS.
 #
 # Format for pointer/stanza: <type> TAB <the exact line>
 #
-# NO PHASE IN THIS CAMPAIGN EXERCISES A `changed` PAIR (D7). The three `](#...)`
-# links were rewritten in the standalone pre-carve commit fdfad28 and the baseline
-# was re-pinned behind it, so every carve step is a verbatim move of lines already
-# in final form. The pairing mechanism stays in the model and in the self-test
-# (mutation 4 proves it fires), but a non-zero `~ changed` count here is a STOP
-# that returns to the user - it means a substitution landed inside a mapped range,
-# which is the interaction this campaign deliberately has no machinery for.
+# NO PHASE IN THIS CAMPAIGN EXERCISES A `changed` PAIR (D7). A non-zero `~ changed`
+# count here is a STOP that returns to the user.
 #
-# Archived to tests/carve/additions.<slug>.allow at merge, and the baseline
-# re-pins to the merge commit (D5).
+# agents/INDEX.md is NOT declared here: it is excluded from conservation (F7/F33),
+# is 100% new text, and is gated separately. Declaring it would put several hundred
+# lines in this file and bury the pointer lines that actually need review.
 #
-# Empty at Phase 1b: nothing has been carved, so nothing has been added.
+# PLACEMENT RULE, load-bearing: a declared addition goes BETWEEN mapped ranges,
+# never inside one. C3 asserts each range appears as a CONTIGUOUS block in its
+# destination, so a pointer inserted mid-range splits the block and fails. Every
+# pointer below sits in the gap its own carved section left, which is a range
+# boundary by construction.
+#
+# --- phase 2 -----------------------------------------------------------------
+pointer	**Before dispatching any subagent in a repo whose CLAUDE.md is large** — read `CONTEXT-BUDGET.md` (*Subagent context budget (large-CLAUDE.md repos)*) before you brief them.
+pointer	**When the work shape is AUDIT** — read `AUDIT.md` (*AUDIT pipeline*) before stage 1.
+pointer	**When the work shape is DIAGNOSE** — read `DIAGNOSE.md` (*DIAGNOSE pipeline*) before stage 1.
+pointer	**When the work shape is EVAL** — read `EVAL.md` (*EVAL pipeline (mozart evaluating mozart)*) before stage 1.
