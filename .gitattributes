@@ -1,0 +1,8 @@
+# The CRLF fixture IS its line endings: it proves mozart-lint.sh's conductor
+# parser strips \r so a CRLF-encoded state file lints identically to an LF one.
+# -text keeps git from normalising it on checkout; -whitespace keeps
+# `git diff --check` from reporting its 28 carriage returns as trailing
+# whitespace (F51). It cannot tell a deliberate \r from a stray one, and the
+# rest of the fixture corpus was cleaned rather than exempted, so this is the
+# only path in the repo that opts out.
+tests/fixtures/conductor/lint/.mozart/plans/active/2099-07-24-deliver-crlf.state.md -text -whitespace

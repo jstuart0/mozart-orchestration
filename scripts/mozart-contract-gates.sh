@@ -1092,6 +1092,671 @@ done < <(printf '%s\n' "$v9_sites")
 report "V9" "$([ -z "$v9_bad" ] && echo 0 || echo 1)" \
   "${v9_bad:-all $v9_siten prose sites name exactly the reference letter-suffixed keys}"
 
+# ---------------------------------------------------------------------------
+# V10a — metrics placeholder-vs-real note-cell bug (PD10, phase 1)
+#
+# scripts/mozart-metrics.sh used to skip ANY findings-ledger row containing a
+# literal '<' anywhere on the line, and ANY escapes line containing '<'
+# anywhere - not just a row whose note/target cell IS a template placeholder.
+# A real finding whose note mentioned "n<3 cases", or a real escape whose
+# Traces-to target was followed by "n<3 affected", was silently dropped from
+# both the numerator (catches) and the denominator (escapes). PD10 narrows
+# the skip to: findings - the note cell, trimmed, is WHOLLY `<...>`;
+# escapes - the line says "none yet", or the Traces-to TARGET itself starts
+# with '<'. tests/fixtures/conductor/metrics-placeholder/ carries both a
+# `n<3 cases` fixed-High row and a `n<3 affected` Traces-to row that must
+# now count, alongside the untouched template rows that must still be
+# skipped. Runs $gate_root's OWN mozart-metrics.sh (so a base tree
+# reproduces the bug; the head tree proves the fix) against the corpus
+# resolved from this script's own repo, per PD8's split.
+# ---------------------------------------------------------------------------
+v10a_script_repo=$(dirname "$(dirname "$gatefile")")
+v10a_corpus="$v10a_script_repo/tests/fixtures/conductor/metrics-placeholder"
+v10a_expected="$v10a_corpus/expected.tsv"
+v10a_floor=$(grep -c "$(printf '^metrics\t')" "$v10a_expected" 2>/dev/null || echo 0)
+v10a_member='Confirmed catches (Critical/High, disposition=fixed): 2'
+v10a_out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v10a_corpus" 2>&1)
+v10a_rc=$?
+v10a_bad=""
+[ "$v10a_rc" -eq 0 ] || v10a_bad="$v10a_bad [exit=$v10a_rc want 0]"
+[ "$v10a_floor" -ge 2 ] || v10a_bad="$v10a_bad [expected-file floor $v10a_floor < 2 -- corpus file empty or truncated]"
+printf '%s\n' "$v10a_out" | grep -qxF "$v10a_member" || v10a_bad="$v10a_bad [named member absent: $v10a_member]"
+v10a_missing=""
+while IFS= read -r v10a_line; do
+  [ -n "$v10a_line" ] || continue
+  printf '%s\n' "$v10a_out" | grep -qxF "$v10a_line" || v10a_missing="$v10a_missing [$v10a_line]"
+done < <(cut -f2 "$v10a_expected")
+[ -z "$v10a_missing" ] || v10a_bad="$v10a_bad expected line(s) absent:$v10a_missing"
+report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
+  "${v10a_bad:-metrics-placeholder: exit=$v10a_rc, $v10a_floor expected line(s) present, named member present}"
+
+# ---------------------------------------------------------------------------
+# V11 — lint Checks K/L behave per the committed corpus (PD24, phase 5)
+#
+# Same $gatefile/$gate_root split as V10a: corpus from this script's own
+# repo, script under test from $gate_root, so pointing gate_root at a base
+# worktree exercises base scripts against head fixtures. Category set is the
+# six K/L names plus missing-2b (phase 5b, step 31, now that Check J's
+# DELIVER-family gating is fixed).
+# ---------------------------------------------------------------------------
+v11_script_repo=$(dirname "$(dirname "$gatefile")")
+v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
+v11_expected="$v11_corpus/expected.tsv"
+v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b'
+
+# F47: the floor used to count only the two subdirs, so the legacy prefix,
+# legacy flat and legacy-root fixtures the corpus now carries were invisible
+# to it — a floor that cannot see the layouts the check was blind to cannot
+# notice them being deleted. Count every state file under the corpus.
+v11_floor=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+# ...and assert each of the six layouts K/L must reach is actually populated.
+# A total floor alone cannot tell "47 files, all in active/" from "47 files
+# across six layouts"; the second is what this corpus is for.
+v11_layout_missing=""
+v11_layout_probe() { # $1 = human label, $2.. = glob expansion
+  local label="$1"; shift
+  local hit=0 probe
+  for probe in "$@"; do [ -f "$probe" ] && hit=1 && break; done
+  [ "$hit" -eq 1 ] || v11_layout_missing="$v11_layout_missing [$label]"
+}
+v11_layout_probe "current/active"  "$v11_corpus/.mozart/plans/active"/*.state.md
+v11_layout_probe "current/finished" "$v11_corpus/.mozart/plans/finished"/*.state.md
+v11_layout_probe "legacy active- prefix" "$v11_corpus/.mozart/plans"/active-*.state.md
+v11_layout_probe "legacy finished- prefix" "$v11_corpus/.mozart/plans"/finished-*.state.md
+v11_layout_probe "legacy flat prefixless" "$v11_corpus/.mozart/plans"/[0-9]*.state.md
+v11_layout_probe "legacy root thoughts/shared" "$v11_corpus/thoughts/shared/plans"/[0-9]*.state.md
+
+v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restricted to $1 (pipe-joined)
+  awk -F'\t' -v cats="$1" '
+    BEGIN { n = split(cats, a, "|"); for (i = 1; i <= n; i++) catset[a[i]] = 1 }
+    /^LINT \[/ {
+      line = $0
+      rest = line
+      sub(/^LINT \[/, "", rest)
+      split(rest, p, "]")
+      cat = p[1]
+      if (!(cat in catset)) next
+      body = rest
+      sub(/^[^]]*\][ \t]*/, "", body)
+      nsep = split(body, q, " — ")
+      path = q[1]
+      keymsg = q[2]
+      for (i = 3; i <= nsep; i++) keymsg = keymsg " — " q[i]
+      split(keymsg, r, ": ")
+      key = r[1]
+      slug = path
+      sub(/^.*\//, "", slug)
+      sub(/\.state\.md$/, "", slug)
+      printf "%s\t%s\t%s\n", cat, slug, key
+    }
+  '
+}
+
+# F47 residual, closed here: the legacy-root fixture was gitignored by the
+# blanket `thoughts/` rule and passed locally while being absent from every
+# other checkout. A corpus file git cannot see is a phantom, so assert the
+# whole corpus is tracked rather than trusting that it is.
+v11_on_disk=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+v11_tracked=$(git -C "$v11_script_repo" ls-files -- "${v11_corpus#"$v11_script_repo/"}" 2>/dev/null | grep -c '\.state\.md$' || true)
+
+v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
+v11_ov_rc=$?
+v11_no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
+
+v11_ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
+v11_no_triples=$(printf '%s\n' "$v11_no_out" | v11_extract "$v11_cats" | sort -u)
+v11_expected_triples=$(awk -F'\t' -v cats="$v11_cats" '
+    BEGIN { n = split(cats, a, "|"); for (i = 1; i <= n; i++) catset[a[i]] = 1 }
+    $1 == "lint" && ($2 in catset) { printf "%s\t%s\t%s\n", $2, $3, $4 }
+  ' "$v11_expected" | sort -u)
+
+# F49: every LINT line the corpus emits must be accounted for in
+# expected.tsv. Set-equality over a FILTERED category list cannot see a
+# fixture that also fires an unfiltered category -- 2099-07-29-noflow-j fired
+# missing-12b as well as its intended missing-2b, so it was not failing only
+# for its stated reason and nothing said so. Compare totals, not just the
+# filtered set: 45 emitted lines, 45 expected rows, 45 distinct triples.
+v11_emitted=$(printf '%s\n' "$v11_ov_out" | grep -c '^LINT \[' || true)
+v11_expected_n=$(grep -c '^lint	' "$v11_expected" || true)
+v11_triple_n=$(printf '%s\n' "$v11_ov_triples" | grep -c . || true)
+
+v11_bad=""
+[ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
+[ "$v11_floor" -ge 48 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 48]"
+[ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
+[ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus state file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
+[ "$v11_emitted" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
+[ "$v11_triple_n" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [$v11_triple_n distinct triples vs $v11_expected_n expected rows]"
+[ "$v11_ov_triples" = "$v11_expected_triples" ] || v11_bad="$v11_bad [K/L triples not set-equal to expected.tsv]"
+for v11_member in \
+  "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
+  "$(printf 'conductor-unlinked\t2099-07-13-deliver-freeform\t10')" \
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')" \
+  "$(printf 'mutation-manifest\t2099-08-05-deliver-ledger-postadopt\tC1')" \
+  "$(printf 'missing-2b\t2099-08-06-deliver-combined\t-')" \
+  "$(printf 'conductor-unlinked\t2099-08-07-deliver-exempt-bypass\t5')" \
+  "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')" \
+  "$(printf 'conductor-missing\t2099-08-11-deliver-flat\t-')" \
+  "$(printf 'conductor-missing\tactive-2099-08-12-deliver-prefix\t-')" \
+  "$(printf 'conductor-unlinked\tfinished-2099-08-13-deliver-prefix\t5')" \
+  "$(printf 'conductor-unlinked\t2099-08-14-deliver-legacyroot\t9')" \
+  "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
+  "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
+  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')" \
+  "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')"
+do
+  printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent: $v11_member]"
+done
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
+  && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
+# F48 control: the escaped-pipe fixture's CR2 carries `\|` in BOTH source and
+# control and is otherwise well formed. It must stay silent — otherwise the
+# width rule is just rejecting every row that mentions a pipe, and CR1's
+# finding would prove nothing about column alignment.
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" \
+  && v11_bad="$v11_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
+printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
+  && v11_bad="$v11_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
+printf '%s\n' "$v11_ov_triples" | grep -q "	2099-07-27-operate-j	" \
+  && v11_bad="$v11_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
+for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
+  2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
+  printf '%s\n' "$v11_ov_triples" | grep -q "	${v11_slug}	" \
+    && v11_bad="$v11_bad [pre-adoption or accepted-spelling slug $v11_slug produced a triple]"
+done
+
+# F45: two same-category triples in one file (fixture #3's CR1/CR2, #34's
+# C3-C6) could have their reasons swapped and still pass a key-only
+# set-equality check. Assert the actual message text too, so the gate
+# proves each fired for ITS OWN stated reason.
+v11_msg_check() { # $1=path-suffix (basename), $2=key, $3=expected message substring
+  printf '%s\n' "$v11_ov_out" | grep -F "$1" | grep -F -- "— $2:" | grep -qF "$3" \
+    || v11_bad="$v11_bad [message mismatch: $1 $2 does not contain '$3']"
+}
+v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR1" "control restates the claim"
+v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR2" "empty or placeholder control"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C3" "bad ignore token: spec.*"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C4" "bad ignore token: status.conditions[*]"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C5" "bad ignore token: spec."
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C6" "bad ignore token: status"
+# F48: the two pipe fixtures are the same shape modulo the escape, so a
+# key-only assertion would pass if both produced the same finding. Name the
+# distinct reasons: the raw row is rejected on WIDTH, the escaped row parses
+# and is then rejected on its genuinely empty control.
+v11_msg_check "2099-08-15-deliver-pipe-raw.state.md" "CR1" "row has 8 cells, header has 7"
+v11_msg_check "2099-08-16-deliver-pipe-escaped.state.md" "CR1" "empty or placeholder control"
+v11_msg_check "2099-07-31-operate-ignore.state.md" "C7" "row has 8 cells, header has 7"
+printf '%s\n' "$v11_no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
+  || v11_bad="$v11_bad [override-control triple absent from the no-override run]"
+printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
+  || v11_bad="$v11_bad [override-visibility line absent from the override run]"
+printf '%s\n' "$v11_no_out" | grep -q '^conductor adoption date overridden:' \
+  && v11_bad="$v11_bad [no-override run printed an override line]"
+v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
+  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
+  v11_bad="$v11_bad [CONDUCTOR_SINCE default '$v11_default' < 2026-09-18]"
+fi
+report "V11" "$([ -z "$v11_bad" ] && echo 0 || echo 1)" \
+  "${v11_bad:-lint corpus: override rc=1, floor=$v11_floor across 6 layouts, $v11_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
+
+# ---------------------------------------------------------------------------
+# V12 — S3's row-required-gate table agrees with the lint constants (cut 2)
+#
+# Orchestration-only: parses agents/mozart.md's own table (scoped from the
+# "conductor record is where your own claims become checkable" sentence to
+# the next "### " heading) and compares it against
+# scripts/mozart-lint.sh's CONDUCTOR_GATES_*/CONDUCTOR_FLOWS_* constants —
+# so a future edit to either side that drifts from the other is caught
+# mechanically, not left to a reviewer's memory of what the other file says.
+# ---------------------------------------------------------------------------
+v12_lint_src="$gate_root/scripts/mozart-lint.sh"
+v12_const() { grep -oE "$1=\"[^\"]*\"" "$v12_lint_src" | head -1 | sed -E 's/^[^"]*"//; s/"$//'; }
+CONDUCTOR_GATES_DELIVER=$(v12_const CONDUCTOR_GATES_DELIVER)
+CONDUCTOR_GATES_OPERATE=$(v12_const CONDUCTOR_GATES_OPERATE)
+CONDUCTOR_GATES_INCIDENT=$(v12_const CONDUCTOR_GATES_INCIDENT)
+CONDUCTOR_FLOWS_DELIVER=$(v12_const CONDUCTOR_FLOWS_DELIVER)
+CONDUCTOR_FLOWS_OPERATE=$(v12_const CONDUCTOR_FLOWS_OPERATE)
+CONDUCTOR_FLOWS_INCIDENT=$(v12_const CONDUCTOR_FLOWS_INCIDENT)
+
+v12_mozart_md="$gate_root/agents/mozart.md"
+v12_section=$(awk '
+    /The conductor record is where your own claims become checkable/ { p = 1 }
+    p && /^### / && !/checkable/ { exit }
+    p { print }
+  ' "$v12_mozart_md")
+v12_rows=$(printf '%s\n' "$v12_section" | grep -E '^\| (DELIVER|OPERATE|INCIDENT) \|')
+v12_families=$(printf '%s\n' "$v12_rows" | awk -F'|' '{gsub(/ /,"",$2); print $2}' | sort -u)
+v12_bad=""
+[ "$(printf '%s\n' "$v12_families" | grep -c .)" -eq 3 ] || v12_bad="$v12_bad [families != 3: $v12_families]"
+v12_anchor_n=$(grep -cF 'The conductor record is where your own claims become checkable' "$v12_mozart_md")
+[ "$v12_anchor_n" -eq 1 ] || v12_bad="$v12_bad [anchor sentence found $v12_anchor_n times, want 1]"
+
+v12_check_family() { # $1=family name, $2=prose row grep pattern, $3=lint keys var, $4=lint flows var
+  local prow pkeys lkeys pflow_row
+  prow=$(printf '%s\n' "$v12_rows" | grep -E "^\| $1 \|")
+  pkeys=$(printf '%s' "$prow" | awk -F'|' '{print $4}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/^P<N>$/P/' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
+  lkeys=$(eval "printf '%s' \"\$$3\"")
+  if [ "$(printf '%s\n' "$pkeys" | tr ' ' '\n' | sort -u)" != "$(printf '%s\n' "$lkeys" | tr ' ' '\n' | sort -u)" ]; then
+    v12_bad="$v12_bad [$1 keys differ: prose={$pkeys} lint={$lkeys}]"
+  fi
+  pflow=$(printf '%s' "$prow" | awk -F'|' '{print $3}' | grep -oE '`[^`]+`' | tr -d '`' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
+  lflow=$(eval "printf '%s' \"\$$4\"")
+  if [ "$(printf '%s\n' "$pflow" | tr ' ' '\n' | sort -u)" != "$(printf '%s\n' "$lflow" | tr ' ' '\n' | sort -u)" ]; then
+    v12_bad="$v12_bad [$1 flow tokens differ: prose={$pflow} lint={$lflow}]"
+  fi
+}
+v12_check_family "DELIVER" "" "CONDUCTOR_GATES_DELIVER" "CONDUCTOR_FLOWS_DELIVER"
+v12_check_family "OPERATE" "" "CONDUCTOR_GATES_OPERATE" "CONDUCTOR_FLOWS_OPERATE"
+v12_check_family "INCIDENT" "" "CONDUCTOR_GATES_INCIDENT" "CONDUCTOR_FLOWS_INCIDENT"
+
+v12_deliver_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| DELIVER \|')
+printf '%s\n' "$v12_deliver_row" | grep -qF '`9`' || v12_bad="$v12_bad [DELIVER named member 9 absent from prose row]"
+v12_operate_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| OPERATE \|')
+printf '%s\n' "$v12_operate_row" | grep -qF '`1:fact`' || v12_bad="$v12_bad [OPERATE named member 1:fact absent from prose row]"
+v12_incident_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| INCIDENT \|')
+printf '%s\n' "$v12_incident_row" | grep -qF '`MITIGATE-ONLY`' || v12_bad="$v12_bad [INCIDENT named member MITIGATE-ONLY absent from prose row]"
+
+report "V12" "$([ -z "$v12_bad" ] && echo 0 || echo 1)" \
+  "${v12_bad:-S3 table agrees with lint constants: 3 families, per-family keys and flow tokens set-equal, named members present, anchor found once}"
+
+# ---------------------------------------------------------------------------
+# V10b — metrics conductor section (PD9/PD11/PD13, phase 6)
+#
+# Runs the metrics-conductor and metrics-vacuity cases against $gate_root's
+# OWN mozart-metrics.sh, corpus resolved from this script's own repo (PD8).
+# ---------------------------------------------------------------------------
+v10b_script_repo=$(dirname "$(dirname "$gatefile")")
+v10b_bad=""
+
+v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
+  local case="$1" floor="$2" corpus expected out rc missing member
+  corpus="$v10b_script_repo/tests/fixtures/conductor/$case"
+  expected="$corpus/expected.tsv"
+  local n
+  n=$(grep -c "$(printf '^metrics\t')" "$expected" 2>/dev/null || echo 0)
+  [ "$n" -ge "$floor" ] || v10b_bad="$v10b_bad [$case expected-file floor $n < $floor]"
+  out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$corpus" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] || v10b_bad="$v10b_bad [$case exit=$rc want 0]"
+  missing=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s\n' "$out" | grep -qxF "$line" || missing="$missing [$line]"
+  done < <(cut -f2 "$expected")
+  [ -z "$missing" ] || v10b_bad="$v10b_bad [$case expected line(s) absent:$missing]"
+  shift 2
+  for member in "$@"; do
+    printf '%s\n' "$out" | grep -qxF "$member" || v10b_bad="$v10b_bad [$case named member absent: $member]"
+  done
+  if [ "$case" = "metrics-conductor" ]; then
+    lens_line=$(printf '%s\n' "$out" | grep '^  rejected by lens:')
+    for tok in "bob=1/1" "tessa=1/1" "ruby=1/1"; do
+      printf '%s' "$lens_line" | grep -qF "$tok" || v10b_bad="$v10b_bad [metrics-conductor rejected-by-lens token absent: $tok]"
+    done
+    printf '%s' "$lens_line" | grep -q 'xander=' && v10b_bad="$v10b_bad [metrics-conductor reversed lens xander= present in rejected-by-lens line]"
+  fi
+}
+
+v10b_run_case "metrics-conductor" 6 \
+  "Wrong-override rate: 1/3 rejected findings later reversed (33%)" \
+  "  rejected (judgment): 1 of 3"
+v10b_run_case "metrics-vacuity" 1 \
+  "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)"
+
+report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
+  "${v10b_bad:-metrics-conductor and metrics-vacuity: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
+
+# ---------------------------------------------------------------------------
+# V13 — cross-file conductor-prose parity, section-scoped (phase 7)
+#
+# Proves specific terms landed in the SPECIFIC section named for them, not
+# just somewhere in the file (a whole-file grep can't tell "Decisions log
+# mentioned in the artifact list" from "mentioned once, in an unrelated
+# aside"). v13_scoped extracts the named section (anchor line to the next
+# heading at or above its own level) and counts term occurrences in it.
+# ---------------------------------------------------------------------------
+v13_scoped() { # $1=file $2=heading-anchor(literal prefix) $3=stop-regex $4=term -> match count
+  awk -v anchor="$2" -v stoppat="$3" -v term="$4" '
+    index($0, anchor) == 1 { p = 1; next }
+    p && $0 ~ stoppat { exit }
+    p && index($0, term) > 0 { c++ }
+    END { print c + 0 }
+  ' "$1" 2>/dev/null
+  [ -f "$1" ] || echo 0
+}
+L2='^## |^# '
+L3='^### |^## |^# '
+
+v13_bad=""
+v13_sites=0
+v13_named_hank_apply=0
+
+v13_check() { # $1=file $2=anchor $3=stoplevel $4=term $5=label
+  local n
+  n=$(v13_scoped "$1" "$2" "$3" "$4")
+  v13_sites=$((v13_sites + 1))
+  if [ "$n" -lt 1 ]; then
+    v13_bad="$v13_bad [absent: $5]"
+  fi
+  if [ "$2" = "### 4. Apply" ] && [ "$1" = "$gate_root/agents/hank.md" ]; then
+    [ "$n" -ge 1 ] && v13_named_hank_apply=1
+  fi
+}
+
+# (a) decisions.md across the five artifact-list sites
+v13_check "$gate_root/agents/mozart.md" "### Per-campaign artifacts" "$L3" "decisions.md" "mozart Per-campaign artifacts / decisions.md"
+v13_check "$gate_root/agents/mozart.md" "### Directory convention" "$L3" "decisions.md" "mozart Directory convention / decisions.md"
+v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
+v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
+v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
+
+# (d) manifest across the nine OPERATE/INCIDENT sections
+v13_check "$gate_root/agents/mozart.md" "### 3. Change plan (otto)" "$L3" "manifest" "mozart Change plan / manifest"
+v13_check "$gate_root/agents/mozart.md" "### 5. Apply (hank)" "$L3" "manifest" "mozart Apply (hank) / manifest"
+v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "manifest" "mozart Operate-mode rules / manifest"
+v13_check "$gate_root/agents/mozart.md" "### Incident-mode rules" "$L3" "manifest" "mozart Incident-mode rules / manifest"
+v13_check "$gate_root/agents/hank.md" "### 4. Apply" "$L3" "manifest" "hank 4. Apply / manifest"
+v13_check "$gate_root/agents/hank.md" "## Under a declared INCIDENT" "$L2" "manifest" "hank Under a declared INCIDENT / manifest"
+v13_check "$gate_root/agents/otto.md" "## Where you fit" "$L2" "manifest" "otto Where you fit / manifest"
+v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "manifest" "PIPELINE OPERATE pipeline / manifest"
+v13_check "$gate_root/agents/PIPELINE.md" "## INCIDENT pipeline" "$L2" "manifest" "PIPELINE INCIDENT pipeline / manifest"
+
+# (e) both sides across three pin-related sections
+v13_check "$gate_root/agents/mozart.md" "### 1. Intake + context pin" "$L3" "both sides" "mozart Intake + context pin / both sides"
+v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "both sides" "mozart Operate-mode rules / both sides"
+v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "both sides" "PIPELINE OPERATE pipeline / both sides"
+
+# (f) the dick heading itself, exactly once
+v13_dick_n=$(grep -cF '### Adjudicating a dispute' "$gate_root/agents/dick.md")
+v13_sites=$((v13_sites + 1))
+[ "$v13_dick_n" -eq 1 ] || v13_bad="$v13_bad [dick heading 'Adjudicating a dispute' count=$v13_dick_n, want 1]"
+
+# (b) the promoted-note phrase must be gone from mozart.md entirely
+v13_running_log_n=$(grep -cF 'running log of decisions' "$gate_root/agents/mozart.md")
+v13_sites=$((v13_sites + 1))
+[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad [agents/mozart.md still says 'running log of decisions': $v13_running_log_n]"
+
+# (c) the deleted field note's title must be gone from every persona
+v13_sites=$((v13_sites + 1))
+v13_deleted_note_n=$(grep -rlF 'An unattended run needs a decision log' "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+[ "$v13_deleted_note_n" -eq 0 ] || v13_bad="$v13_bad [deleted field note title still present in $v13_deleted_note_n agents/*.md file(s)]"
+
+[ "$v13_sites" -ge 20 ] || v13_bad="$v13_bad [scoped-site population $v13_sites < 20]"
+[ "$v13_named_hank_apply" -eq 1 ] || v13_bad="$v13_bad [named member absent: hank ### 4. Apply / manifest]"
+
+report "V13" "$([ -z "$v13_bad" ] && echo 0 || echo 1)" \
+  "${v13_bad:-$v13_sites scoped sites checked, named member (hank ### 4. Apply) present, both zero-count checks and the dick-heading-once check hold}"
+
+# ---------------------------------------------------------------------------
+# V14 — campaign scripts survive a path containing a space (F50)
+#
+# mozart-metrics.sh held its roots and its file list in whitespace-delimited
+# STRINGS, so a checkout under "~/Google Drive/..." split into two
+# nonexistent roots and reported "no state files"; a state FILENAME with a
+# space was handed to awk as two truncated paths. mozart-lint.sh had the same
+# defect in one place only — Check F word-split an unquoted $(find ...), so a
+# stale campaign under a spaced path went unreported.
+#
+# The corpus is BUILT here rather than committed: the point is the path, and a
+# committed directory with a space in its name would have to be mirrored
+# byte-for-byte into the ports' fixture trees for no added signal. Both
+# dimensions codex verified are exercised — a spaced ROOT and a spaced
+# FILENAME — and the lint arm backdates one file so Check F actually has
+# something to find rather than passing on an empty sweep.
+# ---------------------------------------------------------------------------
+v14_bad=""
+v14_tmp=$(mktemp -d)
+v14_root="$v14_tmp/dir with a space"
+v14_act="$v14_root/.mozart/plans/active"
+mkdir -p "$v14_act"
+v14_spaced="$v14_act/2099-02-05-deliver-spaced name.state.md"
+cat > "$v14_spaced" <<'V14_EOF'
+# Pipeline state: 2099-02-05-deliver-spaced name
+
+**Last updated**: 2026-09-17T00:00Z
+**Status**: in-progress
+**Flow**: FULL
+**Tier**: STANDARD
+**Context**: BROWNFIELD
+**Mode**: AUTONOMOUS
+
+## Conductor record
+| id | kind | claim | links | source | control (command -> observed) | written-to |
+|----|------|-------|-------|--------|-------------------------------|------------|
+| CR1 | check | the spaced path is discoverable | - | `ls` 2026-09-17T00:00Z | `ls` -> the file | n/a |
+| CR2 | fact | the upstream API is unversioned | - | doc unverified |  | n/a |
+V14_EOF
+cat > "$v14_act/2099-02-06-deliver-plain.state.md" <<'V14_EOF'
+# Pipeline state: 2099-02-06-deliver-plain
+
+**Last updated**: 2026-09-17T00:00Z
+**Status**: in-progress
+**Flow**: FULL
+**Tier**: STANDARD
+**Context**: BROWNFIELD
+**Mode**: AUTONOMOUS
+
+## Conductor record
+- exempt: pre-adoption persona
+V14_EOF
+# Population floor + named member: without these the two runs below could
+# both "pass" against an empty corpus that proves nothing about spaces.
+v14_floor=$(find "$v14_root" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+[ "$v14_floor" -ge 2 ] || v14_bad="$v14_bad [spaced-path corpus has $v14_floor state file(s), floor 2]"
+[ -f "$v14_spaced" ] || v14_bad="$v14_bad [named member absent: the spaced FILENAME fixture was not created]"
+
+v14_m_out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v14_root" 2>&1)
+v14_m_rc=$?
+[ "$v14_m_rc" -eq 0 ] || v14_bad="$v14_bad [metrics exit=$v14_m_rc want 0 under a spaced root]"
+printf '%s\n' "$v14_m_out" | grep -q 'nothing to aggregate' \
+  && v14_bad="$v14_bad [metrics reported 'nothing to aggregate' under a spaced root]"
+# The spaced FILE must reach the tally, not merely fail to crash the run: its
+# two conductor rows are the ONLY rows in this corpus, so these counts are
+# non-zero if and only if awk opened the spaced path intact.
+v14_m_member='Conductor rows: check=1 adjudication=0 fact=1'
+printf '%s\n' "$v14_m_out" | grep -qxF "$v14_m_member" \
+  || v14_bad="$v14_bad [named member absent from metrics output: $v14_m_member]"
+
+# Check F needs a file older than STALE_DAYS to have anything to report.
+touch -t 200001010000 "$v14_spaced" 2>/dev/null
+v14_l_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v14_root" 2>&1)
+v14_l_rc=$?
+[ "$v14_l_rc" -eq 1 ] || v14_bad="$v14_bad [lint exit=$v14_l_rc want 1 under a spaced root]"
+printf '%s\n' "$v14_l_out" | grep -F 'LINT [stale-active]' | grep -qF 'deliver-spaced name.state.md' \
+  || v14_bad="$v14_bad [named member absent: no stale-active finding naming the spaced filename]"
+rm -rf "$v14_tmp"
+report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
+  "${v14_bad:-spaced root + spaced filename: metrics exit=0 and counts the rows in the spaced file, lint exit=1 and names it in a stale-active finding, floor=$v14_floor}"
+
+# ---------------------------------------------------------------------------
+# V15 — every frozen parity snippet still matches its orchestration target
+#       (F58)
+#
+# The canonical snippets under tests/parity/snippets/ are the frozen text that
+# check-field-note-parity.py's `bullets` mode (A13) asserts appears exactly
+# once at each of four ports. A13 cannot be a CI gate — no single repo's CI can
+# see the other three checkouts, and report() has no SKIP — so it is a manual
+# pre-merge run, and a snippet can go stale between runs. It did: F48 reworded
+# the conductor-record paragraph in all four repos and S3.txt kept the old
+# sentence, so A13 read 0/4 for a snippet that had been 4/4.
+#
+# The CROSS-PORT half still needs four checkouts. The ORCHESTRATION half does
+# not: a snippet that no longer matches THIS repo's own target file is stale by
+# definition, and that is exactly the divergence a reword creates at the moment
+# it is made. Gating it here turns "remember to run A13" into "the edit that
+# strands a snippet fails the suite it already runs".
+#
+# Vacuity controls: the registry below must account for every file in the
+# snippets directory (an unregistered snippet fails rather than being skipped),
+# the row count carries a floor, and S3 — the one that actually went stale — is
+# asserted by name.
+# ---------------------------------------------------------------------------
+v15_snipdir="$gate_root/tests/parity/snippets"
+v15_registry=$(cat <<'V15_REGISTRY_EOF'
+S1	agents/mozart.md
+S2	agents/mozart.md
+S3	agents/mozart.md
+S4	agents/mozart.md
+S5	agents/mozart.md
+S6	agents/mozart.md
+S7	agents/mozart.md
+S8	agents/mozart.md
+S9	agents/mozart.md
+S10	agents/mozart.md
+S11	agents/mozart.md
+S12	agents/mozart.md
+S13	agents/mozart.md
+S14	agents/dick.md
+S15	agents/hank.md
+S16	agents/otto.md
+S17	agents/jackson.md
+S18	agents/mozart.md
+S19	agents/hank.md
+S21	agents/hank.md
+M2	agents/harry.md
+M4	agents/mozart.md
+M7	agents/harry.md
+MP	agents/mozart.md
+JP	agents/jackson.md
+V15_REGISTRY_EOF
+)
+
+# Count occurrences of a whole snippet FILE inside a target FILE. Pure awk (no
+# python3, no perl) so the suite keeps running unchanged under mawk in A10's
+# bare container. RS is a control char the corpus never contains, so the target
+# arrives as one record; the snippet is read line-by-line and trimmed, which is
+# what `bullets` compares with .strip().
+v15_occurrences() { # $1 = snippet file, $2 = target file
+  awk -v snipf="$1" '
+    BEGIN {
+      RS = "\034"; c = 0
+      while ((getline l < snipf) > 0) { needle = needle (c++ ? "\n" : "") l }
+      close(snipf)
+      gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", needle)
+    }
+    {
+      if (needle == "") { print -1; exit }
+      hay = $0; cnt = 0
+      pos = index(hay, needle)
+      while (pos > 0) { cnt++; hay = substr(hay, pos + length(needle)); pos = index(hay, needle) }
+      print cnt
+      exit
+    }
+  ' "$2"
+}
+
+v15_bad=""
+v15_rows=$(printf '%s\n' "$v15_registry" | grep -c .)
+v15_files=$(find "$v15_snipdir" -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')
+
+# F63: completeness used to be a COUNT comparison (rows == files) plus a
+# per-row existence test. Both hold when a row is duplicated and another is
+# dropped — the count is preserved, every registered file still exists, and the
+# dropped snippet is simply never checked. That is a vacuity path inside the
+# check that was added to close a vacuity path, so compare the SETS instead,
+# in both directions, and reject duplicate keys explicitly.
+#
+# Set-equality plus no-duplicates implies rows == files, so the old count test
+# is not kept alongside: it would add a second, weaker message for a condition
+# already named precisely below.
+v15_keys=$(printf '%s\n' "$v15_registry" | awk -F'\t' 'NF { print $1 }' | sort)
+v15_stems=$(find "$v15_snipdir" -name '*.txt' 2>/dev/null | sed 's#.*/##; s#\.txt$##' | sort)
+v15_dupes=$(printf '%s\n' "$v15_keys" | uniq -d | tr '\n' ' ')
+v15_only_registry=$(comm -23 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
+v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
+
+[ "$v15_rows" -ge 25 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 25]"
+# Braces are load-bearing on ${v15_dupes}: the message continues with an
+# em-dash, and bash reads the multibyte character as part of the variable NAME
+# without them, so under `set -u` the gate aborts with "unbound variable" on
+# the very path it exists to report. Caught by control 1 producing no verdict
+# at all rather than a FAIL -- a check that cannot print its own finding is
+# indistinguishable from one that has nothing to report.
+[ -z "$v15_dupes" ] || v15_bad="${v15_bad} [duplicate registry key(s): ${v15_dupes}— a duplicate preserves the row count while some other snippet goes unchecked]"
+[ -z "$v15_only_registry" ] || v15_bad="${v15_bad} [registered with no snippet file: ${v15_only_registry}]"
+[ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
+printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/mozart.md')" \
+  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/mozart.md]"
+
+v15_checked=0
+while IFS=$'\t' read -r v15_snip v15_target; do
+  [ -n "$v15_snip" ] || continue
+  if [ ! -f "$v15_snipdir/$v15_snip.txt" ]; then
+    v15_bad="$v15_bad [registered snippet file missing: $v15_snip.txt]"
+    continue
+  fi
+  v15_n=$(v15_occurrences "$v15_snipdir/$v15_snip.txt" "$gate_root/$v15_target")
+  v15_checked=$((v15_checked + 1))
+  [ "$v15_n" = "1" ] || v15_bad="$v15_bad [$v15_snip.txt occurs $v15_n time(s) in $v15_target, want exactly 1]"
+done < <(printf '%s\n' "$v15_registry")
+[ "$v15_checked" -eq "$v15_rows" ] || v15_bad="$v15_bad [checked $v15_checked of $v15_rows registered snippets]"
+report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
+  "${v15_bad:-$v15_checked frozen snippet(s) each occur exactly once in their orchestration target; registry key set == the $v15_files file(s) on disk, no duplicate keys; named member S3 present}"
+
+# ---------------------------------------------------------------------------
+# V16 — per-file size ceilings for this repo's personas (F66)
+#
+# These are the plan's A7 budgets. A7 was written as a hand-run command and
+# wired into nothing, so three reconciliation rounds of green suites ran while
+# agents/mozart.md sat over its ceiling: grepping this file for the ceiling
+# returned 0 hits. A budget nobody runs is not a budget.
+#
+# mozart.md's ceiling is 269,500 per log D26, which supersedes D14's 269,000.
+# The history is worth keeping in view, because what moved was the number and
+# not the discipline: phase 7 landed mozart.md at 268,994 — six bytes under
+# D14's ceiling — so the first real fix after it (F48, +399 across two
+# paragraphs, 220 of them inside the byte-checked S3 snippet) could not fit.
+# Measured at the time: everything the campaign added outside frozen snippet
+# text was 2,325 bytes of rule prose, so closing a 299-byte gap meant deleting
+# a mechanism. D26 moved the number rather than the content. The other three
+# ceilings are unchanged, and all three files still sit inside them.
+#
+# SCOPE: orchestration's own files only. The ports enforce their own ceilings
+# with their own tooling — copilot via scripts/check_agents.py against the
+# table in its check.yml, local via the 30,000-char cap on MANIFEST.jsonc's
+# derived_chars — and this gate cannot see their checkouts. It says nothing
+# about them; do not read a PASS here as four-repo coverage.
+#
+# Ceilings are per-file and named, not a repo-wide total: the failure has to
+# say WHICH file and by how much, or the next person is back to bisecting
+# `wc -c`. Vacuity controls: a floor on how many files are tracked, every
+# tracked file must exist (a vanished file fails rather than being skipped),
+# and agents/mozart.md is asserted present in the table by name.
+# ---------------------------------------------------------------------------
+v16_budgets=$(cat <<'V16_BUDGETS_EOF'
+agents/mozart.md	269500
+agents/hank.md	22300
+agents/dick.md	23490
+agents/otto.md	21700
+V16_BUDGETS_EOF
+)
+
+v16_bad=""
+v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
+[ "$v16_rows" -ge 4 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 4]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269500')" \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269500]"
+
+v16_checked=0
+v16_sizes=""
+while IFS=$'\t' read -r v16_file v16_limit; do
+  [ -n "$v16_file" ] || continue
+  if [ ! -f "$gate_root/$v16_file" ]; then
+    v16_bad="$v16_bad [tracked file missing: $v16_file]"
+    continue
+  fi
+  v16_n=$(wc -c < "$gate_root/$v16_file" | tr -d ' ')
+  v16_checked=$((v16_checked + 1))
+  v16_sizes="$v16_sizes $v16_file=$v16_n/$v16_limit"
+  if [ "$v16_n" -gt "$v16_limit" ]; then
+    v16_bad="$v16_bad [$v16_file is $v16_n bytes, over its $v16_limit ceiling by $((v16_n - v16_limit))]"
+  fi
+done < <(printf '%s\n' "$v16_budgets")
+[ "$v16_checked" -eq "$v16_rows" ] || v16_bad="$v16_bad [checked $v16_checked of $v16_rows tracked file(s)]"
+report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
+  "${v16_bad:-$v16_checked orchestration file(s) within their per-file ceilings:$v16_sizes}"
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

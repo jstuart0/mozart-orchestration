@@ -4,6 +4,150 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — conductor self-verification: mozart's own derived claims get a control, a linkage, and a lint
+
+mozart's own conclusions — a check it ran, a dispute it settled, a fact it copied into a brief —
+now carry the same discipline M2/M7 already demand of everyone else's checks. Seven changes land
+together in `agents/mozart.md` and its supporting scripts:
+
+1. **The conductor record** (`## Conductor record`, new state-file section) — one row per derived
+   claim (`check` | `adjudication` | `fact`), with a linked gate/finding/correction id and a control
+   that could have shown the claim false. A ticked row-required gate key (DELIVER `5 9 10 13 P<N>`,
+   OPERATE `1:fact 4 6`, INCIDENT `1 5`) needs a linked row; the section may stay empty only while no
+   such obligation exists.
+2. **Dispute handling when mozart is a party** — settled by a third source (a command neither side
+   wrote) in a linked `adjudication` row, or escalated to the operator or a fresh, unanchored dick.
+   A design judgment no command could settle is dispositioned **`rejected (judgment)`** with a
+   decisions-log citation; **`rejected (user)`** remains the user-overruled case. Both are new
+   findings-ledger dispositions alongside `fixed`/`rejected`/`accepted-risk`.
+3. **A decisions log** (`<slug>.decisions.md`), promoted from a field note to a standing artifact:
+   every judgment call gets a decision, reasoning, bounds, and a revisit trigger.
+4. **The mutation manifest** — one field (or a coupled set with a stated rationale) per OPERATE/
+   INCIDENT mutation, with literal `ignore:` field paths for what a read-back may skip and
+   `<redacted>` for secret-bearing values.
+5. **Lint Checks K and L** (`conductor-missing`, `conductor-unlinked`, `conductor-row`,
+   `conductor-reference`, `decision-trigger`, `mutation-manifest`) — fifteen categories total, up
+   from eight documented (the prose list had silently fallen behind `missing-2b`, which lint already
+   implemented). **`MOZART_LINT_CONDUCTOR_SINCE`** overrides the adoption-date constant as a fixture
+   test hook; every run that sets it prints `conductor adoption date overridden: <value>` before any
+   finding, so the override can never be silent. **Check L shares Check K's PD1 adoption boundary**
+   rather than a second copy of it — a pre-adoption campaign's change-ledger rows are never flagged,
+   even ones written before the manifest column existed, but a post-adoption campaign gets no
+   grandfathering once enforced (found live on k8s-home-lab: 155 `mutation-manifest` hits across 12
+   real campaigns before this fix, 0 after).
+6. **The Check J DELIVER-family fix** — `missing-2b` used to fire on any active campaign with a bare
+   `3.` stage row and no `2b.`, regardless of flow; OPERATE's own stage 3 ("Change plan") and a
+   Flow-less file with an unrelated stage 3 both false-positived as a DELIVER campaign. It now fires
+   only when the Flow field resolves to the DELIVER family, or is unparseable and the file has stage
+   rows `2.`, `3.` and `12.` (the shape of a DELIVER stage list with no Flow header to classify it
+   by). Confirmed on k8s-home-lab: 7 of 12 pre-fix hits were `OPERATE`/`INVESTIGATE-ONLY` campaigns.
+7. **PD4's widening**: the dispute-adjudication rule now covers any rejection mozart is a party to,
+   not only ones a command could settle immediately — the judgment-call and escalation paths above
+   are how the wider set gets a disposition.
+
+**Also fixed, found while building the above**: two field-reader anchor bugs (`status_of()`,
+`flow_of()` in `mozart-lint.sh`; the Tier reader in `mozart-metrics.sh`; the Flow reader inside
+Check K's own parser) all anchored their field to the start of the line and missed a combined
+single-line header (`**Shape**: ... | **Flow**: OPERATE-FULL`) that exists in the wild — all four
+now match the field anywhere on the line. An exempt-line bypass let `- exempt: pre-adoption persona`
+suppress Check K entirely even beside a real table with unlinked required gates; the exemption is
+now valid only when it is the section's sole content. `decision-trigger` recognizes both
+`**Revisit trigger**:` (the recommended form) and `**Revisit when**:` (an accepted spelling — this
+campaign's own decisions log used it in 17 of 19 entries). `reverses F<n>` detection is anchored to
+the start of the note in both the linter and the metrics aggregator, so a passing mention can no
+longer delete a real finding from the totals. The metrics aggregator's placeholder-detection bug is
+also fixed: `scripts/mozart-metrics.sh` used to skip any findings-ledger row or escapes line
+containing a literal `<` anywhere, not just a template placeholder cell — **this is a counting
+discontinuity**: a real finding whose note mentions "n<3 cases" now counts toward Confirmed catches
+where it previously didn't. The metrics aggregator also gains a `== conductor ==` block: campaigns
+carrying a conductor record (and how many are exempt), conductor rows by kind, controlled
+check/adjudication rows, unverified facts, and the wrong-override rate (rejected findings later
+reversed, with a `rejected (judgment)` share) — `V10a`/`V10b`/`V11`/`V12`/`V13` gate all of it.
+
+**Residue, stated once**: the linter proves conductor rows are linked and well-formed; it cannot
+prove every derived claim in prose got a row, that a `kind` is honest, or that a control
+discriminates beyond not restating the claim. EVAL's qualitative-sampling stage now covers that
+residue explicitly (Status notes, flow traces, and final reports for unlinked derived claims;
+`rejected (judgment)` notes sampled for disputes a command could have settled; OPERATE/INCIDENT
+manifest cells sampled for unredacted secrets Check L's shape check can't see).
+
+**Reconciliation round 1** (external pre-merge review, F47-F51). Checks K/L claimed the same
+current+legacy scope as Checks C/D and did not have it: the legacy prefixless flat glob
+(`plans/<date>-<slug>.state.md`) was missing, and the slug date was read off the raw basename, so
+every `active-`/`finished-` prefixed file classified as pre-adoption no matter its date. Both are
+vacuous passes — a post-adoption state file with no `## Conductor record` linted clean in either
+layout. The corpus now carries a fixture for each of the six layouts K/L must reach, including the
+legacy `thoughts/shared/` root, and V11 asserts each layout is populated **and git-tracked** (the
+legacy-root fixture was initially swallowed by `.gitignore`'s blanket `thoughts/` rule and would
+have passed here while existing in no other checkout). Conductor and change-ledger rows were split
+on a raw `|`, so a `source` cell holding a shell pipeline shifted every later cell and an **empty
+control parsed as filled** — the rule `agents/mozart.md` stated as prose was never enforced. Both
+tables now honour `\|` as an escaped pipe and reject any row whose cell count disagrees with its
+header (`conductor-row` / `mutation-manifest`); `mozart-metrics.sh` applies the same rule and prints
+the count of rows it skipped, rather than tallying a shifted row as controlled. `mozart-metrics.sh`
+held its roots and file list in whitespace-delimited strings and `mozart-lint.sh` word-split an
+unquoted `$(find ...)`, so a checkout under a path containing a space reported "no state files" and
+a stale campaign there went unreported; both are NUL-delimited arrays now, gated by V14. Finally,
+V11 compares the corpus's **total** emitted lint lines against `expected.tsv`, not just the filtered
+K/L set — `2099-07-29-noflow-j` was also firing `missing-12b`, so it was not failing only for its
+intended reason and no gate could see it.
+
+PD1's adoption gate has two limbs — slug date on or after the cutoff, **or** a header already
+present — and the linter implemented only the first for `decision-trigger`, so a campaign carrying a
+conductor record with a pre-cutoff slug date had its rows and gate linkages checked while its
+decisions log went unchecked. The gate is now the union (`is_post_adoption`), with the date-only form
+(`post_by_date`) kept for the one thing it actually decides: whether a *missing* section is an
+obligation. `decision-trigger` was the only conductor-family check gated on the date alone.
+
+**Reconciliation round 2** (F58-F59). The F48 reword stranded the frozen parity snippet that pins
+the same sentence: `tests/parity/snippets/S3.txt` kept the pre-fix text, so `bullets` (A13) read
+0 of 4 sites for a snippet that had been 4 of 4. Re-frozen — and the class is closed rather than the
+instance, because A13 is a manual pre-merge run across four checkouts and nothing ran it
+automatically. New gate **V15** asserts every frozen snippet still occurs exactly once in its
+*orchestration* target file. That half needs no other checkout, and it is the half that goes stale:
+the divergence is created by the edit, in this repo, at the moment it is made. The registry must
+account for every file in the snippets directory, so a new snippet cannot be silently unchecked.
+All 25 snippets are covered; S3 was the only stale one across all ten A13 invocations (92 sites).
+
+`scripts/check-field-note-parity.py` carried the defect it was verifying fixed: its `LINT_LINE_RE`
+parsed the lint path as `\S+`, so a corpus under a path containing a space parsed **zero** triples
+while the linter under test emitted all 47 correctly. The path is now taken non-greedily up to the
+first `" — "`, matching how the bash-side extractor has always split it, and the `behaviour` runner
+proves it end to end: every script-shipping port's lint case is run a second time against a copy of
+the corpus under `dir with a space/`, with a control that refuses to pass if no output line actually
+names the spaced path.
+
+**Reconciliation round 3** (F63). V15's own registry-completeness test was the defect class it was
+built to close, one level up: it compared the registry's row COUNT against the file count and
+checked that each registered file exists, which a duplicated row satisfies while some other snippet
+goes unchecked. Replaced with set-equality in both directions plus an explicit duplicate-key
+rejection, so the failure names the stranded snippet rather than a count. The floor and the named
+member are unchanged. Fixing it surfaced a second defect in the same block: the duplicate-key
+message continues with an em-dash, and without braces bash reads the multibyte character as part of
+the variable name, so under `set -u` the gate aborted on the exact path it exists to report — the
+control produced no verdict at all rather than a FAIL, which is how it was caught.
+
+**Reconciliation round 4** (F66). `agents/mozart.md` was over its size ceiling and no gate said so:
+A7 was written as a hand-run command and wired into nothing, so three rounds of green suites ran past
+a real breach. New gate **V16** enforces A7's per-file budgets — mozart, hank, dick and otto — naming
+the file and its exact overage rather than reporting a repo-wide total, with a floor on the table, a
+named member, and a missing tracked file treated as a failure rather than a skip. It is scoped to
+this repo's files and says so at the site: the ports enforce their own ceilings with their own
+tooling, which this gate cannot see.
+
+**mozart.md's ceiling is 269,500** (log D26, superseding D14's 269,000). The number moved because the
+content could not: phase 7 landed the file at 268,994, six bytes under D14's ceiling, so the first
+real fix after it — F48, +399 bytes across two paragraphs, 220 of them inside the byte-checked `S3`
+snippet — had nowhere to fit. Tightening the F48 change-ledger sentence to the same rule in half the
+bytes (85 from 179, mirrored across all four repos) recovered 94; the remaining 299 would have had to
+come out of the 2,325 bytes of rule prose the campaign added outside frozen snippet text, i.e. by
+deleting a mechanism. The other three ceilings are unchanged and all three files sit inside them.
+
+**Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
+land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
+`scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has
+not yet landed as of this entry.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added — field-notes harvest: four prose entries, three mechanisms, ported to all three mozart ports

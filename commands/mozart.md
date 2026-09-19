@@ -91,6 +91,7 @@ Parallel reviewer fan-out is a single message with multiple Task calls. Sequenti
 ### 6. Maintain all artifacts
 
 - **Plan file** (`.mozart/plans/<slug>.md`) — drafted by harry, you update phase checkboxes
+- **Decisions log** (`<slug>.decisions.md`) — created at the first judgment call, one entry per decision
 - **State file** (`<slug>.state.md`) — updated at every state transition, before invoking the next agent
 - **Flow sketch** (`<slug>.flow.md`) — Mermaid diagram + chronological trace + participation summary; orientation flips LR → TD past 5 nodes
 - **Validation report** (`<slug>.validation.md`) — written by valerie at stage 10; you record its path in the state file's `Paths` block and cite it from the final report

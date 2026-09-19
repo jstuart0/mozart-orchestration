@@ -1,0 +1,1 @@
+- **One lever, one variable.** Each mitigation changes one variable and records its mutation manifest (see Operate-mode rules) in its timeline entry and change-ledger row, secret-bearing values `<redacted>`. Its read-back comparison runs, without blocking, once the symptom check clears, and no later than stage 3 Converge

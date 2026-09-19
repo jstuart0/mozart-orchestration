@@ -1,0 +1,7 @@
+metrics	Campaigns with a conductor record: 3 (1 exempt)
+metrics	Conductor rows: check=2 adjudication=2 fact=1
+metrics	  controlled check/adjudication rows: 2 of 4; unverified facts: 1 of 1
+metrics	  malformed conductor rows skipped (cell count != header): 1
+metrics	Wrong-override rate: 1/3 rejected findings later reversed (33%)
+metrics	  rejected (judgment): 1 of 3
+metrics	Confirmed catches (Critical/High, disposition=fixed): 1

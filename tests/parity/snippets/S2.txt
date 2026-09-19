@@ -1,0 +1,4 @@
+## Conductor record
+| id | kind | claim | links | source | control (command -> observed) | written-to |
+|----|------|-------|-------|--------|-------------------------------|------------|
+| CR1 | <check, adjudication, or fact> | <the conclusion> | <gate key, F-id, or CR-id> | <command + ts, or doc + unverified> | <what would show the claim false -> what it printed> | <every path the claim was copied into> |

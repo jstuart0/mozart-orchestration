@@ -1,0 +1,12 @@
+### Decisions log (`<slug>.decisions.md`)
+
+The state file records what happened; the decisions log records why. Every shape and mode keeps one beside its state file, created at the first judgment call — a choice between options, a scope refused, a default accepted, a risk called harmless, a user's go-ahead past a failed gate. Write each entry when you make the decision:
+
+```
+## D<n> — <decision> (<ISO ts>, stage <key>)
+- **Reasoning**: <why this over the alternatives>
+- **Bounds accepted**: <what you are knowingly not covering>
+- **Revisit trigger**: harmless while <X>; revisit when <Y>
+```
+
+The trigger is the point: "harmless today" with no condition for tomorrow is how a pitfall someone already flagged costs an afternoon. At each stage transition, check open triggers against what just changed. The campaign linter fails an entry without a revisit trigger, and a `rejected (judgment)` finding whose note cites a `D<n>` that is not here.

@@ -1,0 +1,2 @@
+## Degraded controls
+- (none) | <stage> | <control that was unavailable> | <what it would have caught> | <what ran instead>

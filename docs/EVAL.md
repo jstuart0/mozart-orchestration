@@ -50,9 +50,9 @@ Semantics:
 
 ## Mechanical metrics (scripts/mozart-lint.sh)
 
-| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts | missing-12b | missing-2b |
-|---|---|---|---|---|---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| Repo | Total | status-location | codex-drift | duplicate-stages | unclosed-stages | stale-active | stale-paths | stranded-artifacts | missing-12b | missing-2b | conductor-missing | conductor-unlinked | conductor-row | conductor-reference | decision-trigger | mutation-manifest |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
 Trend vs previous run: <deltas, or "baseline — no comparison">
 
@@ -63,9 +63,9 @@ Trend vs previous run: <deltas, or "baseline — no comparison">
 | ... | ... | ... | ... | ... | ... | ... | ... | ... |
 
 Source: each campaign's state-file `## Findings ledger` (one row per dispositioned
-finding: stage, lens, severity, fixed/rejected/accepted-risk) and `## Escapes`
-block (`Traces-to:` links written when a later DIAGNOSE or audit finds a defect
-the campaign shipped).
+finding: stage, lens, severity, `fixed`/`rejected`/`rejected (judgment)`/
+`rejected (user)`/`accepted-risk`) and `## Escapes` block (`Traces-to:` links
+written when a later DIAGNOSE or audit finds a defect the campaign shipped).
 
 **`## Degraded controls` is a separate block and is deliberately not counted here.**
 It records checks that ran at reduced strength (e.g. stage 12b with no secret
@@ -95,6 +95,22 @@ Goodhart-able, dispositions are valerie-confirmed.
 
 Trend vs previous run: <deltas, or "baseline — no comparison">
 
+## Conductor record (scripts/mozart-metrics.sh, `== conductor ==` block)
+
+| Repo | Campaigns w/ record (exempt) | Conductor rows (check/adj/fact) | Controlled | Unverified facts | Wrong-override rate | `rejected (judgment)` share |
+|---|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... | ... |
+
+Source: each campaign's `## Conductor record` and `## Change ledger` sections, and
+the `## Findings ledger`'s `rejected`/`rejected (judgment)`/`rejected (user)` rows
+(PD13: `rejected (user)` is excluded from the wrong-override denominator;
+`rejected (judgment)` counts in it). A high wrong-override rate names lenses whose
+rejections don't hold up; a high `rejected (judgment)` share is the residue for
+stage 4's qualitative pass — a design call recorded as unreviewable by a command
+is not the same as one that genuinely wasn't.
+
+Trend vs previous run: <deltas, or "baseline — no comparison">
+
 ## Fix verification (previous run's targets)
 
 For each verification target the previous report named:
@@ -102,7 +118,7 @@ For each verification target the previous report named:
 
 ## Findings
 
-Ranked, evidence-cited (file paths, slugs, metrics). Same severity discipline as everywhere else.
+Ranked, evidence-cited (file paths, slugs, metrics). Same severity discipline as everywhere else. Includes the residue the linter can't mechanize: derived claims (absence, count, success, "the specialist is wrong") in Status notes, flow traces, or final reports with no conductor row; every `rejected (judgment)` note, sampled for a dispute a command could have settled after all (F33); and OPERATE/INCIDENT change-ledger manifest cells sampled for unredacted secret-bearing values Check L's shape check can't see (F36).
 
 ## Fixes shipped / proposed
 

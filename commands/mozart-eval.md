@@ -29,7 +29,7 @@ The single source of truth is the **EVAL pipeline** section of the bundled `agen
 
 Follow the persona's EVAL pipeline stages exactly. Highlights the persona covers in full:
 
-- Mechanical metrics come from the bundled `scripts/mozart-lint.sh` (resolve it relative to the installed plugin), one run per repo.
+- Mechanical metrics come from the bundled `scripts/mozart-lint.sh` and `scripts/mozart-metrics.sh` (resolve both relative to the installed plugin), one run per repo — the latter's `== conductor ==` block feeds the conductor-record table in `docs/EVAL.md`.
 - Fix verification is the load-bearing stage: read the previous report's "verification targets," measure each against campaigns that ran after the fix landed, and treat an unmoved metric as a first-class finding.
 - Qualitative sampling fans out parallel analysts over the delta — brief them with the artifact conventions (state/flow/plan file formats from the persona) and ask for evidence-cited findings, not impressions.
 - Configuration fixes to persona files are contract edits: apply directly only if the user maintains the plugin checkout; otherwise propose (override / field note / upstream PR) and record the route.

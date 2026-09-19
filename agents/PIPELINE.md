@@ -188,15 +188,17 @@ For changing or debugging a **live system** directly — installs, config change
 **DELIVER-vs-OPERATE boundary:** change reaches the system through a git/CI/Argo pipeline → DELIVER (otto reviews, jackson writes, the pipeline deploys). Change lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, in-place config edit, restart) → OPERATE (otto plans, hank applies, verified empirically). Prefer the GitOps/DELIVER path when one exists.
 
 ```
-1. Intake+pin  — mozart restates change, PINS the target (context/ns/host), classifies mode+tier,
+1. Intake+pin  — mozart restates change, PINS the target from both sides (documented + live-observed)
+                 (context/ns/host), classifies mode+tier,
                  runs the drift sanity check, RESOLVES THE VERSION on install/upgrade;
                  creates state file + flow sketch (Shape: OPERATE)
 2. Recon       — dick + otto (infra-debug / migration modes only; skipped for clean install/config)
 3. Change plan — otto AUTHORS the plan: exact commands, per-step dry-run, snapshot step,
-                 rollback procedure, blast radius/ramifications (+ ian on HEAVY for code-side consumers)
+                 mutation manifest per step, rollback procedure, blast radius/ramifications
+                 (+ ian on HEAVY for code-side consumers)
 4. Pre-flight  — hank runs dry-runs + takes snapshots (records them BEFORE applying);
                  HEAVY adds xander (security surface) + otto (immutable-field/server-dry-run) + codex on the plan
-5. Apply       — hank executes one step at a time, confirming each before the next
+5. Apply       — hank executes one variable per mutation, checking each read-back against its manifest
 6. Verify      — hank confirms empirically (observed, not expected); fills the change ledger
 7. Record      — scott writes the runbook + rollback record to repo docs / wiki
                   └─ OPERATE-PLAN-ONLY: stop after stage 3; otto's change plan is the deliverable
@@ -209,9 +211,10 @@ For changing or debugging a **live system** directly — installs, config change
 - Never mutate without a snapshot and a recorded rollback command — TINY is no exception.
 - **Resolve versions, never recall them.** Every install/upgrade states the resolved upstream latest stable, what the install source actually lands, and the gap — before it runs. Chart/distro/community-image defaults lag upstream by months or a full major version routinely; accepting one silently is how a fresh install lands a year out of date. A major-version gap without a stated reason is a stop.
 - Server-side dry-run for k8s (`--dry-run=server`), always — client-side doesn't catch immutability/admission failures.
-- Pin the target; check every mutating command against it. A context mismatch is a stop, never a silent switch.
+- Pin the target from both sides — documented and live-observed — and check every mutating command against it. A context mismatch is a stop, never a silent switch.
 - Observed, not expected — every "it works" carries the evidence behind it.
 - Irreversible or out-of-authority steps escalate before apply.
+- One variable per mutation, each with a manifest (secret-bearing values `<redacted>`) that hank checks against a read-back limited to its fields and literal `ignore:` paths.
 
 ## INCIDENT pipeline
 
@@ -237,15 +240,17 @@ For responding to a **live outage** — service is down or badly degraded *right
 **Incident-mode rules:**
 - Mitigate first, understand second — a known-good rollback beats a perfect diagnosis when service is down.
 - One hand on the live system (hank); investigators parallelize read-only.
-- Verify each mitigation before stacking another; roll back what didn't help.
+- One variable per mitigation; verify it before the next; its manifest read-back runs once the symptom clears, no later than Converge, and never blocks.
 - Mitigated ≠ fixed — always say which; the durable fix is deferred, not skipped.
 - The timeline is the source of truth — append at every state change.
 - Blameless post-mortem on SEV1/2 — output is action items, not attribution.
 - Don't over-declare: service up but slow/wrong is DIAGNOSE, not INCIDENT.
+- Disputes where mozart is a party wait for Converge.
 
 ## Output paths
 
 - Plan: `.mozart/plans/<slug>.md`
+- **Decisions log**: `.mozart/plans/<slug>.decisions.md` (created at the first judgment call — why, not just what)
 - **State file**: `.mozart/plans/<slug>.state.md` (durable pipeline state — survives crashes, sessions, context resets)
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md` (Mermaid diagram + chronological stage trace + agent participation summary)
 - Research brief: `.mozart/research/<slug>.md` (when substantial)
@@ -313,7 +318,7 @@ A passthrough can graduate to a flow if the user follows up with "now fix it" or
 
 ### State persistence
 
-Every run writes `.mozart/plans/<slug>.state.md` with `Status: in-progress` and updates it at every stage transition. After crash / power loss / session reset, a new mozart instance scans for in-progress state files at intake and offers to resume them. Status values: `in-progress`, `stopped` (user pause), `complete`, `aborted`. State files persist as audit trail after terminal status.
+Every run writes `.mozart/plans/<slug>.state.md` with `Status: in-progress` and updates it at every stage transition. After crash / power loss / session reset, a new mozart instance scans for in-progress state files at intake and offers to resume them. Status values: `in-progress`, `stopped` (user pause), `complete`, `aborted`. State files persist as audit trail after terminal status. The state file's `## Conductor record` makes mozart's own derived claims checkable, and the sibling `<slug>.decisions.md` records the judgment calls behind them.
 
 ## Worktree isolation
 

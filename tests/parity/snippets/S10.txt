@@ -1,0 +1,1 @@
+- hank executes **one variable per mutation**: each step changes what its manifest names and nothing else, and hank checks the read-back against the manifest before the next step (see Operate-mode rules). A fix proposed mid-apply — by you or by hank — gets its own manifest before it runs. No batch-and-check-at-the-end

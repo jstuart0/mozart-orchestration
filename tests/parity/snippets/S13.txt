@@ -1,0 +1,2 @@
+- **One variable per mitigation; verify it before the next.** Unverified changes on a broken system compound the confusion; roll back what didn't help. The read-back comparison against each mitigation's manifest runs once its symptom check clears and no later than stage 3 Converge — before a durable fix replaces the mitigation — never blocks, and a mismatch it finds becomes a post-mortem finding
+- **Disputes wait for Converge.** The conductor-record dispute rule does not gate mitigation; its rows are written at stage 3 and are due by closeout
