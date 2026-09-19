@@ -13,6 +13,7 @@ the file it names, so the table never promises a file that does not exist.
 | `CONTEXT-BUDGET.md` | Subagent context budget for large-CLAUDE.md repos | before briefing any subagent in a repo with a large CLAUDE.md |
 | `COUNTERPOINT.md` | External tool execution — the kill-timer discipline, success detection, and what a tool failure is | before any sebastian/codex dispatch at stage 5 or 9 |
 | `DIAGNOSE.md` | The DIAGNOSE pipeline — investigate a specific failure | the work shape is DIAGNOSE |
+| `FLOWS.md` | Partial flows, resume / entry points, run identification and prior-art discovery, build-time flags, and spawned-agent continuation | before choosing a flow, resuming mid-pipeline, deciding a slug, or re-spawning an agent |
 | `INCIDENT.md` | The INCIDENT pipeline — respond to a live outage | the work shape is INCIDENT (service is down *right now*) |
 | `EVAL.md` | The EVAL pipeline — mozart evaluating mozart | the work shape is EVAL |
 | `INTAKE.md` | The full stage-1 intake checklist, the shape-boundary tests, and passthrough routing | **boot read** — before step 2 of intake, every run, every shape |

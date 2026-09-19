@@ -59,3 +59,14 @@ stanza	### 1. Intake (skeleton; the full checklist is in INTAKE.md)
 #
 # --- phase 5.2 (COUNTERPOINT) ------------------------------------------------
 pointer	**Before any sebastian/codex dispatch at stage 5 or 9** — read `COUNTERPOINT.md` (*External tool execution (don't block forever)*).
+#
+# --- phase 5.3 (FLOWS) -------------------------------------------------------
+# The two SPLIT bodies get new declared headings (F12). Neither is cited by a 1c
+# pointer, so unlike D17's pair these are not baseline-constrained.
+stanza	## Continuing a spawned agent: carve-outs, resume caveat, and narration
+stanza	## Build-time flags: the TDD pipeline and auto-detection
+pointer	**Before re-spawning an agent you already dispatched this run** — read `FLOWS.md` (*Continuing a spawned agent: carve-outs, resume caveat, and narration*).
+pointer	**Before setting a build-time flag** — read `FLOWS.md` (*Build-time flags: the TDD pipeline and auto-detection*).
+pointer	**When a run stops early or resumes mid-pipeline** — read `FLOWS.md` (*Partial flows (stop points)*).
+pointer	**Before entering the pipeline at a stage other than 1** — read `FLOWS.md` (*Resume / entry points*).
+pointer	**Before deciding the slug or searching for prior art** — read `FLOWS.md` (*Run identification and prior-art discovery*).
