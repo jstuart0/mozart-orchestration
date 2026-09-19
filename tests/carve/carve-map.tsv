@@ -16,12 +16,21 @@
 #   phase        campaign ordinal at which this range moves; 0 = never moves (stays inline)
 #   heading      the PRE section (or sub-range) this range covers
 #
-# Row count: 45 (model minimum 43; see FINDING-3 in the campaign return - DELIVER
+# Row count: 43 (== the model minimum; see the campaign return - DELIVER
 # contributes 5 ranges, not the 4 the plan's derivation table states, because F12
 # sends the '### 1. Intake' heading line to INTAKE.md while the skeleton keeps a new
-# declared heading; and the 'Codex availability and use' split contributes 3, not 2,
-# because its stub retains both the availability probe AND the tier policy, which are
-# not contiguous in PRE).
+# declared heading, and Control 3's named forward member requires it there.
+#
+# D9: '## Codex availability and use' is NOT a split. It stays inline WHOLE (PRE
+# 100-145). Phase 1a's pinned pointer at :1324 sends stage-5 codex dispatch to
+# agents/mozart.md "for the full discipline"; that literal is unconserved and cannot
+# be corrected later without either a second pre-baseline commit or a `changed` pair
+# inside a mapped range, which D7 makes a STOP. So the discipline does not move.
+# This turns the plan's 5 prose SPLITs into 4 and its 13 INLINE sections into 14,
+# and it empties agents/COUNTERPOINT.md down to '## External tool execution' alone.
+#
+# Arithmetic: preamble 1 + 14 INLINE + 4 SPLIT x2 (8) + 15 whole CARVE + DELIVER 5
+# = 43, which is the plan's model minimum reached by a different decomposition.)
 pre_start	pre_end	destination	order	phase	heading
 1	11	agents/mozart.md	1	0	(preamble: frontmatter + opening)
 12	24	agents/mozart.md	2	0	## Code retrieval: prefer a code-aware index (binding when one is configured)
@@ -29,20 +38,18 @@ pre_start	pre_end	destination	order	phase	heading
 68	76	agents/mozart.md	4	0	## Continuing a spawned agent vs re-spawning fresh (SPLIT: inline stub)
 77	82	agents/FLOWS.md	1	5.3	## Continuing a spawned agent vs re-spawning fresh (SPLIT: carved body)
 83	99	agents/mozart.md	5	0	## Default standard (applies to you and every agent you orchestrate)
-100	116	agents/mozart.md	6	0	## Codex availability and use (SPLIT: inline stub, availability probe)
-117	137	agents/COUNTERPOINT.md	1	5.2	## Codex availability and use (SPLIT: carved body, success detection)
-138	145	agents/mozart.md	7	0	## Codex availability and use (SPLIT: inline stub, tier policy + probe evidence)
-146	157	agents/mozart.md	8	0	## Where you fit in mozart's pipeline
-158	168	agents/mozart.md	9	0	## Six shapes of work (SPLIT: inline stub, the six-shape list)
+100	145	agents/mozart.md	6	0	## Codex availability and use (load-bearing — read this once, then trust it)
+146	157	agents/mozart.md	7	0	## Where you fit in mozart's pipeline
+158	168	agents/mozart.md	8	0	## Six shapes of work (SPLIT: inline stub, the six-shape list)
 169	172	agents/INTAKE.md	3	5.1	## Six shapes of work (SPLIT: carved body)
-173	196	agents/mozart.md	10	0	## Consistency lens (wiring sites)
-197	202	agents/mozart.md	11	0	## Single-agent passthrough (SPLIT: inline stub, the first-decision rule)
+173	196	agents/mozart.md	9	0	## Consistency lens (wiring sites)
+197	202	agents/mozart.md	10	0	## Single-agent passthrough (SPLIT: inline stub, the first-decision rule)
 203	266	agents/INTAKE.md	4	5.1	## Single-agent passthrough (SPLIT: carved body)
-267	278	agents/mozart.md	12	0	## Task tiers (DELIVER)
-279	297	agents/mozart.md	13	0	## Project context (GREENFIELD vs BROWNFIELD)
+267	278	agents/mozart.md	11	0	## Task tiers (DELIVER)
+279	297	agents/mozart.md	12	0	## Project context (GREENFIELD vs BROWNFIELD)
 298	382	agents/WORKTREES.md	2	5.4	## Multi-campaign mode (parallel orchestration)
-383	387	agents/mozart.md	14	0	## Operating modes
-388	392	agents/mozart.md	15	0	## Build-time flags (SPLIT: inline stub, names the flags)
+383	387	agents/mozart.md	13	0	## Operating modes
+388	392	agents/mozart.md	14	0	## Build-time flags (SPLIT: inline stub, names the flags)
 393	409	agents/FLOWS.md	2	5.3	## Build-time flags (SPLIT: carved body)
 410	455	agents/FLOWS.md	3	5.3	## Partial flows (stop points)
 456	501	agents/FLOWS.md	4	5.3	## Resume / entry points
@@ -50,11 +57,11 @@ pre_start	pre_end	destination	order	phase	heading
 553	627	agents/WORKTREES.md	1	5.4	## Worktree isolation (default for code-changing campaigns)
 628	946	agents/STATE.md	1	4	## State persistence (crash-resume)
 947	1161	agents/STATE.md	2	4	## Pipeline flow sketch
-1162	1177	agents/COUNTERPOINT.md	2	5.2	## External tool execution (don't block forever)
+1162	1177	agents/COUNTERPOINT.md	1	5.2	## External tool execution (don't block forever)
 1178	1187	agents/CONTEXT-BUDGET.md	1	2	## Subagent context budget (large-CLAUDE.md repos)
 1188	1189	agents/DELIVER.md	1	5.6	## DELIVER pipeline (heading; gate anchor for V3 / V8_p5)
 1190	1190	agents/INTAKE.md	1	5.1	### 1. Intake (heading)
-1191	1200	agents/mozart.md	16	0	### 1. Intake (DELIVER intake skeleton retained inline, D-F)
+1191	1200	agents/mozart.md	15	0	### 1. Intake (DELIVER intake skeleton retained inline, D-F)
 1201	1254	agents/INTAKE.md	2	5.1	### 1. Intake (carved checklist body + pre-flight gates)
 1255	1628	agents/DELIVER.md	2	5.6	## DELIVER pipeline (### 2. Research onward)
 1629	1690	agents/AUDIT.md	1	2	## AUDIT pipeline
@@ -63,11 +70,11 @@ pre_start	pre_end	destination	order	phase	heading
 1808	1884	agents/INCIDENT.md	1	3	## INCIDENT pipeline
 1885	1913	agents/EVAL.md	1	2	## EVAL pipeline (mozart evaluating mozart)
 1914	2307	agents/TICKETS.md	1	5.5	## Ticket lifecycle
-2308	2322	agents/mozart.md	17	0	## Orchestration discipline
-2323	2421	agents/mozart.md	18	0	## Live narration cadence
-2422	2448	agents/mozart.md	19	0	## Communicate at checkpoints
-2449	2468	agents/mozart.md	20	0	## Communicate as you work
-2469	2507	agents/mozart.md	21	0	## Field notes (append-only)
+2308	2322	agents/mozart.md	16	0	## Orchestration discipline
+2323	2421	agents/mozart.md	17	0	## Live narration cadence
+2422	2448	agents/mozart.md	18	0	## Communicate at checkpoints
+2449	2468	agents/mozart.md	19	0	## Communicate as you work
+2469	2507	agents/mozart.md	20	0	## Field notes (append-only)
 #
 # ============================================================================
 # V16 per-file ceilings (Pattern 3). Provisional: computed as measured PRE
@@ -82,7 +89,7 @@ pre_start	pre_end	destination	order	phase	heading
 # ceiling	agents/FLOWS.md	16800	measured 15229
 # ceiling	agents/OPERATE.md	14600	measured 13201
 # ceiling	agents/INCIDENT.md	11700	measured 10572
-# ceiling	agents/COUNTERPOINT.md	9900	measured 9007
+# ceiling	agents/COUNTERPOINT.md	5400	measured 4874 (D9: codex body no longer carves here)
 # ceiling	agents/EVAL.md	6300	measured 5710
 # ceiling	agents/DIAGNOSE.md	5500	measured 4918
 # ceiling	agents/AUDIT.md	4700	measured 4215

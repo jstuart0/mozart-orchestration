@@ -59,7 +59,7 @@ ROSTER_FILE = "tests/carve/phases.expected"
 ADDITIONS_FILE = "tests/carve/additions.allow"
 
 PRE_NONBLANK_FLOOR = 1800          # base: 1827
-RANGE_COUNT_PIN = 45               # exact, pinned in Phase 0 from the authored map
+RANGE_COUNT_PIN = 43               # exact, pinned in Phase 0 from the authored map (D9 re-pin)
 RANGE_COUNT_FLOOR = 43             # the plan's model minimum
 CONTENT_DESTINATIONS = 13          # partition set = PERSONA + 13
 EXCLUDED_FROM_PARTITION = "agents/INDEX.md"   # 100% new text, gated separately (F7/F33)
