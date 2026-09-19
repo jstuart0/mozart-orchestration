@@ -1,0 +1,30 @@
+# additions.allow - every POST line with no PRE origin, declared and typed (C5, F3/F8).
+#
+# Types:
+#   pointer   a D2 call-site pointer. Asserted MECHANICALLY against the form
+#             `**<Trigger>** - read `<FILE>.md` (*<Original section heading>*)`,
+#             not merely listed.
+#   stanza    a split's new carved-body heading, or the intake skeleton's heading.
+#   ~ changed a REWORDED line, written as a PAIRED block:
+#                 ~ changed
+#                 - <the PRE line, verbatim>
+#                 + <the POST line that replaces it>
+#             Subtracted from BOTH channels: from C1 (so a replaced line is not
+#             "lost") and from C5 (so its replacement is not "fabricated"). A `-`
+#             without its `+`, or a `+` without its `-`, FAILS - an unpaired half
+#             is exactly how a deletion masquerades as a move.
+#
+# Format for pointer/stanza: <type> TAB <the exact line>
+#
+# NO PHASE IN THIS CAMPAIGN EXERCISES A `changed` PAIR (D7). The three `](#...)`
+# links were rewritten in the standalone pre-carve commit fdfad28 and the baseline
+# was re-pinned behind it, so every carve step is a verbatim move of lines already
+# in final form. The pairing mechanism stays in the model and in the self-test
+# (mutation 4 proves it fires), but a non-zero `~ changed` count here is a STOP
+# that returns to the user - it means a substitution landed inside a mapped range,
+# which is the interaction this campaign deliberately has no machinery for.
+#
+# Archived to tests/carve/additions.<slug>.allow at merge, and the baseline
+# re-pins to the merge commit (D5).
+#
+# Empty at Phase 1b: nothing has been carved, so nothing has been added.

@@ -1757,6 +1757,59 @@ done < <(printf '%s\n' "$v16_budgets")
 report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
   "${v16_bad:-$v16_checked orchestration file(s) within their per-file ceilings:$v16_sizes}"
 
+# ---------------------------------------------------------------------------
+# V17 - the carve conservation gate (2026-09-19-deliver-mozart-md-carve).
+#
+# Two gates, deliberately separate:
+#
+#   V17_carve_selftest  the gate's own 11-mutation self-test. Runs on a synthetic
+#                       mktemp fixture and never reads the repo tree, so it is
+#                       valid from Phase 1 onward - before any destination file
+#                       exists. A run reporting fewer than 11 mutations FAILS: the
+#                       floor is what stops a stale implementation from satisfying
+#                       this gate while C3 inverse and C3c go untested (F36/F43).
+#
+#   V17_carve_phase     conservation at the ordinal in tests/carve/PHASE, asserting
+#                       EXACTLY that every mapped range with ordinal <= it is in its
+#                       destination AND every range above it is still in
+#                       agents/mozart.md. Exact in both directions, so
+#                       under-delivering a phase fails as loudly as over-delivering.
+#                       The ordinal lives in a file a reviewer reads and each phase
+#                       commit bumps - not a constant nobody re-reads (F26/F41).
+#
+# python3 missing is a FAIL, never a skip. A gate that quietly disappears when its
+# interpreter is absent is the vacuity case this suite exists to remove.
+v17_script="$gate_root/scripts/check-carve-conservation.py"
+if ! command -v python3 >/dev/null 2>&1; then
+  report "V17_carve_selftest" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
+  report "V17_carve_phase" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
+elif [ ! -f "$v17_script" ]; then
+  report "V17_carve_selftest" 1 "scripts/check-carve-conservation.py is missing"
+  report "V17_carve_phase" 1 "scripts/check-carve-conservation.py is missing"
+else
+  v17_st_out=$(python3 "$v17_script" --self-test --quiet 2>&1); v17_st_rc=$?
+  v17_st_n=$(printf '%s\n' "$v17_st_out" | sed -n 's/.*carve_selftest *\([0-9]*\) of \([0-9]*\) mutations.*/\1 \2/p')
+  v17_st_caught=${v17_st_n%% *}; v17_st_total=${v17_st_n##* }
+  if [ "$v17_st_rc" -eq 0 ] && [ "${v17_st_caught:-0}" -ge 11 ] && [ "${v17_st_caught:-0}" = "${v17_st_total:-0}" ]; then
+    report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 11); positive control green"
+  else
+    report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 11): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
+  fi
+
+  v17_phase_file="$gate_root/tests/carve/PHASE"
+  if [ ! -f "$v17_phase_file" ]; then
+    report "V17_carve_phase" 1 "tests/carve/PHASE is missing - the campaign ordinal is unpinned"
+  else
+    v17_ord=$(tr -d ' \n' < "$v17_phase_file")
+    v17_out=$(python3 "$v17_script" --phase "$v17_ord" --quiet 2>&1); v17_rc=$?
+    if [ "$v17_rc" -eq 0 ]; then
+      report "V17_carve_phase" 0 "$(printf '%s' "$v17_out" | sed -n 's/^PASS  carve_conservation *//p')"
+    else
+      report "V17_carve_phase" 1 "ordinal $v17_ord: $(printf '%s' "$v17_out" | grep -v carve_selftest | tail -4 | tr '\n' ' ')"
+    fi
+  fi
+fi
+
 echo
 if [ "$gate_fail" -eq 0 ]; then
   echo "ALL GATES PASS"

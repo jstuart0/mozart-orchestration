@@ -54,10 +54,20 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The carve conservation gate resolves its baseline with
+          # `git show <BASE_SHA>:agents/mozart.md`, where BASE_SHA is a commit on the
+          # campaign branch. A shallow clone cannot see it, and the gate FAILs loudly
+          # rather than skipping - so without this the job goes red, not vacuously
+          # green (D-D, D3). It also means this campaign must merge --no-ff (D8): a
+          # squash would orphan the baseline object and break the gate retroactively.
+          fetch-depth: 0
       - name: Syntax-check the gate script
         run: bash -n scripts/mozart-contract-gates.sh
       - name: Run persona-contract gates
         run: bash scripts/mozart-contract-gates.sh
+      - name: Carve conservation self-test (11 mutations, synthetic fixture)
+        run: python3 scripts/check-carve-conservation.py --self-test
       # scripts/mozart-lint.sh is deliberately NOT wired here: it reads .mozart/,
       # which is gitignored and therefore absent from every CI checkout, so the
       # job would pass vacuously on every run - a green light powered by an empty
