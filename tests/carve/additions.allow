@@ -55,7 +55,7 @@ pointer	**Before routing a passthrough** — read `INTAKE.md` (*Single-agent pas
 # which are in the conservation baseline and cannot be corrected later.
 stanza	## Six shapes of work: boundaries and transitions
 stanza	## Single-agent passthrough: routing and discipline
-stanza	### 1. Intake (skeleton; the full checklist is in INTAKE.md)
+stanza	## Intake (skeleton; the full checklist is in INTAKE.md)
 #
 # --- phase 5.2 (COUNTERPOINT) ------------------------------------------------
 pointer	**Before any sebastian/codex dispatch at stage 5 or 9** — read `COUNTERPOINT.md` (*External tool execution (don't block forever)*).
@@ -77,3 +77,6 @@ pointer	**Before running more than one campaign at a time** — read `WORKTREES.
 #
 # --- phase 5.5 (TICKETS) -----------------------------------------------------
 pointer	**Before resolving a ticketing project, creating a ticket, or posting a phase comment** — read `TICKETS.md` (*Ticket lifecycle*).
+#
+# --- phase 5.6 (DELIVER) -----------------------------------------------------
+pointer	**When you reach DELIVER stage 2 (research) or any later stage** — read `DELIVER.md` (*DELIVER pipeline*) before dispatching anyone.

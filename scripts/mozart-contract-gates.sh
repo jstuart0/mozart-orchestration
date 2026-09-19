@@ -251,9 +251,19 @@ v2_ord=$(printf '%s\n' "$ordsites" | awk '
 report "V2_ordsites" "$(eq "$ordn" 2)" "exit-0-no-file diagnosis sites=$ordn (want 2)"
 report "V2_ord" "$(eq "$v2_ord" 0)" "sites where the output-flag check is absent or after the budget theory=$v2_ord (want 0)"
 
-v2_sit=$(grep -cF 'Reading stdout instead of the target file' agents/mozart.md)
-v2_sit=$((v2_sit + $(grep -cF 'escalate to user with the codex stdout as evidence' agents/mozart.md)))
-v2_sit=$((v2_sit + $(grep -cF 'escalate to the user with the stdout transcript as evidence' agents/mozart.md)))
+# UNION, because this population SPLITS across destinations (F9 said retarget only
+# V2_sit; it did not say the three clauses land in one file). Measured at the 1c
+# baseline: 'Reading stdout...' is PRE 132 and 'escalate to user with the codex
+# stdout...' is PRE 127 — both inside `## Codex availability and use`, which D9 keeps
+# INLINE WHOLE — while 'escalate to the user with the stdout transcript...' is PRE
+# 1340, which carves to agents/DELIVER.md. Scoping to either file alone loses a
+# clause and drops the count below the floor of 3.
+v2_sit_scope="agents/mozart.md agents/DELIVER.md"
+v2_sit_files=$(ls $v2_sit_scope 2>/dev/null | grep -c .)
+v2_sit=$(grep -hcF 'Reading stdout instead of the target file' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)
+v2_sit=$((v2_sit + $(grep -hcF 'escalate to user with the codex stdout as evidence' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)))
+v2_sit=$((v2_sit + $(grep -hcF 'escalate to the user with the stdout transcript as evidence' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)))
+[ "$v2_sit_files" -eq 2 ] || v2_sit=0
 report "V2_sit" "$(ge "$v2_sit" 3)" "stdout rule + both escalation clauses surviving=$v2_sit (floor 3)"
 
 # ---------------------------------------------------------------------------
@@ -397,13 +407,13 @@ v3_check_anchors() { # <file> <start-ere> <end-ere> <label>
 }
 v3_check_anchors agents/scott.md  "$v3_a1s" "$v3_a1e" step1
 v3_check_anchors agents/scott.md  "$v3_a7s" "$v3_a7e" step7
-v3_check_anchors agents/mozart.md "$v3_ams" "$v3_ame" mozart-per-phase-gate
+v3_check_anchors agents/DELIVER.md "$v3_ams" "$v3_ame" mozart-per-phase-gate
 report "V3_region_anchors" "$([ -z "$v3_anchors_bad" ] && echo 0 || echo 1)" \
   "${v3_anchors_bad:-all 3 region anchor pairs resolve; no region falls back to EOF}"
 
 v3_step1=$(v3_region agents/scott.md  "$v3_a1s" "$v3_a1e")
 v3_step7=$(v3_region agents/scott.md  "$v3_a7s" "$v3_a7e")
-v3_mozgate=$(v3_region agents/mozart.md "$v3_ams" "$v3_ame")
+v3_mozgate=$(v3_region agents/DELIVER.md "$v3_ams" "$v3_ame")
 
 stop_rule_scott=$(printf '%s\n' "$v3_step1" | grep -cE '^[[:space:]]*- \*\*A scan that does not run is not a clean scan\.\*\*')
 stop_rule_mozart=$(printf '%s\n' "$v3_mozgate" | grep -F 'A scan that does not run is not a clean scan' | grep -cF 'Mechanical secret scan on the staged diff')
@@ -1007,10 +1017,31 @@ v8_p3=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' README.
 v8_p4=$(awk '/^### Stage labels/{s=1;next} s&&/^### /{exit} s' agents/mozart.md \
   | grep -oE '^\| [0-9]+[a-z]? ' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
 
-# P5 - mozart.md "### <N>." stage-heading bodies, scoped to the DELIVER
-# section so OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it
-v8_p5=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+# P5 - the "### <N>." stage-heading bodies, scoped to the DELIVER section so
+# OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it.
+#
+# THIS POPULATION SPLITS ACROSS TWO DESTINATIONS, and it is structural rather
+# than incidental: D-F carves `### 1. Intake` to agents/INTAKE.md and leaves
+# stages 2..13 in agents/DELIVER.md. Scoping to DELIVER.md alone yields
+# [2 2b 3 ... 13] against a reference of [1 2 2b 3 ... 13] and FAILS on the
+# missing stage 1 - measured, not predicted. P5 is therefore the ORDERED
+# CONCATENATION of INTAKE.md's numeric stage keys and DELIVER.md's.
+#
+# INTAKE.md needs no section anchor: its only numeric "### <N>." heading is
+# `### 1. Intake`. Its other ### headings (Passthrough vs. orchestrate, and the
+# rest) are non-numeric and cannot match, and the carved intake body's
+# pre-flight gates are #### and cannot match either.
+v8_p5_intake=$(grep -oE '^### [0-9]+[a-z]?\.' agents/INTAKE.md \
+  | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+v8_p5_deliver=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/DELIVER.md \
   | grep -oE '^### [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+v8_p5=$(printf '%s %s' "$v8_p5_intake" "$v8_p5_deliver" | sed 's/^ *//; s/ *$//')
+# Population control: BOTH halves must contribute, or a silently-empty half
+# would let the other half alone define the answer.
+v8_p5_halves=0
+[ -n "$v8_p5_intake" ] && v8_p5_halves=$((v8_p5_halves + 1))
+[ -n "$v8_p5_deliver" ] && v8_p5_halves=$((v8_p5_halves + 1))
+[ "$v8_p5_halves" -eq 2 ] || v8_p5="INCOMPLETE($v8_p5_halves/2):$v8_p5"
 
 # Control - TWO conditions on the REFERENCE: floor >=13 and 12b present. A
 # renamed "## DELIVER pipeline" heading empties P1 and would otherwise make
@@ -1668,7 +1699,7 @@ S18	agents/STATE.md
 S19	agents/hank.md
 S21	agents/hank.md
 M2	agents/harry.md
-M4	agents/mozart.md
+M4	agents/DELIVER.md
 M7	agents/harry.md
 MP	agents/mozart.md
 JP	agents/jackson.md
@@ -1791,6 +1822,7 @@ agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
+agents/DELIVER.md	62400
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

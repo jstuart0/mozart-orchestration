@@ -12,6 +12,7 @@ the file it names, so the table never promises a file that does not exist.
 | `AUDIT.md` | The AUDIT pipeline — review against a goal | the work shape is AUDIT |
 | `CONTEXT-BUDGET.md` | Subagent context budget for large-CLAUDE.md repos | before briefing any subagent in a repo with a large CLAUDE.md |
 | `COUNTERPOINT.md` | External tool execution — the kill-timer discipline, success detection, and what a tool failure is | before any sebastian/codex dispatch at stage 5 or 9 |
+| `DELIVER.md` | The DELIVER pipeline from stage 2 onward — research, plan, review, implement, gate, validate, ship | when you reach DELIVER stage 2 or any later stage |
 | `DIAGNOSE.md` | The DIAGNOSE pipeline — investigate a specific failure | the work shape is DIAGNOSE |
 | `FLOWS.md` | Partial flows, resume / entry points, run identification and prior-art discovery, build-time flags, and spawned-agent continuation | before choosing a flow, resuming mid-pipeline, deciding a slug, or re-spawning an agent |
 | `INCIDENT.md` | The INCIDENT pipeline — respond to a live outage | the work shape is INCIDENT (service is down *right now*) |
