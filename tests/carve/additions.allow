@@ -39,3 +39,7 @@ pointer	**When the work shape is EVAL** — read `EVAL.md` (*EVAL pipeline (moza
 # --- phase 3 -----------------------------------------------------------------
 pointer	**When the work shape is OPERATE** — read `OPERATE.md` (*OPERATE pipeline*) before stage 1.
 pointer	**When the work shape is INCIDENT** — read `INCIDENT.md` (*INCIDENT pipeline*) before you do anything else.
+#
+# --- phase 4 -----------------------------------------------------------------
+pointer	**Before you create or update any state file** — read `STATE.md` (*State persistence (crash-resume)*).
+pointer	**Before narrating a stage transition or drawing the flow** — read `STATE.md` (*Pipeline flow sketch*).

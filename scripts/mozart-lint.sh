@@ -23,7 +23,8 @@
 # below before any `LINT` line, so an override can never be silent.
 #
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
-# re-check) — that stays a manual sweep at intake. See agents/mozart.md.
+# re-check) — that stays a manual sweep at intake. See agents/STATE.md
+# (*State persistence (crash-resume)*), where probe 5 is defined.
 #
 # Usage: mozart-lint.sh [repo-root]     (default: current directory)
 # Exit:  0 = clean, 1 = findings, 2 = nothing to lint

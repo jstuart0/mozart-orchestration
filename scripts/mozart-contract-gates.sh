@@ -141,7 +141,7 @@ report "V0b_no_mirrored_gate" "$(eq "$gatevar_hits" 0)" \
 
 # Scope derived: the field list comes from the state-file template, not a list.
 v1_fields=$(awk '/^\*\*Last updated\*\*/{f=1} f && /^\*\*[A-Z]/{gsub(/^\*\*/,"");sub(/\*\*.*/,"");print} f && /^## Tickets/{exit}' \
-  agents/mozart.md | sort -u)
+  agents/STATE.md | sort -u)
 v1_alt=$(printf '%s\n' "$v1_fields" | paste -sd'|' -)
 
 # Control on the derivation itself. Every other derived scope in this file has
@@ -158,21 +158,39 @@ if [ "$v1_nfields" -ge 5 ] && [ "$v1_hasstatus" -eq 1 ]; then v1_fl=0; else v1_f
 report "V1_fieldlist" "$v1_fl" "state-file template fields derived=$v1_nfields (floor 5), 'Status' among them=$v1_hasstatus (want 1); an empty or Status-less list makes the alternation below match nothing"
 
 # must-not half: no invocation may still grep the bare "<Field>: " form.
-v1_stale=$(grep -cE "grep[^\"']*[\"']($v1_alt): " agents/mozart.md)
-report "V1_absence" "$(eq "$v1_stale" 0)" "bare-form grep invocations=$v1_stale (want 0) over fields: $v1_alt"
+# PATTERN 2 / D4 RE-SCOPE. This was `agents/mozart.md` — a PATH LITERAL, the idiom
+# that does NOT widen. The state-file template moved to agents/STATE.md in this very
+# commit, so a scope of mozart.md would assert the absence of a bare-form grep from a
+# file that no longer contains the template at all: green for no reason. Re-scoped to
+# the glob agents/*.md, which is the model form (it widens automatically because D-A
+# lands the carved files flat in agents/). Population floor, because a glob matching
+# nothing also counts zero.
+v1_absence_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v1_stale=$(grep -hcE "grep[^\"']*[\"']($v1_alt): " agents/*.md 2>/dev/null | paste -sd+ - | bc)
+[ "$v1_absence_files" -ge 20 ] || v1_stale=$((v1_stale + 1))
+report "V1_absence" "$(eq "$v1_stale" 0)" "bare-form grep invocations=$v1_stale (want 0) across $v1_absence_files agents/*.md file(s) (floor 20) over fields: $v1_alt"
 
 # must half: the two-form patterns exist, in the pinned quantity and flag mix.
-v1_pats=$(grep -oE "grep -[lL]E '[^']*'" agents/mozart.md | sed -E "s/^grep -[lL]E '//; s/'\$//")
+# GLOB, not a single file: this population SPLITS across destinations. Five of the
+# seven two-form probes are in the state-file sweep (PRE 880-890 -> agents/STATE.md,
+# phase 4) and two — the only -LE pair — are in the stage-12 close-out sweep
+# (PRE 1594 -> agents/DELIVER.md, phase 5.6). Retargeting to STATE.md alone yields
+# 5/0 and fails, measured. The glob holds the whole population at EVERY phase: before
+# a section carves its patterns are in mozart.md, after it they are in the carved
+# file, and agents/*.md covers both without a per-phase edit.
+v1_pat_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v1_pats=$(grep -hoE "grep -[lL]E '[^']*'" agents/*.md 2>/dev/null | sed -E "s/^grep -[lL]E '//; s/'\$//")
 v1_npat=$(printf '%s\n' "$v1_pats" | grep -c . )
-v1_ell=$(grep -oE "grep -lE '[^']*'" agents/mozart.md | grep -c .)
-v1_bigell=$(grep -oE "grep -LE '[^']*'" agents/mozart.md | grep -c .)
-report "V1_npat" "$(eq "$v1_npat" 7)" "two-form probe patterns=$v1_npat (want 7)"
+v1_ell=$(grep -hoE "grep -lE '[^']*'" agents/*.md 2>/dev/null | grep -c .)
+v1_bigell=$(grep -hoE "grep -LE '[^']*'" agents/*.md 2>/dev/null | grep -c .)
+[ "$v1_pat_files" -ge 20 ] || v1_npat=-1
+report "V1_npat" "$(eq "$v1_npat" 7)" "two-form probe patterns=$v1_npat (want 7) across $v1_pat_files agents/*.md file(s) (floor 20)"
 report "V1_flagmix" "$(eq "$v1_ell/$v1_bigell" "6/1")" "-lE/-LE = $v1_ell/$v1_bigell (want 6/1; which site carries -L is a MANUAL check)"
 
 # behavioural half: each pattern must match the template's bold form AND the
 # legacy bare form, must not match a different enum value, and its value must
 # be a member of the template's declared enum.
-v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/mozart.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
+v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/STATE.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
 v1_bad=""
 v1_corpus=$(mktemp -d)
 while IFS= read -r gpat; do
@@ -958,7 +976,7 @@ v8_p1=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/PIPELINE
   | v3_fence_filter | grep -oE '^[0-9]+[a-z]?\.' | tr -d '.' | paste -sd' ' -)
 
 # P2 - mozart.md "## Stage progress" template
-v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/STATE.md \
   | grep -oE '^- \[.\] [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
 
 # P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
@@ -1335,7 +1353,7 @@ CONDUCTOR_FLOWS_DELIVER=$(v12_const CONDUCTOR_FLOWS_DELIVER)
 CONDUCTOR_FLOWS_OPERATE=$(v12_const CONDUCTOR_FLOWS_OPERATE)
 CONDUCTOR_FLOWS_INCIDENT=$(v12_const CONDUCTOR_FLOWS_INCIDENT)
 
-v12_mozart_md="$gate_root/agents/mozart.md"
+v12_mozart_md="$gate_root/agents/STATE.md"
 v12_section=$(awk '
     /The conductor record is where your own claims become checkable/ { p = 1 }
     p && /^### / && !/checkable/ { exit }
@@ -1462,7 +1480,7 @@ v13_check() { # $1=file $2=anchor $3=stoplevel $4=term $5=label
 
 # (a) decisions.md across the five artifact-list sites
 v13_check "$gate_root/agents/mozart.md" "### Per-campaign artifacts" "$L3" "decisions.md" "mozart Per-campaign artifacts / decisions.md"
-v13_check "$gate_root/agents/mozart.md" "### Directory convention" "$L3" "decisions.md" "mozart Directory convention / decisions.md"
+v13_check "$gate_root/agents/STATE.md" "### Directory convention" "$L3" "decisions.md" "STATE Directory convention / decisions.md"
 v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
 v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
 v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
@@ -1489,9 +1507,14 @@ v13_sites=$((v13_sites + 1))
 [ "$v13_dick_n" -eq 1 ] || v13_bad="$v13_bad [dick heading 'Adjudicating a dispute' count=$v13_dick_n, want 1]"
 
 # (b) the promoted-note phrase must be gone from mozart.md entirely
-v13_running_log_n=$(grep -cF 'running log of decisions' "$gate_root/agents/mozart.md")
+# PATTERN 2 / D4 RE-SCOPE, same reasoning as V1_absence: the promoted-then-deleted
+# phrase belonged to the State-persistence text, which left agents/mozart.md in this
+# commit. Scoped to the glob so the assertion still has the text in its population.
+v13_running_log_files=$(ls "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+v13_running_log_n=$(grep -rlF 'running log of decisions' "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+[ "$v13_running_log_files" -ge 20 ] || v13_running_log_n=$((v13_running_log_n + 1))
 v13_sites=$((v13_sites + 1))
-[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad [agents/mozart.md still says 'running log of decisions': $v13_running_log_n]"
+[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad ['running log of decisions' still present in $v13_running_log_n of $v13_running_log_files agents/*.md file(s)]"
 
 # (c) the deleted field note's title must be gone from every persona
 v13_sites=$((v13_sites + 1))
@@ -1611,12 +1634,12 @@ report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
 v15_snipdir="$gate_root/tests/parity/snippets"
 v15_registry=$(cat <<'V15_REGISTRY_EOF'
 S1	agents/mozart.md
-S2	agents/mozart.md
-S3	agents/mozart.md
-S4	agents/mozart.md
-S5	agents/mozart.md
-S6	agents/mozart.md
-S7	agents/mozart.md
+S2	agents/STATE.md
+S3	agents/STATE.md
+S4	agents/STATE.md
+S5	agents/STATE.md
+S6	agents/STATE.md
+S7	agents/STATE.md
 S8	agents/OPERATE.md
 S9	agents/OPERATE.md
 S10	agents/OPERATE.md
@@ -1627,7 +1650,7 @@ S14	agents/dick.md
 S15	agents/hank.md
 S16	agents/otto.md
 S17	agents/jackson.md
-S18	agents/mozart.md
+S18	agents/STATE.md
 S19	agents/hank.md
 S21	agents/hank.md
 M2	agents/harry.md
@@ -1692,8 +1715,8 @@ v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$
 [ -z "$v15_dupes" ] || v15_bad="${v15_bad} [duplicate registry key(s): ${v15_dupes}— a duplicate preserves the row count while some other snippet goes unchecked]"
 [ -z "$v15_only_registry" ] || v15_bad="${v15_bad} [registered with no snippet file: ${v15_only_registry}]"
 [ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
-printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/mozart.md')" \
-  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/mozart.md]"
+printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/STATE.md')" \
+  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/STATE.md]"
 
 v15_checked=0
 while IFS=$'\t' read -r v15_snip v15_target; do
@@ -1748,6 +1771,7 @@ agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
 agents/OPERATE.md	14600
 agents/INCIDENT.md	11700
+agents/STATE.md	53500
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
