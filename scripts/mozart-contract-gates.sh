@@ -1809,7 +1809,8 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # and agents/mozart.md is asserted present in the table by name.
 # ---------------------------------------------------------------------------
 v16_budgets=$(cat <<'V16_BUDGETS_EOF'
-agents/mozart.md	269500
+agents/mozart.md	55000
+agents/INDEX.md	4200
 agents/AUDIT.md	4700
 agents/CONTEXT-BUDGET.md	1800
 agents/DIAGNOSE.md	5500
@@ -1831,9 +1832,11 @@ V16_BUDGETS_EOF
 
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
-[ "$v16_rows" -ge 4 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 4]"
-printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269500')" \
-  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269500]"
+[ "$v16_rows" -ge 18 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 18 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
+printf '%s\n' "$v16_budgets" | grep -qE '^agents/DELIVER\.md\t' \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/DELIVER.md]"
 
 v16_checked=0
 v16_sizes=""
@@ -1898,6 +1901,10 @@ else
     report "V17_carve_phase" 1 "tests/carve/PHASE is missing - the campaign ordinal is unpinned"
   else
     v17_ord=$(tr -d ' \n' < "$v17_phase_file")
+    # Phase 6 sets tests/carve/PHASE to "full", which switches the gate from
+    # phase-aware to FULL conservation: every mapped range must be in its
+    # destination, in pinned order, in both directions of C3, with no phase
+    # exemption available to anything.
     v17_out=$(python3 "$v17_script" --phase "$v17_ord" --quiet 2>&1); v17_rc=$?
     if [ "$v17_rc" -eq 0 ]; then
       report "V17_carve_phase" 0 "$(printf '%s' "$v17_out" | sed -n 's/^PASS  carve_conservation *//p')"
@@ -1905,6 +1912,33 @@ else
       report "V17_carve_phase" 1 "ordinal $v17_ord: $(printf '%s' "$v17_out" | grep -v carve_selftest | tail -4 | tr '\n' ' ')"
     fi
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
+# EXISTS; these prove the pointers into it still RESOLVE, which conservation is
+# structurally blind to. python3 missing is a FAIL, never a skip.
+# ---------------------------------------------------------------------------
+v18_script="$gate_root/scripts/check-manual-bundle.py"
+if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v18_script" ]; then
+  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence; do
+    report "$v18_g" 1 "scripts/check-manual-bundle.py unavailable (FAIL, not skip)"
+  done
+else
+  v18_out=$(python3 "$v18_script" 2>&1)
+  v18_seen=0
+  while IFS= read -r v18_line; do
+    case "$v18_line" in
+      PASS\ \ *) v18_seen=$((v18_seen + 1))
+        report "$(printf '%s' "$v18_line" | awk '{print $2}')" 0 "$(printf '%s' "$v18_line" | cut -d' ' -f4- | sed 's/^ *//')" ;;
+      FAIL\ \ *) v18_seen=$((v18_seen + 1))
+        report "$(printf '%s' "$v18_line" | awk '{print $2}')" 1 "$(printf '%s' "$v18_line" | cut -d' ' -f4- | sed 's/^ *//')" ;;
+    esac
+  done <<EOF_V18
+$v18_out
+EOF_V18
+  [ "$v18_seen" -eq 6 ] || report "V18_population" 1 \
+    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 6"
 fi
 
 echo

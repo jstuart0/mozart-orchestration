@@ -34,7 +34,7 @@ Use `agents/sarah.md` as the canonical template for a researcher-type agent; use
 ## When you add a new agent, also update
 
 - `agents/PIPELINE.md` — add the agent to the Agent roster table and to the appropriate reviewer/specialist trigger table (stages 4 and 8)
-- `agents/mozart.md` — add the agent to the roster list near the top of the file (around lines 7–25)
+- `agents/mozart.md` — add the agent to the roster list near the top of the file (around lines 7–25). Stage-time procedure for a shape lives in the bundled manual (`agents/DELIVER.md`, `agents/AUDIT.md`, …), not in the persona; `agents/INDEX.md` routes to it.
 - `README.md` — add the agent to the "What's in the box" layout tree and update the agent count in the description
 - `agents/README.md` — add a row to the appropriate table (Specialists or Support agents)
 
@@ -104,8 +104,8 @@ Before opening a pull request, confirm:
 
 - No homelab fingerprints or personal infrastructure references have been introduced
 - Voice is consistent with `agents/mozart.md` and `INTEGRATION.md` (professional, no emojis)
-- If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated
-- If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. Every specialist carries the `**Your <PIPELINE> stages**:` marker, so the marker grep reaches them all — but grep for the generalized form, not for `DELIVER` alone, or you will skip the agents placed in other shapes
+- If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated, and the manual file for any shape whose stage list changed
+- If a pipeline shape or flow was changed: PIPELINE.md, the shape's manual file (e.g. `agents/DELIVER.md`), `agents/INDEX.md`, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. Every specialist carries the `**Your <PIPELINE> stages**:` marker, so the marker grep reaches them all — but grep for the generalized form, not for `DELIVER` alone, or you will skip the agents placed in other shapes
 - If the change adds or alters a configurable surface, a stanza, or anything that leaves the machine: `INTEGRATION.md` and `PRIVACY.md` are updated too. A flow change reaches both — stage 12b needed a new `INTEGRATION.md` section plus three parity sites in it, and a `PRIVACY.md` carve-out for the plugin's first network egress — and neither file is named in the row above
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`

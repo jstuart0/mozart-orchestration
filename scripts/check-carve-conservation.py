@@ -896,6 +896,8 @@ def main():
                                        capture_output=True, text=True,
                                        check=True).stdout.strip())
     w = build_repo_world(root)
+    if args.phase is not None and args.phase.strip().lower() == "full":
+        args.phase = None          # phase 6 switches the gate from phase-aware to full
     phase = float(args.phase) if args.phase is not None else None
     fails, present = run_controls(w, phase, additions_floor=args.additions_floor)
 
