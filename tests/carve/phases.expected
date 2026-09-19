@@ -1,0 +1,25 @@
+# phases.expected - the phase->destination roster (F38, F41).
+#
+# The conservation gate asserts that carve-map.tsv's `phase` column induces
+# EXACTLY this grouping. Re-ordering the Phase-5 commits therefore means editing
+# a promise a reviewer reads, not a cell nobody re-reads.
+#
+# Phases 2-4 land as one commit each and carry whole ordinals. Phase 5 is DEFINED
+# as six commits (F22), so its ordinals are decimal (5.1..5.6) and `--phase 5.N`
+# is green at each of the six (F41). Ordering is numeric, so the comparison is total.
+#
+# Rows here: 9. Destinations here: 13 (the content destinations). `agents/mozart.md`
+# has no row - its ranges carry phase 0 and never move, which is what Control 3's
+# inverse direction asserts. `agents/INDEX.md` has no row - it holds no PRE lines
+# and is not in the partition set (F7/F33); it is gated separately.
+#
+# ordinal	destinations (comma-separated, sorted)
+2	agents/AUDIT.md,agents/CONTEXT-BUDGET.md,agents/DIAGNOSE.md,agents/EVAL.md
+3	agents/INCIDENT.md,agents/OPERATE.md
+4	agents/STATE.md
+5.1	agents/INTAKE.md
+5.2	agents/COUNTERPOINT.md
+5.3	agents/FLOWS.md
+5.4	agents/WORKTREES.md
+5.5	agents/TICKETS.md
+5.6	agents/DELIVER.md

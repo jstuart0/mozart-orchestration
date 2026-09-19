@@ -1,0 +1,108 @@
+# carve-map.tsv - the partition spine for 2026-09-19-deliver-mozart-md-carve.
+#
+# PRE is agents/mozart.md at the re-pinned conservation baseline (Phase 1a's commit).
+# Phase 1a is three one-for-one line replacements, so PRE line NUMBERS are identical
+# to 8ec105c:agents/mozart.md; this map was derived at 8ec105c and is valid unchanged.
+#
+# Every PRE line 1..2507 is claimed by exactly one row: no gap, no overlap.
+# agents/mozart.md is a destination like any other (D-B / F27) - that is what makes
+# Control 3's inverse direction expressible.
+#
+# Columns:
+#   pre_start    first PRE line of the range (1-based, inclusive)
+#   pre_end      last PRE line of the range (1-based, inclusive)
+#   destination  repo-relative path of the file that holds these lines after the carve
+#   order        1-based position of this range within its destination file
+#   phase        campaign ordinal at which this range moves; 0 = never moves (stays inline)
+#   heading      the PRE section (or sub-range) this range covers
+#
+# Row count: 45 (model minimum 43; see FINDING-3 in the campaign return - DELIVER
+# contributes 5 ranges, not the 4 the plan's derivation table states, because F12
+# sends the '### 1. Intake' heading line to INTAKE.md while the skeleton keeps a new
+# declared heading; and the 'Codex availability and use' split contributes 3, not 2,
+# because its stub retains both the availability probe AND the tier policy, which are
+# not contiguous in PRE).
+pre_start	pre_end	destination	order	phase	heading
+1	11	agents/mozart.md	1	0	(preamble: frontmatter + opening)
+12	24	agents/mozart.md	2	0	## Code retrieval: prefer a code-aware index (binding when one is configured)
+25	67	agents/mozart.md	3	0	## CRITICAL: You must run at the top level of a Claude Code session
+68	76	agents/mozart.md	4	0	## Continuing a spawned agent vs re-spawning fresh (SPLIT: inline stub)
+77	82	agents/FLOWS.md	1	5.3	## Continuing a spawned agent vs re-spawning fresh (SPLIT: carved body)
+83	99	agents/mozart.md	5	0	## Default standard (applies to you and every agent you orchestrate)
+100	116	agents/mozart.md	6	0	## Codex availability and use (SPLIT: inline stub, availability probe)
+117	137	agents/COUNTERPOINT.md	1	5.2	## Codex availability and use (SPLIT: carved body, success detection)
+138	145	agents/mozart.md	7	0	## Codex availability and use (SPLIT: inline stub, tier policy + probe evidence)
+146	157	agents/mozart.md	8	0	## Where you fit in mozart's pipeline
+158	168	agents/mozart.md	9	0	## Six shapes of work (SPLIT: inline stub, the six-shape list)
+169	172	agents/INTAKE.md	3	5.1	## Six shapes of work (SPLIT: carved body)
+173	196	agents/mozart.md	10	0	## Consistency lens (wiring sites)
+197	202	agents/mozart.md	11	0	## Single-agent passthrough (SPLIT: inline stub, the first-decision rule)
+203	266	agents/INTAKE.md	4	5.1	## Single-agent passthrough (SPLIT: carved body)
+267	278	agents/mozart.md	12	0	## Task tiers (DELIVER)
+279	297	agents/mozart.md	13	0	## Project context (GREENFIELD vs BROWNFIELD)
+298	382	agents/WORKTREES.md	2	5.4	## Multi-campaign mode (parallel orchestration)
+383	387	agents/mozart.md	14	0	## Operating modes
+388	392	agents/mozart.md	15	0	## Build-time flags (SPLIT: inline stub, names the flags)
+393	409	agents/FLOWS.md	2	5.3	## Build-time flags (SPLIT: carved body)
+410	455	agents/FLOWS.md	3	5.3	## Partial flows (stop points)
+456	501	agents/FLOWS.md	4	5.3	## Resume / entry points
+502	552	agents/FLOWS.md	5	5.3	## Run identification and prior-art discovery
+553	627	agents/WORKTREES.md	1	5.4	## Worktree isolation (default for code-changing campaigns)
+628	946	agents/STATE.md	1	4	## State persistence (crash-resume)
+947	1161	agents/STATE.md	2	4	## Pipeline flow sketch
+1162	1177	agents/COUNTERPOINT.md	2	5.2	## External tool execution (don't block forever)
+1178	1187	agents/CONTEXT-BUDGET.md	1	2	## Subagent context budget (large-CLAUDE.md repos)
+1188	1189	agents/DELIVER.md	1	5.6	## DELIVER pipeline (heading; gate anchor for V3 / V8_p5)
+1190	1190	agents/INTAKE.md	1	5.1	### 1. Intake (heading)
+1191	1200	agents/mozart.md	16	0	### 1. Intake (DELIVER intake skeleton retained inline, D-F)
+1201	1254	agents/INTAKE.md	2	5.1	### 1. Intake (carved checklist body + pre-flight gates)
+1255	1628	agents/DELIVER.md	2	5.6	## DELIVER pipeline (### 2. Research onward)
+1629	1690	agents/AUDIT.md	1	2	## AUDIT pipeline
+1691	1725	agents/DIAGNOSE.md	1	2	## DIAGNOSE pipeline
+1726	1807	agents/OPERATE.md	1	3	## OPERATE pipeline
+1808	1884	agents/INCIDENT.md	1	3	## INCIDENT pipeline
+1885	1913	agents/EVAL.md	1	2	## EVAL pipeline (mozart evaluating mozart)
+1914	2307	agents/TICKETS.md	1	5.5	## Ticket lifecycle
+2308	2322	agents/mozart.md	17	0	## Orchestration discipline
+2323	2421	agents/mozart.md	18	0	## Live narration cadence
+2422	2448	agents/mozart.md	19	0	## Communicate at checkpoints
+2449	2468	agents/mozart.md	20	0	## Communicate as you work
+2469	2507	agents/mozart.md	21	0	## Field notes (append-only)
+#
+# ============================================================================
+# V16 per-file ceilings (Pattern 3). Provisional: computed as measured PRE
+# content + ~10%. Phase 6 sets the final values from LANDED sizes (which
+# include each destination's declared stanza heading) and asserts 18 rows.
+# ceiling	agents/mozart.md	55000	(D-E; replaces 269500, and the named-member literal at scripts/mozart-contract-gates.sh:1728 changes in the same edit - F17)
+# ceiling	agents/DELIVER.md	62400	measured 56701
+# ceiling	agents/STATE.md	53500	measured 48585
+# ceiling	agents/TICKETS.md	24700	measured 22448
+# ceiling	agents/INTAKE.md	19900	measured 18119
+# ceiling	agents/WORKTREES.md	18200	measured 16491
+# ceiling	agents/FLOWS.md	16800	measured 15229
+# ceiling	agents/OPERATE.md	14600	measured 13201
+# ceiling	agents/INCIDENT.md	11700	measured 10572
+# ceiling	agents/COUNTERPOINT.md	9900	measured 9007
+# ceiling	agents/EVAL.md	6300	measured 5710
+# ceiling	agents/DIAGNOSE.md	5500	measured 4918
+# ceiling	agents/AUDIT.md	4700	measured 4215
+# ceiling	agents/CONTEXT-BUDGET.md	1800	measured 1559
+# ceiling	agents/INDEX.md	4200	new file, not in the partition set (F7/F33)
+#
+# ============================================================================
+# Pattern 2 - absence assertions, enumerated BY IDIOM, not by path-literal grep
+# (F5, D4). An absence assertion scoped to a file the text just left goes
+# vacuously green. Population floor 3; four sites recorded, three actionable.
+#
+# absence	V1_absence	scripts/mozart-contract-gates.sh:161	path-literal	RE-SCOPE in phase 4	greps agents/mozart.md for bare "<Field>: " invocations; the state-file template moves to STATE.md in the same commit, so the scope must become the carve set or the check asserts nothing.
+# absence	V13_running_log	scripts/mozart-contract-gates.sh:1476	path-literal	RE-SCOPE in phase 4	grep -cF 'running log of decisions' "$gate_root/agents/mozart.md"; the phrase lives in State persistence and leaves in phase 4.
+# absence	V7_readonly_inverse	scripts/mozart-contract-gates.sh:853-866	roster-derived	RECORD REASON in phase 6	iterates $v4_roster -> agents/$ag.md. Carved files are not personas and never enter the roster, so the scope does not widen. Persona-only is CORRECT here: the assertion is about what a Write-holding AGENT claims about itself. Widening the roster's meaning is explicitly out of scope.
+# absence	V13_deleted_note	scripts/mozart-contract-gates.sh:1482	glob	NO ACTION - model form	grep -rlF ... "$gate_root"/agents/*.md - auto-widens to the carved files because D-A lands them flat in agents/. This is the idiom to copy when re-scoping the two path-literal sites above.
+#
+# ============================================================================
+# D1 - the three real divergences from the ports (F20). Recorded rather than
+# glossed: claiming convergence where there is none is the r1 lesson again.
+#
+# divergence	1	copilot's INTAKE.md also holds task tiers and project context; ours keeps both inline (D2 classes them activation-critical). OUR CALL IS BETTER for this edition - they are read before any file is opened.
+# divergence	2	local carved its activation check into ACTIVATION.md; D2 forbids that, so we ship no such file. OUR CALL IS BETTER - that is precisely the behaviour change D2 exists to prevent.
+# divergence	3	D-A puts files flat in agents/; both ports use a manual/ subdirectory. THEIRS IS TIDIER; OURS survives the documented non-recursive `cp agents/*.md ~/.claude/agents/`.
