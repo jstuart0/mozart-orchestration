@@ -127,21 +127,21 @@ message continues with an em-dash, and without braces bash reads the multibyte c
 the variable name, so under `set -u` the gate aborted on the exact path it exists to report — the
 control produced no verdict at all rather than a FAIL, which is how it was caught.
 
-**Reconciliation round 4** (F66). `agents/mozart.md` was over the 269,000-byte ceiling log D14
-accepted, and no gate said so: A7 was written as a hand-run command and wired into nothing
-(`grep -c 269000 scripts/mozart-contract-gates.sh` returned 0), so three rounds of green suites ran
-past a real breach. New gate **V16** enforces A7's per-file budgets — mozart, hank, dick and otto —
-naming the file and its exact overage rather than reporting a repo-wide total, with a floor on the
-table, a named member, and a missing tracked file treated as a failure rather than a skip. It is
-scoped to this repo's files and says so at the site: the ports enforce their own ceilings with their
-own tooling, which this gate cannot see.
+**Reconciliation round 4** (F66). `agents/mozart.md` was over its size ceiling and no gate said so:
+A7 was written as a hand-run command and wired into nothing, so three rounds of green suites ran past
+a real breach. New gate **V16** enforces A7's per-file budgets — mozart, hank, dick and otto — naming
+the file and its exact overage rather than reporting a repo-wide total, with a floor on the table, a
+named member, and a missing tracked file treated as a failure rather than a skip. It is scoped to
+this repo's files and says so at the site: the ports enforce their own ceilings with their own
+tooling, which this gate cannot see.
 
-The F48 change-ledger sentence is tightened to the same rule in half the bytes, in all four repos.
-That recovers 94 of the 393-byte overage. **The remaining 299 bytes are not recoverable by
-tightening**: the campaign's additions to `agents/mozart.md` outside frozen snippet text total 2,325
-bytes, all of it rule and mechanism prose, so closing the gap means deleting a rule or re-opening the
-snippet churn D14 closed. That is a content decision, not an implementation one, and V16 is left
-reporting the breach until it is made.
+**mozart.md's ceiling is 269,500** (log D26, superseding D14's 269,000). The number moved because the
+content could not: phase 7 landed the file at 268,994, six bytes under D14's ceiling, so the first
+real fix after it — F48, +399 bytes across two paragraphs, 220 of them inside the byte-checked `S3`
+snippet — had nowhere to fit. Tightening the F48 change-ledger sentence to the same rule in half the
+bytes (85 from 179, mirrored across all four repos) recovered 94; the remaining 299 would have had to
+come out of the 2,325 bytes of rule prose the campaign added outside frozen snippet text, i.e. by
+deleting a mechanism. The other three ceilings are unchanged and all three files sit inside them.
 
 **Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
 land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by

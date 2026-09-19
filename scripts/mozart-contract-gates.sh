@@ -1699,8 +1699,18 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 #
 # These are the plan's A7 budgets. A7 was written as a hand-run command and
 # wired into nothing, so three reconciliation rounds of green suites ran while
-# agents/mozart.md sat over its ceiling: `grep -c 269000` across this file
-# returned 0. A budget nobody runs is not a budget.
+# agents/mozart.md sat over its ceiling: grepping this file for the ceiling
+# returned 0 hits. A budget nobody runs is not a budget.
+#
+# mozart.md's ceiling is 269,500 per log D26, which supersedes D14's 269,000.
+# The history is worth keeping in view, because what moved was the number and
+# not the discipline: phase 7 landed mozart.md at 268,994 — six bytes under
+# D14's ceiling — so the first real fix after it (F48, +399 across two
+# paragraphs, 220 of them inside the byte-checked S3 snippet) could not fit.
+# Measured at the time: everything the campaign added outside frozen snippet
+# text was 2,325 bytes of rule prose, so closing a 299-byte gap meant deleting
+# a mechanism. D26 moved the number rather than the content. The other three
+# ceilings are unchanged, and all three files still sit inside them.
 #
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
 # with their own tooling — copilot via scripts/check_agents.py against the
@@ -1715,7 +1725,7 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # and agents/mozart.md is asserted present in the table by name.
 # ---------------------------------------------------------------------------
 v16_budgets=$(cat <<'V16_BUDGETS_EOF'
-agents/mozart.md	269000
+agents/mozart.md	269500
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
@@ -1725,8 +1735,8 @@ V16_BUDGETS_EOF
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
 [ "$v16_rows" -ge 4 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 4]"
-printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269000')" \
-  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269000]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269500')" \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269500]"
 
 v16_checked=0
 v16_sizes=""
