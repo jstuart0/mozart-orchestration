@@ -129,9 +129,19 @@ mozart-orchestration/
 │   ├── web-search-researcher.md
 │   └── xander.md
 ├── commands/
-│   └── mozart.md                # the /mozart slash command
+│   ├── mozart.md                # the /mozart slash command
+│   └── mozart-eval.md           # the /mozart-eval slash command
 ├── docs/                        # created in v0.1.0 release
+│   ├── EVAL.md                  # EVAL report template
 │   └── README.md
+├── scripts/
+│   ├── check-field-note-parity.py  # cross-port parity (pre-merge, not a CI gate)
+│   ├── mozart-contract-gates.sh    # persona-contract gates
+│   ├── mozart-lint.sh              # campaign-artifact linter
+│   └── mozart-metrics.sh           # campaign-artifact metrics aggregator
+├── tests/
+│   ├── fixtures/                # committed corpus the linter/metrics gates run against
+│   └── parity/                  # frozen snippets the parity tool pins
 ├── .github/                     # created in v0.1.0 release
 │   ├── ISSUE_TEMPLATE/
 │   └── workflows/

@@ -143,10 +143,14 @@ bytes (85 from 179, mirrored across all four repos) recovered 94; the remaining 
 come out of the 2,325 bytes of rule prose the campaign added outside frozen snippet text, i.e. by
 deleting a mechanism. The other three ceilings are unchanged and all three files sit inside them.
 
-**Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract is designed to
-land in `mozart-codex`, `mozart-copilot`, and `mozart-local` with parity proven by
-`scripts/check-field-note-parity.py`'s `behaviour` subcommand before any branch merges; porting has
-not yet landed as of this entry.
+**Scope disclosed**: this entry covers `mozart-orchestration` only. The same contract landed in
+`mozart-codex`, `mozart-copilot` and `mozart-local` in the same campaign, each with its own CHANGELOG
+entry covering what that port does and does not carry; parity was proven by
+`scripts/check-field-note-parity.py`'s `parity`, `bullets` and `behaviour` subcommands across all
+four checkouts before any branch merged. The ports differ where their harnesses do: `mozart-codex`
+ships fourteen lint categories, not fifteen, because it has no stage 12b and so no `missing-12b`
+(disclosed in `docs/CODEX_PORT.md`), and `mozart-local` ships no campaign linter at all by design —
+it records a `## Degraded controls` row when none resolves.
 
 ## [0.3.0] - 2026-09-13
 
