@@ -857,18 +857,32 @@ report "V7_negation_fixture" "$([ -z "$v7_neg_bad" ] && echo 0 || echo 1)" \
 # still reported PASS 1/1/1). Restricting the test to the agents/mozart.md
 # SUBSET of claim lines means the control can only pass if mozart.md's own
 # text does the binding, regardless of what any persona's own file says.
-v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep '^agents/mozart\.md:')
+# PATTERN 2 / D4 RE-SCOPE. Was `^agents/mozart\.md:` — a path literal. The control's
+# intent is "mozart's OWN text does the binding, regardless of what any persona's own
+# file says", and after the carve mozart's own text is the persona PLUS the 13 manual
+# files. Measured: harry's claim line is at PRE 370, which moved to agents/WORKTREES.md,
+# so the mozart.md-only scope reported harry=0 and the control failed.
+#
+# A GLOB WOULD BE WRONG HERE, and this is the one place in the campaign where that is
+# true. `agents/*.md` would pull in harry.md, valerie.md and every other persona —
+# exactly the population this control excludes by construction. So the manual set is
+# enumerated literally, and a floor guards the enumeration: if a name is mistyped the
+# alternation silently narrows, which is the failure mode a literal list has and a
+# glob does not.
+v7_manual_re='^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md:'
+v7_manual_files=$(ls agents/*.md 2>/dev/null | grep -cE '^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md$')
+v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep -E "$v7_manual_re")
 v7_mzharry=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" && echo 1 || echo 0)
 v7_mzvalerie=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" && echo 1 || echo 0)
 v7_mzsarah=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" && echo 1 || echo 0)
 v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
-if [ "$v7_claimn" -ge 5 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
+if [ "$v7_claimn" -ge 5 ] && [ "$v7_manual_files" -ge 8 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
   v7_claimctl=0
 else
   v7_claimctl=1
 fi
 report "V7_claim_control" "$v7_claimctl" \
-  "claimants derived=$v7_claimn (floor 5); agents/mozart.md's OWN claim lines separately bind harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart.md independent of any persona's own file)"
+  "claimants derived=$v7_claimn (floor 5); mozart's OWN text (persona + $v7_manual_files manual file(s), floor 8) separately binds harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart's own text independent of any persona's own file)"
 
 # Inverse half (xander) - an agent HOLDING Write must carry no UNQUALIFIED
 # read-only self-assertion. Qualified forms ("Read-only on code", "not ... for
@@ -1479,7 +1493,7 @@ v13_check() { # $1=file $2=anchor $3=stoplevel $4=term $5=label
 }
 
 # (a) decisions.md across the five artifact-list sites
-v13_check "$gate_root/agents/mozart.md" "### Per-campaign artifacts" "$L3" "decisions.md" "mozart Per-campaign artifacts / decisions.md"
+v13_check "$gate_root/agents/WORKTREES.md" "### Per-campaign artifacts" "$L3" "decisions.md" "WORKTREES Per-campaign artifacts / decisions.md"
 v13_check "$gate_root/agents/STATE.md" "### Directory convention" "$L3" "decisions.md" "STATE Directory convention / decisions.md"
 v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
 v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
@@ -1775,6 +1789,7 @@ agents/STATE.md	53500
 agents/INTAKE.md	19900
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
+agents/WORKTREES.md	18200
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

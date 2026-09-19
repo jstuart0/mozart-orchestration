@@ -338,7 +338,7 @@ Every run writes `.mozart/plans/<slug>.state.md` with `Status: in-progress` and 
 
 Worktrees isolate files, not runtimes — venvs, `node_modules`, ports, and DBs stay shared (see *Multi-campaign mode*). Disposition (`merged` / `squash-merged` / `pending-pr` / `intentionally-unmerged` / `abandoned`) is recorded in the state file at closeout; unmerged worktrees are left in place and named in the final report, never force-removed. `pending-pr` is the only one of the five that is **awaiting an external actor** rather than terminal — the pipeline is done, the branch isn't — so it is also the only one that is re-checked and rewritten after closeout.
 
-See `mozart.md` *Worktree isolation* for the full playbook.
+See `WORKTREES.md` *Worktree isolation* for the full playbook.
 
 ## Multi-campaign mode
 
@@ -362,7 +362,7 @@ Cap: 3–4 simultaneously-active campaigns unless the user explicitly asks for m
 
 Every `TASK [...]` line in multi-campaign runs includes the campaign slug: `TASK [<slug>: <stage>]`. Cross-campaign parallel batches use `TASK [parallel batch]` with each campaign's work listed in the body.
 
-See `mozart.md` *Multi-campaign mode* for the full playbook.
+See `WORKTREES.md` *Multi-campaign mode* for the full playbook.
 
 ## Iteration caps
 

@@ -70,3 +70,7 @@ pointer	**Before setting a build-time flag** — read `FLOWS.md` (*Build-time fl
 pointer	**When a run stops early or resumes mid-pipeline** — read `FLOWS.md` (*Partial flows (stop points)*).
 pointer	**Before entering the pipeline at a stage other than 1** — read `FLOWS.md` (*Resume / entry points*).
 pointer	**Before deciding the slug or searching for prior art** — read `FLOWS.md` (*Run identification and prior-art discovery*).
+#
+# --- phase 5.4 (WORKTREES) ---------------------------------------------------
+pointer	**Before cutting a campaign worktree** — read `WORKTREES.md` (*Worktree isolation (default for code-changing campaigns)*).
+pointer	**Before running more than one campaign at a time** — read `WORKTREES.md` (*Multi-campaign mode (parallel orchestration)*).
