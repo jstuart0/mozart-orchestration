@@ -37,6 +37,17 @@ jobs:
             SECURITY.md CODE_OF_CONDUCT.md
             .claude-plugin/plugin.json .claude-plugin/marketplace.json
             commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md
+            # The bundled manual (14 files). ENUMERATED, NOT DERIVED, and deliberately:
+            # a required-files check whose list is read from the tree it checks asserts
+            # that the files which exist, exist - the same self-referential vacuity as a
+            # population counted from the table it validates. This list is an INDEPENDENT
+            # statement of what must be present. Drift in the other direction (a new
+            # manual file that never reaches this list) is caught by V16's 18-row floor
+            # and V20's 14-file pointer floor, so both directions are covered.
+            agents/INDEX.md agents/DELIVER.md agents/STATE.md agents/TICKETS.md
+            agents/INTAKE.md agents/WORKTREES.md agents/FLOWS.md agents/OPERATE.md
+            agents/INCIDENT.md agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md
+            agents/AUDIT.md agents/CONTEXT-BUDGET.md
           )
           MISSING=0
           for f in "${REQUIRED[@]}"; do

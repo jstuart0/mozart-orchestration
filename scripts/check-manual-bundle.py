@@ -215,6 +215,34 @@ def main():
         f"{len(reg)} of {len(MANUAL)} manual-set file(s) carry `name:` frontmatter "
         f"(want 0 over exactly 14 tested)" + (f" - {reg}" if reg else ""))
 
+    # --- DOCS RIPPLE --------------------------------------------------------
+    # The one part of the carve with no mechanical check, which is why two ripple
+    # sites named twice in the plan still went unlanded (F75, F76): the phase was
+    # green because nothing gated CONTRIBUTING.md or the workflow's REQUIRED list.
+    # A prose ripple nobody can fail is a ripple that gets eyeballed, and an eye
+    # enumerating six sites landed three.
+    #
+    # This asserts only the MECHANICAL half - that both required-file lists name
+    # every manual-set file. Whether the prose around them is correct is still
+    # judgment, but "the list forgot a file" is now a failure rather than a reading.
+    dbad = []
+    try:
+        contrib = (root / "CONTRIBUTING.md").read_text()
+        wf = (root / ".github/workflows/validate-plugin.yml").read_text()
+    except FileNotFoundError as e:
+        contrib = wf = ""
+        dbad.append(f"missing doc: {e.filename}")
+    miss_c = [n for n in MANUAL if f"agents/{n}.md" not in contrib]
+    miss_w = [n for n in MANUAL if f"agents/{n}.md" not in wf]
+    if miss_c: dbad.append(f"CONTRIBUTING.md's pre-push sweep omits {miss_c}")
+    if miss_w: dbad.append(f".github/workflows/validate-plugin.yml REQUIRED omits {miss_w}")
+    if "agents/DELIVER.md" not in contrib or "agents/DELIVER.md" not in wf:
+        dbad.append("named member agents/DELIVER.md absent from one of the two lists")
+    rep("V24_docs", not dbad,
+        "; ".join(dbad) or f"both required-file lists (CONTRIBUTING.md pre-push sweep and "
+        f"validate-plugin.yml REQUIRED) name all {len(MANUAL)} manual-set files; named "
+        f"member agents/DELIVER.md present in both")
+
     # --- ABSENCE (Pattern 2) ------------------------------------------------
     cm = (root / "tests/carve/carve-map.tsv").read_text()
     rows = [l for l in cm.split("\n") if l.startswith("# absence\t")]

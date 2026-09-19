@@ -1921,7 +1921,7 @@ fi
 # ---------------------------------------------------------------------------
 v18_script="$gate_root/scripts/check-manual-bundle.py"
 if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v18_script" ]; then
-  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence; do
+  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence V24_docs; do
     report "$v18_g" 1 "scripts/check-manual-bundle.py unavailable (FAIL, not skip)"
   done
 else
@@ -1937,8 +1937,8 @@ else
   done <<EOF_V18
 $v18_out
 EOF_V18
-  [ "$v18_seen" -eq 6 ] || report "V18_population" 1 \
-    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 6"
+  [ "$v18_seen" -eq 7 ] || report "V18_population" 1 \
+    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 7"
 fi
 
 echo

@@ -52,7 +52,7 @@ Then exercise the slash command against a real request in a test repo:
 /mozart add a health-check endpoint to the API
 ```
 
-There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with `agents/mozart.md` (the two must agree on shapes, tiers, partial flows, and agent roster).
+There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**, because the four things it has to agree on no longer live in one file: **agent roster** and **tiers** are in `agents/mozart.md`; **shapes** are in `agents/INTAKE.md` (*Six shapes of work: boundaries and transitions*); **partial flows** are in `agents/FLOWS.md` (*Partial flows (stop points)*). Checking only `agents/mozart.md` for shapes or partial flows is **vacuously satisfiable** — the text is not there to disagree with you. `agents/INDEX.md` routes to the right file. Where PIPELINE.md and the manual disagree, **the manual wins** (PIPELINE.md summarizes; see `agents/PIPELINE.md`'s own statement of that direction).
 
 ### If your local install is specialized
 
@@ -76,7 +76,12 @@ python3 -m json.tool .claude-plugin/plugin.json > /dev/null
 python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
 for f in README.md LICENSE INTEGRATION.md CHANGELOG.md CONTRIBUTING.md SECURITY.md \
           CODE_OF_CONDUCT.md .claude-plugin/plugin.json .claude-plugin/marketplace.json \
-          commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md; do
+          commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md \
+          agents/INDEX.md agents/DELIVER.md agents/STATE.md \
+          agents/TICKETS.md agents/INTAKE.md agents/WORKTREES.md \
+          agents/FLOWS.md agents/OPERATE.md agents/INCIDENT.md \
+          agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md \
+          agents/AUDIT.md agents/CONTEXT-BUDGET.md; do
   test -f "$f" && echo "OK: $f" || echo "MISSING: $f"
 done
 ```
@@ -116,6 +121,27 @@ Before opening a pull request, confirm:
 The `## Field notes (append-only)` section at the bottom of each specialist persona is an append-only log of cross-project patterns. See `agents/LEARNINGS.md` for the protocol and the entry template. Do not edit any other section of a persona file when adding a field note — those sections are human-authored contracts.
 
 `scripts/check-field-note-parity.py` is a **pre-merge tool, not a CI gate**: it proves the field-note prose and the M2/M7/M4 mechanism bullets are identical across all four roots — this repo, `mozart-codex`, `mozart-copilot`, and `mozart-local` — and agree with a frozen canonical source (`tests/parity/snippets/`). A third subcommand, `behaviour`, runs the same proof over shipped script *behavior* rather than persona prose: it replays the committed fixture corpus (`tests/fixtures/conductor/`) against each port's `mozart-lint.sh`/`mozart-metrics.sh` (or reports `N/A` for local, which ships neither) and asserts the lint/metrics output matches `expected.tsv` exactly. It is not wired into `mozart-contract-gates.sh` because that script's `report()` has only a PASS/FAIL state — no SKIP — and a cross-worktree check installed there would be permanently red in single-repo CI or vacuously green having compared nothing. Run it by hand across all four worktrees before merging any change to the shared field notes, mechanisms, or the fixture corpus; see the script's own docstring for `parity`, `bullets`, and `behaviour` usage.
+
+**Roots must be absolute, and this repo's root must be the tree you are about to merge.**
+Relative roots report *zero inputs* for the other three ports rather than zero
+occurrences — a pass over an empty population. And while a carve campaign is still on a
+branch, the canonical checkout is pre-carve, so pointing `orchestration=` at it tests the
+wrong tree; the tool refuses with "lies under 0 of the three port roots ... compare would
+be vacuous" rather than passing quietly. Post-carve, orchestration's `M4` lives in
+`agents/DELIVER.md`, not `agents/mozart.md`:
+
+```bash
+python3 scripts/check-field-note-parity.py bullets \
+  --root orchestration=/abs/path/to/mozart-orchestration \
+  --root copilot=/abs/path/to/mozart-copilot \
+  --root local=/abs/path/to/mozart-local \
+  --root codex=/abs/path/to/mozart-codex \
+  --bullet tests/parity/snippets/M4.txt \
+  /abs/path/to/mozart-orchestration/agents/DELIVER.md \
+  /abs/path/to/mozart-copilot/.github/mozart/manual/DELIVER.md \
+  /abs/path/to/mozart-local/src/mozart_local/bundle/manual/DELIVER.md \
+  /abs/path/to/mozart-codex/.codex/skills/mozart/SKILL.md
+```
 
 ## Issue templates
 
