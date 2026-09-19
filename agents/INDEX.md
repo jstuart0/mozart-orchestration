@@ -12,7 +12,9 @@ the file it names, so the table never promises a file that does not exist.
 | `AUDIT.md` | The AUDIT pipeline — review against a goal | the work shape is AUDIT |
 | `CONTEXT-BUDGET.md` | Subagent context budget for large-CLAUDE.md repos | before briefing any subagent in a repo with a large CLAUDE.md |
 | `DIAGNOSE.md` | The DIAGNOSE pipeline — investigate a specific failure | the work shape is DIAGNOSE |
+| `INCIDENT.md` | The INCIDENT pipeline — respond to a live outage | the work shape is INCIDENT (service is down *right now*) |
 | `EVAL.md` | The EVAL pipeline — mozart evaluating mozart | the work shape is EVAL |
+| `OPERATE.md` | The OPERATE pipeline — change or debug a live system | the work shape is OPERATE |
 
 ## Adjacent, not members
 

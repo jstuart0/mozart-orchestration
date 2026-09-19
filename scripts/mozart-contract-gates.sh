@@ -1468,10 +1468,10 @@ v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" 
 v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
 
 # (d) manifest across the nine OPERATE/INCIDENT sections
-v13_check "$gate_root/agents/mozart.md" "### 3. Change plan (otto)" "$L3" "manifest" "mozart Change plan / manifest"
-v13_check "$gate_root/agents/mozart.md" "### 5. Apply (hank)" "$L3" "manifest" "mozart Apply (hank) / manifest"
-v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "manifest" "mozart Operate-mode rules / manifest"
-v13_check "$gate_root/agents/mozart.md" "### Incident-mode rules" "$L3" "manifest" "mozart Incident-mode rules / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### 3. Change plan (otto)" "$L3" "manifest" "OPERATE Change plan / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### 5. Apply (hank)" "$L3" "manifest" "OPERATE Apply (hank) / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### Operate-mode rules" "$L3" "manifest" "OPERATE Operate-mode rules / manifest"
+v13_check "$gate_root/agents/INCIDENT.md" "### Incident-mode rules" "$L3" "manifest" "INCIDENT Incident-mode rules / manifest"
 v13_check "$gate_root/agents/hank.md" "### 4. Apply" "$L3" "manifest" "hank 4. Apply / manifest"
 v13_check "$gate_root/agents/hank.md" "## Under a declared INCIDENT" "$L2" "manifest" "hank Under a declared INCIDENT / manifest"
 v13_check "$gate_root/agents/otto.md" "## Where you fit" "$L2" "manifest" "otto Where you fit / manifest"
@@ -1479,8 +1479,8 @@ v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "manifest"
 v13_check "$gate_root/agents/PIPELINE.md" "## INCIDENT pipeline" "$L2" "manifest" "PIPELINE INCIDENT pipeline / manifest"
 
 # (e) both sides across three pin-related sections
-v13_check "$gate_root/agents/mozart.md" "### 1. Intake + context pin" "$L3" "both sides" "mozart Intake + context pin / both sides"
-v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "both sides" "mozart Operate-mode rules / both sides"
+v13_check "$gate_root/agents/OPERATE.md" "### 1. Intake + context pin" "$L3" "both sides" "OPERATE Intake + context pin / both sides"
+v13_check "$gate_root/agents/OPERATE.md" "### Operate-mode rules" "$L3" "both sides" "OPERATE Operate-mode rules / both sides"
 v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "both sides" "PIPELINE OPERATE pipeline / both sides"
 
 # (f) the dick heading itself, exactly once
@@ -1617,12 +1617,12 @@ S4	agents/mozart.md
 S5	agents/mozart.md
 S6	agents/mozart.md
 S7	agents/mozart.md
-S8	agents/mozart.md
-S9	agents/mozart.md
-S10	agents/mozart.md
-S11	agents/mozart.md
-S12	agents/mozart.md
-S13	agents/mozart.md
+S8	agents/OPERATE.md
+S9	agents/OPERATE.md
+S10	agents/OPERATE.md
+S11	agents/OPERATE.md
+S12	agents/INCIDENT.md
+S13	agents/INCIDENT.md
 S14	agents/dick.md
 S15	agents/hank.md
 S16	agents/otto.md
@@ -1746,6 +1746,8 @@ agents/AUDIT.md	4700
 agents/CONTEXT-BUDGET.md	1800
 agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
+agents/OPERATE.md	14600
+agents/INCIDENT.md	11700
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

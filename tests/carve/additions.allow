@@ -35,3 +35,7 @@ pointer	**Before dispatching any subagent in a repo whose CLAUDE.md is large** �
 pointer	**When the work shape is AUDIT** — read `AUDIT.md` (*AUDIT pipeline*) before stage 1.
 pointer	**When the work shape is DIAGNOSE** — read `DIAGNOSE.md` (*DIAGNOSE pipeline*) before stage 1.
 pointer	**When the work shape is EVAL** — read `EVAL.md` (*EVAL pipeline (mozart evaluating mozart)*) before stage 1.
+#
+# --- phase 3 -----------------------------------------------------------------
+pointer	**When the work shape is OPERATE** — read `OPERATE.md` (*OPERATE pipeline*) before stage 1.
+pointer	**When the work shape is INCIDENT** — read `INCIDENT.md` (*INCIDENT pipeline*) before you do anything else.
