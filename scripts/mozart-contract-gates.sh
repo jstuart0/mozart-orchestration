@@ -1772,6 +1772,7 @@ agents/EVAL.md	6300
 agents/OPERATE.md	14600
 agents/INCIDENT.md	11700
 agents/STATE.md	53500
+agents/INTAKE.md	19900
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

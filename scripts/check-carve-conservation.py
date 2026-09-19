@@ -67,11 +67,36 @@ EXCLUDED_FROM_PARTITION = "agents/INDEX.md"   # 100% new text, gated separately 
 POINTER_RE = None  # compiled below
 
 
+POINTER_LEAD_RE = None
+POINTER_CITE_RE = None
+
+
 def _compile():
-    global POINTER_RE
+    global POINTER_RE, POINTER_LEAD_RE, POINTER_CITE_RE
     import re
-    # **<Trigger>** — read `<FILE>.md` (*<Original section heading>*) ...
-    POINTER_RE = re.compile(r"\*\*[^*]+\*\* — read `[^`]+\.md` \(\*.+?\*\)")
+    # The D2 pointer form has TWO shapes, and a single regex that assumes the simple
+    # one REJECTS THE PLAN'S OWN NAMED MEMBER:
+    #
+    #   simple   **<Trigger>** — read `<FILE>.md` (*<heading>*) before <action>.
+    #   routed   **<Trigger>** — read `INDEX.md`, then the file(s) it names for this
+    #            shape. For every shape that means `INTAKE.md` (*1. Intake*).
+    #
+    # The routed shape names the router first and the destination second, so the
+    # parenthetical is not adjacent to the first backticked file. Measured: of the
+    # plan's five worked examples four match the adjacent form and the fifth — the
+    # unconditional stage-1 boot read, which is Pattern 1's NAMED MEMBER and the
+    # highest-traffic pointer in the persona — does not. A form-check that rejects the
+    # one pointer it exists to protect is checking the wrong thing.
+    #
+    # Two conjuncts, BOTH required:
+    #   lead  a bold trigger, the literal " — read ", and a backticked *.md file
+    #   cite  at least one (*<heading>*) parenthetical somewhere in the line
+    # Still rejects a bare "see X", a pointer naming no file, and a pointer citing no
+    # section. Whether the cited heading EXISTS in the named file is D18's strict
+    # tier at phase 6 — a stronger check than any regex.
+    POINTER_LEAD_RE = re.compile(r"\*\*[^*]+\*\* — read `[^`]+\.md`")
+    POINTER_CITE_RE = re.compile(r"\(\*.+?\*\)")
+    POINTER_RE = POINTER_LEAD_RE
 
 
 _compile()
@@ -464,9 +489,13 @@ def control_c5(w, present, additions_floor):
         if n != 1:
             fails.append(f"C5: declared {t} entry occurs {n}x in POST, want exactly 1: "
                          f"{payload[:70]!r}")
-        if t == "pointer" and not POINTER_RE.search(payload):
-            fails.append(f"C5: declared pointer does not match the D2 pointer form "
-                         f"'**<Trigger>** — read `<FILE>.md` (*<heading>*)': {payload[:80]!r}")
+        if t == "pointer":
+            if not POINTER_LEAD_RE.search(payload):
+                fails.append(f"C5: declared pointer has no '**<Trigger>** — read "
+                             f"`<FILE>.md`' lead: {payload[:80]!r}")
+            elif not POINTER_CITE_RE.search(payload):
+                fails.append(f"C5: declared pointer cites no section — no '(*<heading>*)' "
+                             f"parenthetical: {payload[:80]!r}")
     for minus, plus in w.additions.changed:
         if post[plus] != 1:
             fails.append(f"C5: declared `changed` replacement occurs {post[plus]}x in POST, want 1: "

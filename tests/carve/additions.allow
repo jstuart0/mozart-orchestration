@@ -43,3 +43,16 @@ pointer	**When the work shape is INCIDENT** — read `INCIDENT.md` (*INCIDENT pi
 # --- phase 4 -----------------------------------------------------------------
 pointer	**Before you create or update any state file** — read `STATE.md` (*State persistence (crash-resume)*).
 pointer	**Before narrating a stage transition or drawing the flow** — read `STATE.md` (*Pipeline flow sketch*).
+#
+# --- phase 5.1 (INTAKE) ------------------------------------------------------
+# The boot read is Pattern 1's NAMED MEMBER: unconditional, fires at stage 1 on every
+# run and every shape. It uses the ROUTED pointer shape (router first, destination
+# second) - see the form note in check-carve-conservation.py.
+pointer	**Before step 2 of intake** — read `INDEX.md`, then the file(s) it names for this shape. For every shape that means `INTAKE.md` (*1. Intake*).
+pointer	**Before applying a shape boundary test** — read `INTAKE.md` (*Six shapes of work: boundaries and transitions*).
+pointer	**Before routing a passthrough** — read `INTAKE.md` (*Single-agent passthrough: routing and discipline*).
+# D17 stanzas - these two headings are PINNED by 1c's pointers at PRE :1191 and :1194,
+# which are in the conservation baseline and cannot be corrected later.
+stanza	## Six shapes of work: boundaries and transitions
+stanza	## Single-agent passthrough: routing and discipline
+stanza	### 1. Intake (skeleton; the full checklist is in INTAKE.md)

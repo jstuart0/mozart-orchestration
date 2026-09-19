@@ -14,6 +14,7 @@ the file it names, so the table never promises a file that does not exist.
 | `DIAGNOSE.md` | The DIAGNOSE pipeline — investigate a specific failure | the work shape is DIAGNOSE |
 | `INCIDENT.md` | The INCIDENT pipeline — respond to a live outage | the work shape is INCIDENT (service is down *right now*) |
 | `EVAL.md` | The EVAL pipeline — mozart evaluating mozart | the work shape is EVAL |
+| `INTAKE.md` | The full stage-1 intake checklist, the shape-boundary tests, and passthrough routing | **boot read** — before step 2 of intake, every run, every shape |
 | `OPERATE.md` | The OPERATE pipeline — change or debug a live system | the work shape is OPERATE |
 | `STATE.md` | State persistence (crash-resume) and the pipeline flow sketch | before creating or updating any state file, and before narrating a stage transition |
 
