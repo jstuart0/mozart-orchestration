@@ -34,7 +34,7 @@ Use `agents/sarah.md` as the canonical template for a researcher-type agent; use
 ## When you add a new agent, also update
 
 - `agents/PIPELINE.md` — add the agent to the Agent roster table and to the appropriate reviewer/specialist trigger table (stages 4 and 8)
-- `agents/mozart.md` — add the agent to the roster list near the top of the file (around lines 7–25)
+- `agents/mozart.md` — add the agent to the roster list near the top of the file (around lines 7–25). Stage-time procedure for a shape lives in the bundled manual (`agents/DELIVER.md`, `agents/AUDIT.md`, …), not in the persona; `agents/INDEX.md` routes to it.
 - `README.md` — add the agent to the "What's in the box" layout tree and update the agent count in the description
 - `agents/README.md` — add a row to the appropriate table (Specialists or Support agents)
 
@@ -52,7 +52,16 @@ Then exercise the slash command against a real request in a test repo:
 /mozart add a health-check endpoint to the API
 ```
 
-There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with `agents/mozart.md` (the two must agree on shapes, tiers, partial flows, and agent roster).
+There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**. Only one of the four things it must agree on actually moved, and a **split section can put two halves in two files** — so name the half that carries the text you are comparing, not the section:
+
+| Must agree on | Lives in | Note |
+|---|---|---|
+| **agent roster** | `agents/mozart.md` — frontmatter `description:`, and the *Not your lane* line | PIPELINE.md carries the roster **table**; the persona names the agents in prose |
+| **tiers** | `agents/mozart.md` — *Task tiers (DELIVER)* | inline, unchanged by the carve |
+| **shapes** (the six-shape **enumeration**) | `agents/mozart.md` — *Six shapes of work*, plus the frontmatter `description:` | **inline, unchanged.** `agents/INTAKE.md` holds the *boundary and transition tests*, which are a different claim — check it when you change how shapes RELATE, not when you change the list |
+| **partial flows** | `agents/FLOWS.md` — *Partial flows (stop points)* | the only one of the four that carved out |
+
+Checking `agents/mozart.md` for **partial flows** is **vacuously satisfiable** — the text is not there to disagree with you. Checking `agents/INTAKE.md` for the **shape enumeration** is the same error pointed the other way: you would be reading the boundary tests and concluding the list matched. `agents/INDEX.md` routes to the right file. Where PIPELINE.md and the manual disagree, **the manual wins** (PIPELINE.md summarizes; see `agents/PIPELINE.md`'s own statement of that direction).
 
 ### If your local install is specialized
 
@@ -76,7 +85,12 @@ python3 -m json.tool .claude-plugin/plugin.json > /dev/null
 python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
 for f in README.md LICENSE INTEGRATION.md CHANGELOG.md CONTRIBUTING.md SECURITY.md \
           CODE_OF_CONDUCT.md .claude-plugin/plugin.json .claude-plugin/marketplace.json \
-          commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md; do
+          commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md \
+          agents/INDEX.md agents/DELIVER.md agents/STATE.md \
+          agents/TICKETS.md agents/INTAKE.md agents/WORKTREES.md \
+          agents/FLOWS.md agents/OPERATE.md agents/INCIDENT.md \
+          agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md \
+          agents/AUDIT.md agents/CONTEXT-BUDGET.md; do
   test -f "$f" && echo "OK: $f" || echo "MISSING: $f"
 done
 ```
@@ -104,8 +118,8 @@ Before opening a pull request, confirm:
 
 - No homelab fingerprints or personal infrastructure references have been introduced
 - Voice is consistent with `agents/mozart.md` and `INTEGRATION.md` (professional, no emojis)
-- If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated
-- If a pipeline shape or flow was changed: PIPELINE.md, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. Every specialist carries the `**Your <PIPELINE> stages**:` marker, so the marker grep reaches them all — but grep for the generalized form, not for `DELIVER` alone, or you will skip the agents placed in other shapes
+- If a new agent was added: PIPELINE.md, mozart.md, README.md, and agents/README.md are all updated, and the manual file for any shape whose stage list changed
+- If a pipeline shape or flow was changed: PIPELINE.md, the shape's manual file (e.g. `agents/DELIVER.md`), `agents/INDEX.md`, agents/mozart.md, README.md, agents/README.md, every agent's stage-placement line, `commands/`, `scripts/`, `docs/`, `.github/` templates, and `.claude-plugin/` manifests all agree — grep for the stage marker, don't eyeball it. `.claude-plugin/*.json` is easy to miss because it isn't markdown and no `--include="*.md"` sweep reaches it. Every specialist carries the `**Your <PIPELINE> stages**:` marker, so the marker grep reaches them all — but grep for the generalized form, not for `DELIVER` alone, or you will skip the agents placed in other shapes
 - If the change adds or alters a configurable surface, a stanza, or anything that leaves the machine: `INTEGRATION.md` and `PRIVACY.md` are updated too. A flow change reaches both — stage 12b needed a new `INTEGRATION.md` section plus three parity sites in it, and a `PRIVACY.md` carve-out for the plugin's first network egress — and neither file is named in the row above
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`
@@ -116,6 +130,27 @@ Before opening a pull request, confirm:
 The `## Field notes (append-only)` section at the bottom of each specialist persona is an append-only log of cross-project patterns. See `agents/LEARNINGS.md` for the protocol and the entry template. Do not edit any other section of a persona file when adding a field note — those sections are human-authored contracts.
 
 `scripts/check-field-note-parity.py` is a **pre-merge tool, not a CI gate**: it proves the field-note prose and the M2/M7/M4 mechanism bullets are identical across all four roots — this repo, `mozart-codex`, `mozart-copilot`, and `mozart-local` — and agree with a frozen canonical source (`tests/parity/snippets/`). A third subcommand, `behaviour`, runs the same proof over shipped script *behavior* rather than persona prose: it replays the committed fixture corpus (`tests/fixtures/conductor/`) against each port's `mozart-lint.sh`/`mozart-metrics.sh` (or reports `N/A` for local, which ships neither) and asserts the lint/metrics output matches `expected.tsv` exactly. It is not wired into `mozart-contract-gates.sh` because that script's `report()` has only a PASS/FAIL state — no SKIP — and a cross-worktree check installed there would be permanently red in single-repo CI or vacuously green having compared nothing. Run it by hand across all four worktrees before merging any change to the shared field notes, mechanisms, or the fixture corpus; see the script's own docstring for `parity`, `bullets`, and `behaviour` usage.
+
+**Roots must be absolute, and this repo's root must be the tree you are about to merge.**
+Relative roots report *zero inputs* for the other three ports rather than zero
+occurrences — a pass over an empty population. And while a carve campaign is still on a
+branch, the canonical checkout is pre-carve, so pointing `orchestration=` at it tests the
+wrong tree; the tool refuses with "lies under 0 of the three port roots ... compare would
+be vacuous" rather than passing quietly. Post-carve, orchestration's `M4` lives in
+`agents/DELIVER.md`, not `agents/mozart.md`:
+
+```bash
+python3 scripts/check-field-note-parity.py bullets \
+  --root orchestration=/abs/path/to/mozart-orchestration \
+  --root copilot=/abs/path/to/mozart-copilot \
+  --root local=/abs/path/to/mozart-local \
+  --root codex=/abs/path/to/mozart-codex \
+  --bullet tests/parity/snippets/M4.txt \
+  /abs/path/to/mozart-orchestration/agents/DELIVER.md \
+  /abs/path/to/mozart-copilot/.github/mozart/manual/DELIVER.md \
+  /abs/path/to/mozart-local/src/mozart_local/bundle/manual/DELIVER.md \
+  /abs/path/to/mozart-codex/.codex/skills/mozart/SKILL.md
+```
 
 ## Issue templates
 

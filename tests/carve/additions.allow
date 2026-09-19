@@ -1,0 +1,82 @@
+# additions.allow - every POST line with no PRE origin, declared and typed (C5, F3/F8).
+#
+# Types:
+#   pointer   a D2 call-site pointer. Asserted MECHANICALLY against the form
+#             `**<Trigger>** - read `<FILE>.md` (*<Original section heading>*)`,
+#             not merely listed. Each is also asserted to occur EXACTLY once in
+#             POST - that is where the duplication guarantee for declared lines
+#             lives, since C2 is scoped to PRE lines and cannot see them (F32).
+#   stanza    a split's new carved-body heading, or the intake skeleton's heading.
+#   ~ changed a REWORDED line, written as a PAIRED block:
+#                 ~ changed
+#                 - <the PRE line, verbatim>
+#                 + <the POST line that replaces it>
+#             Subtracted from BOTH channels: from C1 (so a replaced line is not
+#             "lost") and from C5 (so its replacement is not "fabricated"). A `-`
+#             without its `+`, or a `+` without its `-`, FAILS.
+#
+# Format for pointer/stanza: <type> TAB <the exact line>
+#
+# NO PHASE IN THIS CAMPAIGN EXERCISES A `changed` PAIR (D7). A non-zero `~ changed`
+# count here is a STOP that returns to the user.
+#
+# agents/INDEX.md is NOT declared here: it is excluded from conservation (F7/F33),
+# is 100% new text, and is gated separately. Declaring it would put several hundred
+# lines in this file and bury the pointer lines that actually need review.
+#
+# PLACEMENT RULE, load-bearing: a declared addition goes BETWEEN mapped ranges,
+# never inside one. C3 asserts each range appears as a CONTIGUOUS block in its
+# destination, so a pointer inserted mid-range splits the block and fails. Every
+# pointer below sits in the gap its own carved section left, which is a range
+# boundary by construction.
+#
+# --- phase 2 -----------------------------------------------------------------
+pointer	**Before dispatching any subagent in a repo whose CLAUDE.md is large** — read `CONTEXT-BUDGET.md` (*Subagent context budget (large-CLAUDE.md repos)*) before you brief them.
+pointer	**When the work shape is AUDIT** — read `AUDIT.md` (*AUDIT pipeline*) before stage 1.
+pointer	**When the work shape is DIAGNOSE** — read `DIAGNOSE.md` (*DIAGNOSE pipeline*) before stage 1.
+pointer	**When the work shape is EVAL** — read `EVAL.md` (*EVAL pipeline (mozart evaluating mozart)*) before stage 1.
+#
+# --- phase 3 -----------------------------------------------------------------
+pointer	**When the work shape is OPERATE** — read `OPERATE.md` (*OPERATE pipeline*) before stage 1.
+pointer	**When the work shape is INCIDENT** — read `INCIDENT.md` (*INCIDENT pipeline*) before you do anything else.
+#
+# --- phase 4 -----------------------------------------------------------------
+pointer	**Before you create or update any state file** — read `STATE.md` (*State persistence (crash-resume)*).
+pointer	**Before narrating a stage transition or drawing the flow** — read `STATE.md` (*Pipeline flow sketch*).
+#
+# --- phase 5.1 (INTAKE) ------------------------------------------------------
+# The boot read is Pattern 1's NAMED MEMBER: unconditional, fires at stage 1 on every
+# run and every shape. It uses the ROUTED pointer shape (router first, destination
+# second) - see the form note in check-carve-conservation.py.
+pointer	**Before step 2 of intake** — read `INDEX.md`, then the file(s) it names for this shape. For every shape that means `INTAKE.md` (*1. Intake*).
+pointer	**Before applying a shape boundary test** — read `INTAKE.md` (*Six shapes of work: boundaries and transitions*).
+pointer	**Before routing a passthrough** — read `INTAKE.md` (*Single-agent passthrough: routing and discipline*).
+# D17 stanzas - these two headings are PINNED by 1c's pointers at PRE :1191 and :1194,
+# which are in the conservation baseline and cannot be corrected later.
+stanza	## Six shapes of work: boundaries and transitions
+stanza	## Single-agent passthrough: routing and discipline
+stanza	## Intake (skeleton; the full checklist is in INTAKE.md)
+#
+# --- phase 5.2 (COUNTERPOINT) ------------------------------------------------
+pointer	**Before any sebastian/codex dispatch at stage 5 or 9** — read `COUNTERPOINT.md` (*External tool execution (don't block forever)*).
+#
+# --- phase 5.3 (FLOWS) -------------------------------------------------------
+# The two SPLIT bodies get new declared headings (F12). Neither is cited by a 1c
+# pointer, so unlike D17's pair these are not baseline-constrained.
+stanza	## Continuing a spawned agent: carve-outs, resume caveat, and narration
+stanza	## Build-time flags: the TDD pipeline and auto-detection
+pointer	**Before re-spawning an agent you already dispatched this run** — read `FLOWS.md` (*Continuing a spawned agent: carve-outs, resume caveat, and narration*).
+pointer	**Before setting a build-time flag** — read `FLOWS.md` (*Build-time flags: the TDD pipeline and auto-detection*).
+pointer	**When a run stops early or resumes mid-pipeline** — read `FLOWS.md` (*Partial flows (stop points)*).
+pointer	**Before entering the pipeline at a stage other than 1** — read `FLOWS.md` (*Resume / entry points*).
+pointer	**Before deciding the slug or searching for prior art** — read `FLOWS.md` (*Run identification and prior-art discovery*).
+#
+# --- phase 5.4 (WORKTREES) ---------------------------------------------------
+pointer	**Before cutting a campaign worktree** — read `WORKTREES.md` (*Worktree isolation (default for code-changing campaigns)*).
+pointer	**Before running more than one campaign at a time** — read `WORKTREES.md` (*Multi-campaign mode (parallel orchestration)*).
+#
+# --- phase 5.5 (TICKETS) -----------------------------------------------------
+pointer	**Before resolving a ticketing project, creating a ticket, or posting a phase comment** — read `TICKETS.md` (*Ticket lifecycle*).
+#
+# --- phase 5.6 (DELIVER) -----------------------------------------------------
+pointer	**When you reach DELIVER stage 2 (research) or any later stage** — read `DELIVER.md` (*DELIVER pipeline*) before dispatching anyone.

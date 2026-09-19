@@ -118,7 +118,11 @@ mozart-orchestration/
 │   ├── ian.md
 │   ├── jackson.md
 │   ├── librarian.md
-│   ├── mozart.md                # the conductor
+│   ├── mozart.md                # the conductor (persona; stage-time procedure lives in the manual)
+│   ├── INDEX.md                 # the manual's routing table — what to read, and when
+│   ├── DELIVER.md STATE.md TICKETS.md INTAKE.md WORKTREES.md FLOWS.md
+│   ├── OPERATE.md INCIDENT.md COUNTERPOINT.md EVAL.md DIAGNOSE.md
+│   ├── AUDIT.md CONTEXT-BUDGET.md   # the bundled manual (13 files)
 │   ├── otto.md
 │   ├── percy.md
 │   ├── ruby.md
@@ -184,7 +188,7 @@ If you want codex's input, install it from <https://github.com/openai/codex>. On
 
 ## Authority
 
-The mozart agent persona (`agents/mozart.md`) is authoritative for orchestration behavior. The `/mozart` slash command is a thin wrapper that hands control to the persona at the top level of a session.
+The mozart agent persona (`agents/mozart.md`) is authoritative for orchestration behavior. Stage-time procedure lives in the bundled manual alongside it — `agents/INDEX.md` is the routing table, and the persona names each manual file with the trigger that sends you to it. The manual is part of the persona's authority, not a separate source. The `/mozart` slash command is a thin wrapper that hands control to the persona at the top level of a session.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the persona-authoring contract and instructions for adding new agents.
 

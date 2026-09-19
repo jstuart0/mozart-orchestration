@@ -262,7 +262,7 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
      Two things are load-bearing here and both were wrong in an earlier draft. **Scope every scanner invocation to the worktree** (`--source`, `file://`, or `git -C`): mozart runs from the canonical checkout while the campaign's commits live in the sibling worktree, so an unscoped scanner scans the wrong tree, reports clean, and the branch pushes unscanned — which would make having a scanner installed *worse* than not having one. And **use `--not --remotes=origin`, not `<base>..HEAD`**: the latter is a local ref, so a maintainer holding two unpushed commits on their own `main` — one of them a stray `.env.local` — gets a clean scan and a permanent leak, with no attacker anywhere in the story. Keep `<base>..HEAD` for the human-readable commit range in the PR body and nowhere else.
 
      A secret added in phase N and removed in phase N+1 is invisible to `git diff <base>...HEAD` but ships in the push and persists in the remote's object store permanently. The range also covers stage-11 reconciliation commits, which the per-phase gate never re-examined.
-   - **When no scanner is present, fall back** — and this is the common case, not a hypothetical. Run the high-signal pattern set defined in `agents/mozart.md`'s per-phase gate, under the bullet *Mechanical secret scan on the staged diff*, over:
+   - **When no scanner is present, fall back** — and this is the common case, not a hypothetical. Run the high-signal pattern set defined in `agents/DELIVER.md`'s per-phase gate, under the bullet *Mechanical secret scan on the staged diff*, over:
 
      ```bash
      git -C <worktree> log -p $PUSH_RANGE   # unquoted: git log takes separate argv words
@@ -318,7 +318,7 @@ Stage 12b pushes the campaign branch and opens the pull request. It runs **only*
    **Then run step 1's body scan, here.** Step 1 states the requirement; this is the only place it can execute. The body does not exist until the line above, and step 7.5's adjacency rule forbids inserting anything between it and the push — so a body scan that is not run here is not run at all.
 
    ```bash
-   # $BODY_PATTERNS is the high-signal set cited in step 1: agents/mozart.md's
+   # $BODY_PATTERNS is the high-signal set cited in step 1: agents/DELIVER.md's
    # per-phase gate, bullet "Mechanical secret scan on the staged diff". Read it
    # from there. Never restate it here - a second copy agrees only on day one.
    grep -nE "$BODY_PATTERNS" "$body"; hit=$?

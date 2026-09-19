@@ -37,6 +37,19 @@ jobs:
             SECURITY.md CODE_OF_CONDUCT.md
             .claude-plugin/plugin.json .claude-plugin/marketplace.json
             commands/mozart.md agents/mozart.md agents/PIPELINE.md agents/LEARNINGS.md
+            # The bundled manual (14 files). ENUMERATED, NOT DERIVED, and deliberately:
+            # a required-files check whose list is read from the tree it checks asserts
+            # that the files which exist, exist - the same self-referential vacuity as a
+            # population counted from the table it validates. This list is an INDEPENDENT
+            # statement of what must be present. Drift in the other direction (a new
+            # manual file that never reaches this list) is caught by V24_docs, which
+            # compares BOTH required-file lists against check-manual-bundle.py's MANUAL
+            # constant - not against `ls agents/*.md`. V16's and V20's floors do not close
+            # it: a 15th manual file would clear both while reaching neither list.
+            agents/INDEX.md agents/DELIVER.md agents/STATE.md agents/TICKETS.md
+            agents/INTAKE.md agents/WORKTREES.md agents/FLOWS.md agents/OPERATE.md
+            agents/INCIDENT.md agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md
+            agents/AUDIT.md agents/CONTEXT-BUDGET.md
           )
           MISSING=0
           for f in "${REQUIRED[@]}"; do
@@ -54,10 +67,20 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The carve conservation gate resolves its baseline with
+          # `git show <BASE_SHA>:agents/mozart.md`, where BASE_SHA is a commit on the
+          # campaign branch. A shallow clone cannot see it, and the gate FAILs loudly
+          # rather than skipping - so without this the job goes red, not vacuously
+          # green (D-D, D3). It also means this campaign must merge --no-ff (D8): a
+          # squash would orphan the baseline object and break the gate retroactively.
+          fetch-depth: 0
       - name: Syntax-check the gate script
         run: bash -n scripts/mozart-contract-gates.sh
       - name: Run persona-contract gates
         run: bash scripts/mozart-contract-gates.sh
+      - name: Carve conservation self-test (11 mutations, synthetic fixture)
+        run: python3 scripts/check-carve-conservation.py --self-test
       # scripts/mozart-lint.sh is deliberately NOT wired here: it reads .mozart/,
       # which is gitignored and therefore absent from every CI checkout, so the
       # job would pass vacuously on every run - a green light powered by an empty

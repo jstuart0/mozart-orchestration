@@ -4,6 +4,40 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — `agents/mozart.md` is carved into a persona plus a bundled manual
+
+`agents/mozart.md` goes from **269,299 B to 49,709 B (-81.5%)**. Stage-time procedure moves
+into 13 bundled manual files in `agents/`, plus `agents/INDEX.md` as the routing table. Every
+rule mozart follows is still present, still worded identically, and still in its correct
+destination — the move is verbatim, and that is asserted mechanically rather than reviewed.
+
+- **The section count was wrong, and had been for a while.** `grep -c '^## '` returns 75, but
+  41 of those lines sit inside fenced template blocks. A fence-aware count returns **34**.
+- **Why it had to happen now**: V16's ceiling left 201 B of headroom and the next campaign
+  needed ~1,144 B. The new ceiling is 55,000 with 5,291 B free — 4.6x that need, against 0.18x.
+- **`scripts/check-carve-conservation.py`** proves the carve behaviour-preserving. Its controls
+  are DERIVED from one property — *POST is exactly PRE, re-partitioned across the partition set,
+  plus declared changes* — rather than collected from review findings. Negating each clause
+  yields eight failure modes and one control each: nothing lost (C1), nothing duplicated (C2,
+  unconditional and with no allowlist path), everything in the right destination in both
+  directions and in the right order (C3 forward / inverse / partition / order), the right phase
+  (C3b), and every new line declared and typed (C5). C4 is the vacuity control: population
+  floors, the exact 14-file realpath set, and post != baseline.
+- **`tests/carve/carve-map.tsv`** is the spine: 43 ranges partitioning the 2,507 pre-carve lines
+  exactly once each — no gap, no overlap — with `agents/mozart.md` as a destination like any
+  other, which is what makes "an inline section went missing" expressible at all.
+- **An 11-mutation self-test runs on every invocation**, on a synthetic `mktemp` fixture, never
+  touching the repo tree. A discriminator observed failing once and then never again is an
+  assertion about the past.
+- **Six new gates** (`V18`–`V23`) cover what conservation structurally cannot: conservation
+  proves text still exists, and is blind to whether the pointers into it still resolve.
+- **Three intra-document anchors and six prose cross-references were rewritten into pointer form
+  in standalone pre-carve commits**, with the conservation baseline re-pinned behind them. That
+  sequencing is load-bearing: it means every later step is a verbatim move, so the gate never had
+  to learn to apply a substitution before comparing blocks. Across all nine phases, zero
+  substitutions were needed — the mechanism the sequencing removed was never once missed.
+
+
 ### Added — conductor self-verification: mozart's own derived claims get a control, a linkage, and a lint
 
 mozart's own conclusions — a check it ran, a dispute it settled, a fact it copied into a brief —

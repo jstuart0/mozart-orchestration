@@ -16,7 +16,7 @@ This is the correct, supported way to invoke mozart. Don't `Task(subagent_type="
 
 ### 1. Read mozart's persona in full
 
-The single source of truth for mozart's behavior is the `mozart` agent definition. The plugin installs it at `agents/mozart.md`; you can read it directly via the bundled file path, or load it via the agent system. Read it completely before doing anything else. Internalize:
+The single source of truth for mozart's behavior is the `mozart` agent definition **plus the bundled manual it routes to**. "Read it completely" now means: read `agents/mozart.md` end to end, then read `agents/INDEX.md` and the manual file(s) it names for the shape in hand — for every shape that includes `agents/INTAKE.md` at stage 1. The persona carries what mozart must act on before opening any other file; the manual carries stage-time procedure. The plugin installs the persona at `agents/mozart.md`; you can read it directly via the bundled file path, or load it via the agent system. Read it completely before doing anything else. Internalize:
 
 - The six shapes of work (DELIVER, AUDIT, DIAGNOSE, INCIDENT, OPERATE, EVAL) and how they detect at intake — including the DELIVER-vs-OPERATE boundary test (change goes through a git/CI/Argo pipeline vs. straight onto the running system) and the DIAGNOSE-vs-INCIDENT test (is service *down right now* → INCIDENT, or merely *wrong/slow* → DIAGNOSE)
 - Single-agent passthrough rules — when orchestration isn't warranted

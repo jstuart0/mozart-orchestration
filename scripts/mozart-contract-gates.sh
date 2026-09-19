@@ -141,7 +141,7 @@ report "V0b_no_mirrored_gate" "$(eq "$gatevar_hits" 0)" \
 
 # Scope derived: the field list comes from the state-file template, not a list.
 v1_fields=$(awk '/^\*\*Last updated\*\*/{f=1} f && /^\*\*[A-Z]/{gsub(/^\*\*/,"");sub(/\*\*.*/,"");print} f && /^## Tickets/{exit}' \
-  agents/mozart.md | sort -u)
+  agents/STATE.md | sort -u)
 v1_alt=$(printf '%s\n' "$v1_fields" | paste -sd'|' -)
 
 # Control on the derivation itself. Every other derived scope in this file has
@@ -158,21 +158,39 @@ if [ "$v1_nfields" -ge 5 ] && [ "$v1_hasstatus" -eq 1 ]; then v1_fl=0; else v1_f
 report "V1_fieldlist" "$v1_fl" "state-file template fields derived=$v1_nfields (floor 5), 'Status' among them=$v1_hasstatus (want 1); an empty or Status-less list makes the alternation below match nothing"
 
 # must-not half: no invocation may still grep the bare "<Field>: " form.
-v1_stale=$(grep -cE "grep[^\"']*[\"']($v1_alt): " agents/mozart.md)
-report "V1_absence" "$(eq "$v1_stale" 0)" "bare-form grep invocations=$v1_stale (want 0) over fields: $v1_alt"
+# PATTERN 2 / D4 RE-SCOPE. This was `agents/mozart.md` — a PATH LITERAL, the idiom
+# that does NOT widen. The state-file template moved to agents/STATE.md in this very
+# commit, so a scope of mozart.md would assert the absence of a bare-form grep from a
+# file that no longer contains the template at all: green for no reason. Re-scoped to
+# the glob agents/*.md, which is the model form (it widens automatically because D-A
+# lands the carved files flat in agents/). Population floor, because a glob matching
+# nothing also counts zero.
+v1_absence_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v1_stale=$(grep -hcE "grep[^\"']*[\"']($v1_alt): " agents/*.md 2>/dev/null | paste -sd+ - | bc)
+[ "$v1_absence_files" -ge 20 ] || v1_stale=$((v1_stale + 1))
+report "V1_absence" "$(eq "$v1_stale" 0)" "bare-form grep invocations=$v1_stale (want 0) across $v1_absence_files agents/*.md file(s) (floor 20) over fields: $v1_alt"
 
 # must half: the two-form patterns exist, in the pinned quantity and flag mix.
-v1_pats=$(grep -oE "grep -[lL]E '[^']*'" agents/mozart.md | sed -E "s/^grep -[lL]E '//; s/'\$//")
+# GLOB, not a single file: this population SPLITS across destinations. Five of the
+# seven two-form probes are in the state-file sweep (PRE 880-890 -> agents/STATE.md,
+# phase 4) and two — the only -LE pair — are in the stage-12 close-out sweep
+# (PRE 1594 -> agents/DELIVER.md, phase 5.6). Retargeting to STATE.md alone yields
+# 5/0 and fails, measured. The glob holds the whole population at EVERY phase: before
+# a section carves its patterns are in mozart.md, after it they are in the carved
+# file, and agents/*.md covers both without a per-phase edit.
+v1_pat_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v1_pats=$(grep -hoE "grep -[lL]E '[^']*'" agents/*.md 2>/dev/null | sed -E "s/^grep -[lL]E '//; s/'\$//")
 v1_npat=$(printf '%s\n' "$v1_pats" | grep -c . )
-v1_ell=$(grep -oE "grep -lE '[^']*'" agents/mozart.md | grep -c .)
-v1_bigell=$(grep -oE "grep -LE '[^']*'" agents/mozart.md | grep -c .)
-report "V1_npat" "$(eq "$v1_npat" 7)" "two-form probe patterns=$v1_npat (want 7)"
+v1_ell=$(grep -hoE "grep -lE '[^']*'" agents/*.md 2>/dev/null | grep -c .)
+v1_bigell=$(grep -hoE "grep -LE '[^']*'" agents/*.md 2>/dev/null | grep -c .)
+[ "$v1_pat_files" -ge 20 ] || v1_npat=-1
+report "V1_npat" "$(eq "$v1_npat" 7)" "two-form probe patterns=$v1_npat (want 7) across $v1_pat_files agents/*.md file(s) (floor 20)"
 report "V1_flagmix" "$(eq "$v1_ell/$v1_bigell" "6/1")" "-lE/-LE = $v1_ell/$v1_bigell (want 6/1; which site carries -L is a MANUAL check)"
 
 # behavioural half: each pattern must match the template's bold form AND the
 # legacy bare form, must not match a different enum value, and its value must
 # be a member of the template's declared enum.
-v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/mozart.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
+v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/STATE.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
 v1_bad=""
 v1_corpus=$(mktemp -d)
 while IFS= read -r gpat; do
@@ -233,9 +251,19 @@ v2_ord=$(printf '%s\n' "$ordsites" | awk '
 report "V2_ordsites" "$(eq "$ordn" 2)" "exit-0-no-file diagnosis sites=$ordn (want 2)"
 report "V2_ord" "$(eq "$v2_ord" 0)" "sites where the output-flag check is absent or after the budget theory=$v2_ord (want 0)"
 
-v2_sit=$(grep -cF 'Reading stdout instead of the target file' agents/mozart.md)
-v2_sit=$((v2_sit + $(grep -cF 'escalate to user with the codex stdout as evidence' agents/mozart.md)))
-v2_sit=$((v2_sit + $(grep -cF 'escalate to the user with the stdout transcript as evidence' agents/mozart.md)))
+# UNION, because this population SPLITS across destinations (F9 said retarget only
+# V2_sit; it did not say the three clauses land in one file). Measured at the 1c
+# baseline: 'Reading stdout...' is PRE 132 and 'escalate to user with the codex
+# stdout...' is PRE 127 — both inside `## Codex availability and use`, which D9 keeps
+# INLINE WHOLE — while 'escalate to the user with the stdout transcript...' is PRE
+# 1340, which carves to agents/DELIVER.md. Scoping to either file alone loses a
+# clause and drops the count below the floor of 3.
+v2_sit_scope="agents/mozart.md agents/DELIVER.md"
+v2_sit_files=$(ls $v2_sit_scope 2>/dev/null | grep -c .)
+v2_sit=$(grep -hcF 'Reading stdout instead of the target file' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)
+v2_sit=$((v2_sit + $(grep -hcF 'escalate to user with the codex stdout as evidence' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)))
+v2_sit=$((v2_sit + $(grep -hcF 'escalate to the user with the stdout transcript as evidence' $v2_sit_scope 2>/dev/null | paste -sd+ - | bc)))
+[ "$v2_sit_files" -eq 2 ] || v2_sit=0
 report "V2_sit" "$(ge "$v2_sit" 3)" "stdout rule + both escalation clauses surviving=$v2_sit (floor 3)"
 
 # ---------------------------------------------------------------------------
@@ -379,13 +407,13 @@ v3_check_anchors() { # <file> <start-ere> <end-ere> <label>
 }
 v3_check_anchors agents/scott.md  "$v3_a1s" "$v3_a1e" step1
 v3_check_anchors agents/scott.md  "$v3_a7s" "$v3_a7e" step7
-v3_check_anchors agents/mozart.md "$v3_ams" "$v3_ame" mozart-per-phase-gate
+v3_check_anchors agents/DELIVER.md "$v3_ams" "$v3_ame" mozart-per-phase-gate
 report "V3_region_anchors" "$([ -z "$v3_anchors_bad" ] && echo 0 || echo 1)" \
   "${v3_anchors_bad:-all 3 region anchor pairs resolve; no region falls back to EOF}"
 
 v3_step1=$(v3_region agents/scott.md  "$v3_a1s" "$v3_a1e")
 v3_step7=$(v3_region agents/scott.md  "$v3_a7s" "$v3_a7e")
-v3_mozgate=$(v3_region agents/mozart.md "$v3_ams" "$v3_ame")
+v3_mozgate=$(v3_region agents/DELIVER.md "$v3_ams" "$v3_ame")
 
 stop_rule_scott=$(printf '%s\n' "$v3_step1" | grep -cE '^[[:space:]]*- \*\*A scan that does not run is not a clean scan\.\*\*')
 stop_rule_mozart=$(printf '%s\n' "$v3_mozgate" | grep -F 'A scan that does not run is not a clean scan' | grep -cF 'Mechanical secret scan on the staged diff')
@@ -515,16 +543,32 @@ report "V4_section" "$([ -z "$v4_bad" ] && echo 0 || echo 1)" \
 v4c_en=$(printf '\xe2\x80\x93')
 v4c_exempt="1${v4c_en}13"
 
-# Shapes derived from the UNION of both files: PIPELINE.md alone yields five
-# (it has no ## EVAL pipeline section); mozart.md supplies the sixth.
-v4c_shapes=$(cat agents/PIPELINE.md agents/mozart.md \
+# Shapes derived from the UNION over the GLOB agents/*.md, not from a path pair.
+# Before the carve this was `cat agents/PIPELINE.md agents/mozart.md`: PIPELINE.md
+# alone yields five (it has no ## EVAL pipeline section) and mozart.md supplied the
+# sixth. The carve moves ## AUDIT / ## DIAGNOSE / ## EVAL pipeline into their own
+# files, and a two-path scope cannot see them - measured: the pair form drops EVAL
+# and reports five shapes, taking V4c_role_shapes down with it.
+#
+# The glob is the model form from the carve plan's Pattern 2 table: it auto-widens
+# to every carved file because D-A lands them flat in agents/. Verified the widening
+# is clean - of the 24 files agents/*.md matches, only PIPELINE.md and mozart.md (and
+# now the carved shape files) contain a '^## <SHAPE> pipeline' heading, so the union
+# is identical to the pair form's at base and gains nothing spurious.
+#
+# POPULATION FLOOR, because a glob that matches nothing also derives no shapes and
+# would report "MISSING: everything" rather than going quietly green - but a glob
+# that matched only ONE file could still satisfy a naive check, so the floor is real.
+v4c_files=$(ls agents/*.md 2>/dev/null | grep -c .)
+v4c_shapes=$(cat agents/*.md 2>/dev/null \
   | grep -oE '^## [A-Z]+ pipeline' | sed 's/^## //; s/ pipeline$//' | sort -u)
 v4c_missing=""
 for want in DELIVER AUDIT DIAGNOSE OPERATE INCIDENT EVAL; do
   printf '%s\n' "$v4c_shapes" | grep -qx "$want" || v4c_missing="$v4c_missing $want"
 done
+[ "$v4c_files" -ge 20 ] || v4c_missing="$v4c_missing [population: agents/*.md matched only $v4c_files file(s), floor 20]"
 report "V4c_shapes" "$([ -z "$v4c_missing" ] && echo 0 || echo 1)" \
-  "shapes derived from the union=$(printf '%s' "$v4c_shapes" | paste -sd, -)${v4c_missing:+ MISSING:$v4c_missing}"
+  "shapes derived from the union over $v4c_files agents/*.md file(s)=$(printf '%s' "$v4c_shapes" | paste -sd, -)${v4c_missing:+ MISSING:$v4c_missing}"
 
 # The roster's Role cell is prose, so V4c's Stages-cell comparison is blind to
 # it - it read "orchestrates all three pipeline shapes" while the file added in
@@ -823,18 +867,32 @@ report "V7_negation_fixture" "$([ -z "$v7_neg_bad" ] && echo 0 || echo 1)" \
 # still reported PASS 1/1/1). Restricting the test to the agents/mozart.md
 # SUBSET of claim lines means the control can only pass if mozart.md's own
 # text does the binding, regardless of what any persona's own file says.
-v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep '^agents/mozart\.md:')
+# PATTERN 2 / D4 RE-SCOPE. Was `^agents/mozart\.md:` — a path literal. The control's
+# intent is "mozart's OWN text does the binding, regardless of what any persona's own
+# file says", and after the carve mozart's own text is the persona PLUS the 13 manual
+# files. Measured: harry's claim line is at PRE 370, which moved to agents/WORKTREES.md,
+# so the mozart.md-only scope reported harry=0 and the control failed.
+#
+# A GLOB WOULD BE WRONG HERE, and this is the one place in the campaign where that is
+# true. `agents/*.md` would pull in harry.md, valerie.md and every other persona —
+# exactly the population this control excludes by construction. So the manual set is
+# enumerated literally, and a floor guards the enumeration: if a name is mistyped the
+# alternation silently narrows, which is the failure mode a literal list has and a
+# glob does not.
+v7_manual_re='^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md:'
+v7_manual_files=$(ls agents/*.md 2>/dev/null | grep -cE '^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md$')
+v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep -E "$v7_manual_re")
 v7_mzharry=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" && echo 1 || echo 0)
 v7_mzvalerie=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" && echo 1 || echo 0)
 v7_mzsarah=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" && echo 1 || echo 0)
 v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
-if [ "$v7_claimn" -ge 5 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
+if [ "$v7_claimn" -ge 5 ] && [ "$v7_manual_files" -ge 8 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
   v7_claimctl=0
 else
   v7_claimctl=1
 fi
 report "V7_claim_control" "$v7_claimctl" \
-  "claimants derived=$v7_claimn (floor 5); agents/mozart.md's OWN claim lines separately bind harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart.md independent of any persona's own file)"
+  "claimants derived=$v7_claimn (floor 5); mozart's OWN text (persona + $v7_manual_files manual file(s), floor 8) separately binds harry/valerie/sarah=$v7_mzharry/$v7_mzvalerie/$v7_mzsarah (want 1 each - proves the population reaches mozart's own text independent of any persona's own file)"
 
 # Inverse half (xander) - an agent HOLDING Write must carry no UNQUALIFIED
 # read-only self-assertion. Qualified forms ("Read-only on code", "not ... for
@@ -942,7 +1000,7 @@ v8_p1=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/PIPELINE
   | v3_fence_filter | grep -oE '^[0-9]+[a-z]?\.' | tr -d '.' | paste -sd' ' -)
 
 # P2 - mozart.md "## Stage progress" template
-v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/STATE.md \
   | grep -oE '^- \[.\] [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
 
 # P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
@@ -959,10 +1017,31 @@ v8_p3=$(awk '/^## The pipeline at a glance/{s=1;next} s&&/^## /{exit} s' README.
 v8_p4=$(awk '/^### Stage labels/{s=1;next} s&&/^### /{exit} s' agents/mozart.md \
   | grep -oE '^\| [0-9]+[a-z]? ' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
 
-# P5 - mozart.md "### <N>." stage-heading bodies, scoped to the DELIVER
-# section so OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it
-v8_p5=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/mozart.md \
+# P5 - the "### <N>." stage-heading bodies, scoped to the DELIVER section so
+# OPERATE's and INCIDENT's own "### 2."/"### 3." don't pollute it.
+#
+# THIS POPULATION SPLITS ACROSS TWO DESTINATIONS, and it is structural rather
+# than incidental: D-F carves `### 1. Intake` to agents/INTAKE.md and leaves
+# stages 2..13 in agents/DELIVER.md. Scoping to DELIVER.md alone yields
+# [2 2b 3 ... 13] against a reference of [1 2 2b 3 ... 13] and FAILS on the
+# missing stage 1 - measured, not predicted. P5 is therefore the ORDERED
+# CONCATENATION of INTAKE.md's numeric stage keys and DELIVER.md's.
+#
+# INTAKE.md needs no section anchor: its only numeric "### <N>." heading is
+# `### 1. Intake`. Its other ### headings (Passthrough vs. orchestrate, and the
+# rest) are non-numeric and cannot match, and the carved intake body's
+# pre-flight gates are #### and cannot match either.
+v8_p5_intake=$(grep -oE '^### [0-9]+[a-z]?\.' agents/INTAKE.md \
+  | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+v8_p5_deliver=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/DELIVER.md \
   | grep -oE '^### [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
+v8_p5=$(printf '%s %s' "$v8_p5_intake" "$v8_p5_deliver" | sed 's/^ *//; s/ *$//')
+# Population control: BOTH halves must contribute, or a silently-empty half
+# would let the other half alone define the answer.
+v8_p5_halves=0
+[ -n "$v8_p5_intake" ] && v8_p5_halves=$((v8_p5_halves + 1))
+[ -n "$v8_p5_deliver" ] && v8_p5_halves=$((v8_p5_halves + 1))
+[ "$v8_p5_halves" -eq 2 ] || v8_p5="INCOMPLETE($v8_p5_halves/2):$v8_p5"
 
 # Control - TWO conditions on the REFERENCE: floor >=13 and 12b present. A
 # renamed "## DELIVER pipeline" heading empties P1 and would otherwise make
@@ -1319,7 +1398,7 @@ CONDUCTOR_FLOWS_DELIVER=$(v12_const CONDUCTOR_FLOWS_DELIVER)
 CONDUCTOR_FLOWS_OPERATE=$(v12_const CONDUCTOR_FLOWS_OPERATE)
 CONDUCTOR_FLOWS_INCIDENT=$(v12_const CONDUCTOR_FLOWS_INCIDENT)
 
-v12_mozart_md="$gate_root/agents/mozart.md"
+v12_mozart_md="$gate_root/agents/STATE.md"
 v12_section=$(awk '
     /The conductor record is where your own claims become checkable/ { p = 1 }
     p && /^### / && !/checkable/ { exit }
@@ -1445,17 +1524,17 @@ v13_check() { # $1=file $2=anchor $3=stoplevel $4=term $5=label
 }
 
 # (a) decisions.md across the five artifact-list sites
-v13_check "$gate_root/agents/mozart.md" "### Per-campaign artifacts" "$L3" "decisions.md" "mozart Per-campaign artifacts / decisions.md"
-v13_check "$gate_root/agents/mozart.md" "### Directory convention" "$L3" "decisions.md" "mozart Directory convention / decisions.md"
+v13_check "$gate_root/agents/WORKTREES.md" "### Per-campaign artifacts" "$L3" "decisions.md" "WORKTREES Per-campaign artifacts / decisions.md"
+v13_check "$gate_root/agents/STATE.md" "### Directory convention" "$L3" "decisions.md" "STATE Directory convention / decisions.md"
 v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
 v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
 v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
 
 # (d) manifest across the nine OPERATE/INCIDENT sections
-v13_check "$gate_root/agents/mozart.md" "### 3. Change plan (otto)" "$L3" "manifest" "mozart Change plan / manifest"
-v13_check "$gate_root/agents/mozart.md" "### 5. Apply (hank)" "$L3" "manifest" "mozart Apply (hank) / manifest"
-v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "manifest" "mozart Operate-mode rules / manifest"
-v13_check "$gate_root/agents/mozart.md" "### Incident-mode rules" "$L3" "manifest" "mozart Incident-mode rules / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### 3. Change plan (otto)" "$L3" "manifest" "OPERATE Change plan / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### 5. Apply (hank)" "$L3" "manifest" "OPERATE Apply (hank) / manifest"
+v13_check "$gate_root/agents/OPERATE.md" "### Operate-mode rules" "$L3" "manifest" "OPERATE Operate-mode rules / manifest"
+v13_check "$gate_root/agents/INCIDENT.md" "### Incident-mode rules" "$L3" "manifest" "INCIDENT Incident-mode rules / manifest"
 v13_check "$gate_root/agents/hank.md" "### 4. Apply" "$L3" "manifest" "hank 4. Apply / manifest"
 v13_check "$gate_root/agents/hank.md" "## Under a declared INCIDENT" "$L2" "manifest" "hank Under a declared INCIDENT / manifest"
 v13_check "$gate_root/agents/otto.md" "## Where you fit" "$L2" "manifest" "otto Where you fit / manifest"
@@ -1463,8 +1542,8 @@ v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "manifest"
 v13_check "$gate_root/agents/PIPELINE.md" "## INCIDENT pipeline" "$L2" "manifest" "PIPELINE INCIDENT pipeline / manifest"
 
 # (e) both sides across three pin-related sections
-v13_check "$gate_root/agents/mozart.md" "### 1. Intake + context pin" "$L3" "both sides" "mozart Intake + context pin / both sides"
-v13_check "$gate_root/agents/mozart.md" "### Operate-mode rules" "$L3" "both sides" "mozart Operate-mode rules / both sides"
+v13_check "$gate_root/agents/OPERATE.md" "### 1. Intake + context pin" "$L3" "both sides" "OPERATE Intake + context pin / both sides"
+v13_check "$gate_root/agents/OPERATE.md" "### Operate-mode rules" "$L3" "both sides" "OPERATE Operate-mode rules / both sides"
 v13_check "$gate_root/agents/PIPELINE.md" "## OPERATE pipeline" "$L2" "both sides" "PIPELINE OPERATE pipeline / both sides"
 
 # (f) the dick heading itself, exactly once
@@ -1473,9 +1552,14 @@ v13_sites=$((v13_sites + 1))
 [ "$v13_dick_n" -eq 1 ] || v13_bad="$v13_bad [dick heading 'Adjudicating a dispute' count=$v13_dick_n, want 1]"
 
 # (b) the promoted-note phrase must be gone from mozart.md entirely
-v13_running_log_n=$(grep -cF 'running log of decisions' "$gate_root/agents/mozart.md")
+# PATTERN 2 / D4 RE-SCOPE, same reasoning as V1_absence: the promoted-then-deleted
+# phrase belonged to the State-persistence text, which left agents/mozart.md in this
+# commit. Scoped to the glob so the assertion still has the text in its population.
+v13_running_log_files=$(ls "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+v13_running_log_n=$(grep -rlF 'running log of decisions' "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
+[ "$v13_running_log_files" -ge 20 ] || v13_running_log_n=$((v13_running_log_n + 1))
 v13_sites=$((v13_sites + 1))
-[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad [agents/mozart.md still says 'running log of decisions': $v13_running_log_n]"
+[ "$v13_running_log_n" -eq 0 ] || v13_bad="$v13_bad ['running log of decisions' still present in $v13_running_log_n of $v13_running_log_files agents/*.md file(s)]"
 
 # (c) the deleted field note's title must be gone from every persona
 v13_sites=$((v13_sites + 1))
@@ -1595,27 +1679,27 @@ report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
 v15_snipdir="$gate_root/tests/parity/snippets"
 v15_registry=$(cat <<'V15_REGISTRY_EOF'
 S1	agents/mozart.md
-S2	agents/mozart.md
-S3	agents/mozart.md
-S4	agents/mozart.md
-S5	agents/mozart.md
-S6	agents/mozart.md
-S7	agents/mozart.md
-S8	agents/mozart.md
-S9	agents/mozart.md
-S10	agents/mozart.md
-S11	agents/mozart.md
-S12	agents/mozart.md
-S13	agents/mozart.md
+S2	agents/STATE.md
+S3	agents/STATE.md
+S4	agents/STATE.md
+S5	agents/STATE.md
+S6	agents/STATE.md
+S7	agents/STATE.md
+S8	agents/OPERATE.md
+S9	agents/OPERATE.md
+S10	agents/OPERATE.md
+S11	agents/OPERATE.md
+S12	agents/INCIDENT.md
+S13	agents/INCIDENT.md
 S14	agents/dick.md
 S15	agents/hank.md
 S16	agents/otto.md
 S17	agents/jackson.md
-S18	agents/mozart.md
+S18	agents/STATE.md
 S19	agents/hank.md
 S21	agents/hank.md
 M2	agents/harry.md
-M4	agents/mozart.md
+M4	agents/DELIVER.md
 M7	agents/harry.md
 MP	agents/mozart.md
 JP	agents/jackson.md
@@ -1676,8 +1760,8 @@ v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$
 [ -z "$v15_dupes" ] || v15_bad="${v15_bad} [duplicate registry key(s): ${v15_dupes}— a duplicate preserves the row count while some other snippet goes unchecked]"
 [ -z "$v15_only_registry" ] || v15_bad="${v15_bad} [registered with no snippet file: ${v15_only_registry}]"
 [ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
-printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/mozart.md')" \
-  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/mozart.md]"
+printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/STATE.md')" \
+  || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/STATE.md]"
 
 v15_checked=0
 while IFS=$'\t' read -r v15_snip v15_target; do
@@ -1725,7 +1809,21 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # and agents/mozart.md is asserted present in the table by name.
 # ---------------------------------------------------------------------------
 v16_budgets=$(cat <<'V16_BUDGETS_EOF'
-agents/mozart.md	269500
+agents/mozart.md	55000
+agents/INDEX.md	4200
+agents/AUDIT.md	4700
+agents/CONTEXT-BUDGET.md	1800
+agents/DIAGNOSE.md	5500
+agents/EVAL.md	6300
+agents/OPERATE.md	14600
+agents/INCIDENT.md	11700
+agents/STATE.md	53500
+agents/INTAKE.md	19900
+agents/COUNTERPOINT.md	5400
+agents/FLOWS.md	16800
+agents/WORKTREES.md	18200
+agents/TICKETS.md	24700
+agents/DELIVER.md	62400
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
@@ -1734,9 +1832,11 @@ V16_BUDGETS_EOF
 
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
-[ "$v16_rows" -ge 4 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 4]"
-printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t269500')" \
-  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 269500]"
+[ "$v16_rows" -ge 18 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 18 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
+printf '%s\n' "$v16_budgets" | grep -qE '^agents/DELIVER\.md\t' \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/DELIVER.md]"
 
 v16_checked=0
 v16_sizes=""
@@ -1756,6 +1856,90 @@ done < <(printf '%s\n' "$v16_budgets")
 [ "$v16_checked" -eq "$v16_rows" ] || v16_bad="$v16_bad [checked $v16_checked of $v16_rows tracked file(s)]"
 report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
   "${v16_bad:-$v16_checked orchestration file(s) within their per-file ceilings:$v16_sizes}"
+
+# ---------------------------------------------------------------------------
+# V17 - the carve conservation gate (2026-09-19-deliver-mozart-md-carve).
+#
+# Two gates, deliberately separate:
+#
+#   V17_carve_selftest  the gate's own 12-mutation self-test. Runs on a synthetic
+#                       mktemp fixture and never reads the repo tree, so it is
+#                       valid from Phase 1 onward - before any destination file
+#                       exists. A run reporting fewer than 12 mutations FAILS: the
+#                       floor is what stops a stale implementation from satisfying
+#                       this gate while C3 inverse and C3c go untested (F36/F43).
+#
+#   V17_carve_phase     conservation at the ordinal in tests/carve/PHASE, asserting
+#                       EXACTLY that every mapped range with ordinal <= it is in its
+#                       destination AND every range above it is still in
+#                       agents/mozart.md. Exact in both directions, so
+#                       under-delivering a phase fails as loudly as over-delivering.
+#                       The ordinal lives in a file a reviewer reads and each phase
+#                       commit bumps - not a constant nobody re-reads (F26/F41).
+#
+# python3 missing is a FAIL, never a skip. A gate that quietly disappears when its
+# interpreter is absent is the vacuity case this suite exists to remove.
+v17_script="$gate_root/scripts/check-carve-conservation.py"
+if ! command -v python3 >/dev/null 2>&1; then
+  report "V17_carve_selftest" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
+  report "V17_carve_phase" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
+elif [ ! -f "$v17_script" ]; then
+  report "V17_carve_selftest" 1 "scripts/check-carve-conservation.py is missing"
+  report "V17_carve_phase" 1 "scripts/check-carve-conservation.py is missing"
+else
+  v17_st_out=$(python3 "$v17_script" --self-test --quiet 2>&1); v17_st_rc=$?
+  v17_st_n=$(printf '%s\n' "$v17_st_out" | sed -n 's/.*carve_selftest *\([0-9]*\) of \([0-9]*\) mutations.*/\1 \2/p')
+  v17_st_caught=${v17_st_n%% *}; v17_st_total=${v17_st_n##* }
+  if [ "$v17_st_rc" -eq 0 ] && [ "${v17_st_caught:-0}" -ge 12 ] && [ "${v17_st_caught:-0}" = "${v17_st_total:-0}" ]; then
+    report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 12); positive control green"
+  else
+    report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 12): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
+  fi
+
+  v17_phase_file="$gate_root/tests/carve/PHASE"
+  if [ ! -f "$v17_phase_file" ]; then
+    report "V17_carve_phase" 1 "tests/carve/PHASE is missing - the campaign ordinal is unpinned"
+  else
+    v17_ord=$(tr -d ' \n' < "$v17_phase_file")
+    # Phase 6 sets tests/carve/PHASE to "full", which switches the gate from
+    # phase-aware to FULL conservation: every mapped range must be in its
+    # destination, in pinned order, in both directions of C3, with no phase
+    # exemption available to anything.
+    v17_out=$(python3 "$v17_script" --phase "$v17_ord" --quiet 2>&1); v17_rc=$?
+    if [ "$v17_rc" -eq 0 ]; then
+      report "V17_carve_phase" 0 "$(printf '%s' "$v17_out" | sed -n 's/^PASS  carve_conservation *//p')"
+    else
+      report "V17_carve_phase" 1 "ordinal $v17_ord: $(printf '%s' "$v17_out" | grep -v carve_selftest | tail -4 | tr '\n' ' ')"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
+# EXISTS; these prove the pointers into it still RESOLVE, which conservation is
+# structurally blind to. python3 missing is a FAIL, never a skip.
+# ---------------------------------------------------------------------------
+v18_script="$gate_root/scripts/check-manual-bundle.py"
+if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v18_script" ]; then
+  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence V24_docs; do
+    report "$v18_g" 1 "scripts/check-manual-bundle.py unavailable (FAIL, not skip)"
+  done
+else
+  v18_out=$(python3 "$v18_script" 2>&1)
+  v18_seen=0
+  while IFS= read -r v18_line; do
+    case "$v18_line" in
+      PASS\ \ *) v18_seen=$((v18_seen + 1))
+        report "$(printf '%s' "$v18_line" | awk '{print $2}')" 0 "$(printf '%s' "$v18_line" | cut -d' ' -f4- | sed 's/^ *//')" ;;
+      FAIL\ \ *) v18_seen=$((v18_seen + 1))
+        report "$(printf '%s' "$v18_line" | awk '{print $2}')" 1 "$(printf '%s' "$v18_line" | cut -d' ' -f4- | sed 's/^ *//')" ;;
+    esac
+  done <<EOF_V18
+$v18_out
+EOF_V18
+  [ "$v18_seen" -eq 7 ] || report "V18_population" 1 \
+    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 7"
+fi
 
 echo
 if [ "$gate_fail" -eq 0 ]; then
