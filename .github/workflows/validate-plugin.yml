@@ -42,8 +42,10 @@ jobs:
             # that the files which exist, exist - the same self-referential vacuity as a
             # population counted from the table it validates. This list is an INDEPENDENT
             # statement of what must be present. Drift in the other direction (a new
-            # manual file that never reaches this list) is caught by V16's 18-row floor
-            # and V20's 14-file pointer floor, so both directions are covered.
+            # manual file that never reaches this list) is caught by V24_docs, which
+            # compares BOTH required-file lists against check-manual-bundle.py's MANUAL
+            # constant - not against `ls agents/*.md`. V16's and V20's floors do not close
+            # it: a 15th manual file would clear both while reaching neither list.
             agents/INDEX.md agents/DELIVER.md agents/STATE.md agents/TICKETS.md
             agents/INTAKE.md agents/WORKTREES.md agents/FLOWS.md agents/OPERATE.md
             agents/INCIDENT.md agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md

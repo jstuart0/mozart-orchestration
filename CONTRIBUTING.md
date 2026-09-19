@@ -52,7 +52,16 @@ Then exercise the slash command against a real request in a test repo:
 /mozart add a health-check endpoint to the API
 ```
 
-There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**, because the four things it has to agree on no longer live in one file: **agent roster** and **tiers** are in `agents/mozart.md`; **shapes** are in `agents/INTAKE.md` (*Six shapes of work: boundaries and transitions*); **partial flows** are in `agents/FLOWS.md` (*Partial flows (stop points)*). Checking only `agents/mozart.md` for shapes or partial flows is **vacuously satisfiable** — the text is not there to disagree with you. `agents/INDEX.md` routes to the right file. Where PIPELINE.md and the manual disagree, **the manual wins** (PIPELINE.md summarizes; see `agents/PIPELINE.md`'s own statement of that direction).
+There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**. Only one of the four things it must agree on actually moved, and a **split section can put two halves in two files** — so name the half that carries the text you are comparing, not the section:
+
+| Must agree on | Lives in | Note |
+|---|---|---|
+| **agent roster** | `agents/mozart.md` — frontmatter `description:`, and the *Not your lane* line | PIPELINE.md carries the roster **table**; the persona names the agents in prose |
+| **tiers** | `agents/mozart.md` — *Task tiers (DELIVER)* | inline, unchanged by the carve |
+| **shapes** (the six-shape **enumeration**) | `agents/mozart.md` — *Six shapes of work*, plus the frontmatter `description:` | **inline, unchanged.** `agents/INTAKE.md` holds the *boundary and transition tests*, which are a different claim — check it when you change how shapes RELATE, not when you change the list |
+| **partial flows** | `agents/FLOWS.md` — *Partial flows (stop points)* | the only one of the four that carved out |
+
+Checking `agents/mozart.md` for **partial flows** is **vacuously satisfiable** — the text is not there to disagree with you. Checking `agents/INTAKE.md` for the **shape enumeration** is the same error pointed the other way: you would be reading the boundary tests and concluding the list matched. `agents/INDEX.md` routes to the right file. Where PIPELINE.md and the manual disagree, **the manual wins** (PIPELINE.md summarizes; see `agents/PIPELINE.md`'s own statement of that direction).
 
 ### If your local install is specialized
 

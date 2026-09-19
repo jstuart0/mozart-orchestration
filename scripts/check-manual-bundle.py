@@ -225,6 +225,13 @@ def main():
     # This asserts only the MECHANICAL half - that both required-file lists name
     # every manual-set file. Whether the prose around them is correct is still
     # judgment, but "the list forgot a file" is now a failure rather than a reading.
+    #
+    # The independence is real because the comparison is against MANUAL - a constant
+    # in this file - and never against `ls agents/*.md`. That is the control doing the
+    # work, not V16's 18-row floor or V20's 14-file floor: a hypothetical 15th manual
+    # file would CLEAR both of those floors while never reaching either required-file
+    # list. MANUAL is what makes a deletion detectable, which is the single thing a
+    # required-files check exists for and the thing a tree-derived list can never do.
     dbad = []
     try:
         contrib = (root / "CONTRIBUTING.md").read_text()
