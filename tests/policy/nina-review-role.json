@@ -1,0 +1,153 @@
+{
+  "_comment": [
+    "nina-review-role.json - a DENY-BY-DEFAULT skeleton for the IAM role nina's live-read",
+    "mode runs as. This is NOT a live policy and this repo ships no account: the operator",
+    "adapts it. Its job is that the adaptation starts from deny-by-default rather than from",
+    "the managed ReadOnlyAccess policy, which reaches data actions and auto-extends to new",
+    "services on the provider's schedule.",
+    "",
+    "APPLY: extract the policy document, which is the value of .PolicyDocument -",
+    "  jq '.PolicyDocument' tests/policy/nina-review-role.json > nina-review-role-policy.json",
+    "The wrapper exists because JSON has no comments and IAM rejects unknown top-level keys.",
+    "",
+    "WHY IT WORKS AT ALL: an explicit Deny beats any Allow in the IAM evaluation chain.",
+    "That is the one evaluation-chain fact this design leans on, and the operator can add",
+    "Allow statements for the read families they intend to grant without weakening these.",
+    "",
+    "SCOPE (D15): live reads are AWS-ONLY. This file is an AWS IAM policy and denies",
+    "NOTHING on Azure or GCP, where two of the three known projection bypasses lived",
+    "(az keyvault secret show, az storage account keys list). Until Azure custom-role",
+    "notActions and GCP deny-policy siblings exist and are tested, nina runs docs-plus-IaC",
+    "only on those providers. Bucket members that are az/gcloud verbs are therefore absent",
+    "from this file by design, not by oversight.",
+    "",
+    "compute.projects.get is DELIBERATELY ABSENT. It is a GCP permission and cannot sit in",
+    "an AWS IAM Statement; an earlier draft listed it here, which would have shipped a",
+    "policy that fails to parse or silently ignores the entry. The fifth defeating call",
+    "(gcloud compute project-info describe) is out of live-read scope under D15 and stays",
+    "denied by condition 2 in agents/nina.md.",
+    "",
+    "=== WHAT IAM CANNOT SEE - read this before mistaking a shipped policy for a closed",
+    "surface. This file is DEFENCE IN DEPTH BEHIND condition 2 of agents/nina.md, never a",
+    "substitute for it. Coverage is PARTIAL BY CONSTRUCTION: ===",
+    "",
+    "1. IAM cannot see a projection. 'aws ec2 describe-instance-attribute --attribute",
+    "   userData' and 'aws apigateway get-api-keys --include-values' are denied in nina's",
+    "   persona text as whole calls, but IAM sees only ec2:DescribeInstanceAttribute and",
+    "   apigateway:GET - denying either outright removes every attribute and every API",
+    "   read, including the benign ones her review needs.",
+    "2. The same limit applies to every Bucket-2 projection-only member: the difference",
+    "   between a permitted and a denied call is the --query/--format expression, which",
+    "   never reaches the IAM evaluation.",
+    "3. Client-side credential minting has no IAM action to deny. 'aws eks get-token' and",
+    "   'aws s3 presign' sign locally from credentials the principal already holds; no",
+    "   API call is made, so no Deny can fire. Same for 'aws rds generate-db-auth-token' -",
+    "   rds-db:connect below denies the USE of such a token, not its generation.",
+    "4. Bucket 5 is entirely outside IAM. Reading ~/.aws/credentials, env, terraform state,",
+    "   git history, or the IMDS endpoint at 169.254.169.254 needs no provider grant at",
+    "   all. The only control there is nina's persona text and the harness's tool grants.",
+    "",
+    "=== THE C1 STATEMENT COSTS REVIEW CAPABILITY - decide deliberately ===",
+    "DenyDefeatingCallsC1 denies four calls that defeated an earlier, verb-only version of",
+    "the allowlist. Three of them (cloudformation:DescribeStacks, ecs:DescribeTasks,",
+    "lambda:ListFunctions) are calls nina legitimately needs to review stack, task and",
+    "function configuration - denying them outright costs real review capability. They are",
+    "in their own statement so the operator can drop it KNOWINGLY, accepting that condition",
+    "2b's response-shape rule becomes the only thing standing behind those three."
+  ],
+  "PolicyDocument": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "AllowIdentityPinOnly",
+        "Effect": "Allow",
+        "Action": [
+          "sts:GetCallerIdentity"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket1CredentialMinting",
+        "Effect": "Deny",
+        "Action": [
+          "sts:AssumeRole",
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:AssumeRoleWithSAML",
+          "sts:GetFederationToken",
+          "sts:GetSessionToken",
+          "ecr:GetAuthorizationToken",
+          "rds-db:connect",
+          "iam:CreateAccessKey",
+          "iam:UpdateAccessKey"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket3SecretReads",
+        "Effect": "Deny",
+        "Action": [
+          "secretsmanager:GetSecretValue",
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket3ObjectAndStreamReads",
+        "Effect": "Deny",
+        "Action": [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:SelectObjectContent",
+          "kinesis:GetRecords",
+          "kinesis:GetShardIterator"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket3LogReads",
+        "Effect": "Deny",
+        "Action": [
+          "logs:FilterLogEvents",
+          "logs:GetLogEvents",
+          "logs:GetQueryResults"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket3SnapshotBlockAndRestoreReads",
+        "Effect": "Deny",
+        "Action": [
+          "ebs:GetSnapshotBlock",
+          "ebs:ListSnapshotBlocks",
+          "ec2:CreateRestoreImageTask"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyBucket4ReadsThatMutate",
+        "Effect": "Deny",
+        "Action": [
+          "sqs:ReceiveMessage",
+          "iam:GenerateCredentialReport",
+          "iam:GenerateServiceLastAccessedDetails",
+          "athena:StartQueryExecution",
+          "redshift-data:ExecuteStatement"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "DenyDefeatingCallsC1",
+        "Effect": "Deny",
+        "Action": [
+          "lambda:ListFunctions",
+          "ec2:DescribeLaunchTemplateVersions",
+          "cloudformation:DescribeStacks",
+          "ecs:DescribeTasks"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }
+}
