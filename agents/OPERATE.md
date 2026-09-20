@@ -4,7 +4,7 @@ For changing or debugging a **live system** directly — installs, config change
 
 **Use the DELIVER-vs-OPERATE boundary test at intake.** If the change reaches the system through a git commit + CI/Argo/release pipeline, it's DELIVER (otto reviews the manifest, jackson writes it, the pipeline deploys). If it lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, an in-place config edit, a service restart), it's OPERATE. When a change *could* go either way, prefer the GitOps/DELIVER path for anything that has one; OPERATE is for direct changes, installs, and live debugging with no repo in the loop.
 
-hank is the only agent that mutates live state. otto plans and reviews; dick investigates; xander reviews the security surface; scott documents — all read-only on the live system.
+hank is the only agent that mutates live state. otto plans and reviews; dick investigates; xander reviews the security surface; nina resolves cloud semantics; scott documents — all read-only on the live system.
 
 ### Modes (detected at intake)
 - **install** — bring up something new on the cluster/host (a package, a service, a Helm release, a new manifest set)
@@ -26,6 +26,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 ### 1. Intake + context pin
 - Restate the change in one sentence — what system, what change, why now
 - **Pin the target from both sides**: what the consuming repo documents and what a live command observes — the cluster context, the host name, the database the connection actually reaches, or the cloud account and region from an identity call against the expected profile. Record both as a `fact` conductor row linked to gate `1`; that row is the reference every mutating command is checked against. A mismatch stops the campaign; neither side wins by default
+- **On a cloud change the pin also names nina's credential profile** — the brief's declared principal, or absent with docs-plus-IaC declared. A record; mozart grants live-read at dispatch
 - Classify mode (install / config-change / infra-debug / migration) and tier (TINY / STANDARD / HEAVY)
 - **In install / upgrade mode, resolve the version before planning** — query the upstream project's current stable release and what the intended install source (chart, package, image) would actually land, and surface both plus the gap. Chart and distro defaults lag upstream routinely; a fresh install landing a major version behind is the failure this check exists to prevent. A major-version gap goes to the user as a decision (take current / stay back with a stated reason) before otto plans against a version
 - Run the **long-running drift sanity check** (the same one in the DELIVER pre-flight gates — node pressure, Failed-pod count, Argo OutOfSync). Surface drift before you change anything on top of it
@@ -35,6 +36,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 
 ### 2. Recon (infra-debug / migration modes)
 - For infra-debug: brief **dick** to investigate read-only (logs, events, `describe`, `--previous`, config dumps) and **otto** to reason about the manifests/charts. Produce a root-cause + a proposed change. Skip for clean install / config-change modes where there's nothing to diagnose
+- For a cloud control-plane change: **nina** resolves provider semantics read-only as an **input** to the plan, before otto authors it at stage 3
 - For migration: otto verifies which fields are immutable on the existing live resources and whether the change needs resource recreation (his immutable-field discipline) — this shapes the change plan's rollback and ordering
 
 ### 3. Change plan (otto)
@@ -51,7 +53,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 
 ### 4. Pre-flight gate (hank + xander/codex on HEAVY)
 - **hank** runs every dry-run in the plan and takes every snapshot, recording snapshot paths and rollback commands into the state file's **Change ledger — before applying anything.** A failed dry-run, an unexpected diff, an immutable-field `Forbidden`, or a snapshot that can't be taken is a **hard stop** back to otto/the user — not a warning to push through
-- **HEAVY**: **xander** reviews the security surface of the change (RBAC and cloud IAM grants, federation trust, secret exposure, network policy, new public surface); **otto** confirms the server-side dry-run is clean against the *actual live resources*; **codex** reviews the change plan (commands + rollback + ordering). Any BLOCK stops the apply
+- **HEAVY**: **xander** reviews the security surface of the change (RBAC and cloud IAM grants, federation trust, secret exposure, network policy, new public surface); **otto** confirms the server-side dry-run is clean against the *actual live resources*; **nina** reviews its cloud assertions on a cloud surface; **codex** reviews the change plan (commands + rollback + ordering). Any BLOCK stops the apply
 - The gate's output is a go/no-go. No apply happens until the snapshots exist and the dry-runs are clean
 
 ### 5. Apply (hank)

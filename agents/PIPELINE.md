@@ -16,7 +16,7 @@ The "easy way" is the right answer only when:
 
 In every other case: surface the better approach, even if it costs more time / tokens / effort. If the better approach exists but the user's constraints rule it out, name the gap explicitly so they can revisit later.
 
-This applies across all agent work — architecture (bob), code health (dexter), security (xander), UX (ruby), infra (otto), implementation (jackson), planning (harry), research (sarah), validation (valerie), change-impact (ian), and the orchestration mozart imposes on all of them.
+This applies across all agent work — architecture (bob), code health (dexter), security (xander), UX (ruby), infra (otto), cloud (nina), implementation (jackson), planning (harry), research (sarah), validation (valerie), change-impact (ian), and the orchestration mozart imposes on all of them.
 
 When mozart briefs another agent, he carries this standard forward — he does not tell agents to "just do the simple version" unless the user has explicitly asked.
 
@@ -42,6 +42,7 @@ When mozart briefs another agent, he carries this standard forward — he does n
 | **xander** | Security reviewer (adversarial) | sonnet |
 | **ruby** | UI/UX designer + frontend reviewer | opus |
 | **otto** | Infra / k8s / ops reviewer (+ OPERATE change-plan author) | sonnet |
+| **nina** | Cloud specialist — resolves provider-behaviour assertions against a current source | sonnet |
 | **hank** | Ops executor — applies changes to live infrastructure (OPERATE) | sonnet |
 | **tessa** | Test-strategy and test-quality reviewer | sonnet |
 | **percy** | Performance engineer (measurement-first) | sonnet |
@@ -70,11 +71,11 @@ Support agents (tool specialists, not personas):
 2.  Research        — sarah (+ codebase-pattern-finder, web-search-researcher) in parallel — OPTIONAL, skipped in TINY
 2b. Constraints     — xander or ian, CONDITIONAL — narrow authorization/guarantee trigger only; skipped by default (see trigger table below)
 3.  Plan            — harry drafts → .mozart/plans/<slug>.md
-4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto/tessa/percy (conditional, parallel)
+4.  Internal review — bob (always) + librarian (BROWNFIELD) + xander/dexter/ruby/otto/nina/tessa/percy (conditional, parallel)
 5.  Codex on plan   — codex CLI external review → <slug>.codex-r1-plan.md
 6.  Iterate         — harry revises if needed; capped 3 rounds; short-circuit when clean
 7.  Implement       — jackson, phase by phase (parallel streams when independent)
-8.  Mid-build gate  — mozart per-phase gate + conditional specialists (librarian / ian / xander / otto / ruby / dexter / tessa / percy / bob)
+8.  Mid-build gate  — mozart per-phase gate + conditional specialists (librarian / ian / xander / otto / nina / ruby / dexter / tessa / percy / bob)
                        HEAVY tier: ian + xander mandatory on every phase
                        LOOP-IN mode: setup + user signoff before commit
 9.  Codex on diff   — codex CLI external review of final diff (HEAVY mandatory; STANDARD optional; TINY skip)
@@ -113,6 +114,7 @@ Support agents (tool specialists, not personas):
 | dexter | refactors, shared utilities, new abstractions, code-health debt |
 | ruby | UI/UX surface, frontend components, accessibility, design system |
 | otto | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, infra YAML |
+| nina | Plan asserts how a cloud provider will behave, or touches a cloud control plane (identity/federation, cloud IAM, org structure, quotas, cross-account networking) or cloud IaC. Brief with the pin |
 
 ### Constraints triggers (stage 2b — conditional push, narrow)
 
@@ -133,6 +135,7 @@ Deliberately **narrower** than the stage-4 and stage-8 xander triggers above —
 | tessa | test files modified; new logic or integration boundary with no test diff; mandatory in TDD flow |
 | percy | queries in loops / new query shapes (runs EXPLAIN), bundle-affecting frontend deps (measures delta), new caches, pagination of growing collections, budgeted endpoints |
 | otto | k8s manifests, Helm, infra YAML |
+| nina | Phase asserts provider behaviour, or modifies a cloud control-plane surface or cloud IaC |
 | ruby | UI flows |
 | dexter | refactor smells, new shared abstractions |
 | bob | plan deviation |
@@ -152,13 +155,14 @@ Deliberately **narrower** than the stage-4 and stage-8 xander triggers above —
 
 | Goal | Lead | Support |
 |---|---|---|
-| Open-ended review | bob, dexter, xander, ruby (+ otto if infra) | librarian (if duplication suspected), scott (if doc-freshness in scope) |
+| Open-ended review | bob, dexter, xander, ruby (+ otto if infra, + nina if cloud) | librarian (if duplication suspected), scott (if doc-freshness in scope) |
 | Best-practices refactor | dexter, bob | librarian (duplicate functionality is a top refactor target), xander / ruby / otto if relevant |
 | Security audit | xander | bob, dexter |
 | UX / accessibility | ruby | xander if auth flows |
 | Performance / scaling | percy | bob (structure), dexter (code-health) |
 | Code-health / tech debt | dexter, librarian | bob |
 | Infra / k8s posture | otto | bob, xander |
+| Cloud posture / cloud-semantics | nina | otto, xander |
 | Documentation coverage | scott | dexter if doc duplication, bob if architectural docs are wrong |
 | Code-archaeology / "does X already exist?" | librarian | dexter, bob |
 
@@ -185,7 +189,7 @@ Bug-shaped DELIVER requests ("fix this bug," "X is broken") on STANDARD/HEAVY ti
 
 For changing or debugging a **live system** directly — installs, config changes, infra mutations, hands-on debugging of running k8s / hosts / storage / DBs. The artifact is a state change to running infrastructure, not a git diff; verification is empirical (curl, logs, `get`), not CI; rollback is a recorded command against a snapshot, not `git revert`. That's why it's a distinct shape, not a DELIVER tier. **hank** is the only agent that mutates live state.
 
-**DELIVER-vs-OPERATE boundary:** change reaches the system through a git/CI/Argo pipeline → DELIVER (otto reviews, jackson writes, the pipeline deploys). Change lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, in-place config edit, restart) → OPERATE (otto plans, hank applies, verified empirically). Prefer the GitOps/DELIVER path when one exists.
+**DELIVER-vs-OPERATE boundary:** change reaches the system through a git/CI/Argo pipeline → DELIVER (otto reviews, nina reviews the cloud assertions, jackson writes, the pipeline deploys). Change lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, in-place config edit, restart) → OPERATE (otto plans, hank applies, verified empirically). Prefer the GitOps/DELIVER path when one exists.
 
 ```
 1. Intake+pin  — mozart restates change, PINS the target from both sides (documented + live-observed)
@@ -218,7 +222,7 @@ For changing or debugging a **live system** directly — installs, config change
 
 ## INCIDENT pipeline
 
-For responding to a **live outage** — service is down or badly degraded *right now*. The time-critical form of DIAGNOSE: it **inverts** DIAGNOSE's "don't fix in the same pass" rule — mitigate first to restore service, root-cause in parallel, then durable-fix. mozart is the **incident commander (IC)**; no new agent — responders reused (dick, hank, otto, xander, percy, scott).
+For responding to a **live outage** — service is down or badly degraded *right now*. The time-critical form of DIAGNOSE: it **inverts** DIAGNOSE's "don't fix in the same pass" rule — mitigate first to restore service, root-cause in parallel, then durable-fix. mozart is the **incident commander (IC)**; no new agent — responders reused (dick, hank, otto, xander, percy, scott, nina).
 
 **Reconciles speed vs. rigor by splitting it across two phases:** mitigation runs gates-relaxed (`accepted-risk (incident)`, logged with rollback); the durable fix runs full gates (DELIVER/OPERATE, repro-test-first). You sequence rigor, you don't choose it globally.
 
@@ -227,7 +231,7 @@ For responding to a **live outage** — service is down or badly degraded *right
 ```
 0. Declare+triage — SEV1/2/3, scope, open the timeline; observability gate (warn if recovery can't be measured)
 1. Stabilize      — fastest safe restore (rollback/failover/scale/restart/flag). hank, SERIAL. Logged accepted-risk. ─┐ concurrent
-2. Race hypotheses— parallel lanes: what-changed / dependency / resource / traffic-data / security / perf. First-to-confirm. ─┘
+2. Race hypotheses— parallel lanes: what-changed / dependency / resource / traffic-data / security / perf / cloud-control-plane. First-to-confirm. ─┘
 3. Converge       — confirm root cause; distinguish MITIGATED from FIXED
 4. Durable fix    — route to DELIVER (code) or OPERATE (config/infra), full gates, repro-test-first
 5. Verify recovery— service-level empirical: error rate / latency / SLO back to baseline (not "pod Running"). IC calls all-clear
@@ -277,6 +281,7 @@ When a request is genuinely one agent's job, mozart routes it directly and retur
 | Architectural critique (no fix) | bob |
 | UI/UX review (no fix) | ruby |
 | Infra / k8s posture review (no fix) | otto |
+| Cloud posture, or "is this claim about the provider true?" (no fix) | nina |
 | "Just apply this manifest" / "restart the pod" (single reversible live change) | hank (runs the full verify→dry-run→snapshot→apply→verify loop) |
 | "Install X" / "make this infra change" / "debug the live system" (multi-step) | OPERATE pipeline (not passthrough) |
 | "Prod is down" / "returning 500s" / "users can't X" / "SEV1" / active outage | INCIDENT pipeline (not passthrough) |

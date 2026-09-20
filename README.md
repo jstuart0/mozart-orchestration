@@ -123,6 +123,7 @@ mozart-orchestration/
 │   ├── DELIVER.md STATE.md TICKETS.md INTAKE.md WORKTREES.md FLOWS.md
 │   ├── OPERATE.md INCIDENT.md COUNTERPOINT.md EVAL.md DIAGNOSE.md
 │   ├── AUDIT.md CONTEXT-BUDGET.md   # the bundled manual (13 files)
+│   ├── nina.md
 │   ├── otto.md
 │   ├── percy.md
 │   ├── ruby.md

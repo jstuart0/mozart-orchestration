@@ -36,7 +36,10 @@ Use `agents/sarah.md` as the canonical template for a researcher-type agent; use
 - `agents/PIPELINE.md` — add the agent to the Agent roster table and to the appropriate reviewer/specialist trigger table (stages 4 and 8)
 - `agents/mozart.md` — add the agent to the roster list near the top of the file (around lines 7–25). Stage-time procedure for a shape lives in the bundled manual (`agents/DELIVER.md`, `agents/AUDIT.md`, …), not in the persona; `agents/INDEX.md` routes to it.
 - `README.md` — add the agent to the "What's in the box" layout tree and update the agent count in the description
-- `agents/README.md` — add a row to the appropriate table (Specialists or Support agents)
+- `agents/README.md` — add a row to the appropriate table (Specialists or Support agents), and bump the `## Specialists (N)` heading
+- `.claude-plugin/plugin.json` — the `"Conducts N specialist subagents"` count in `description`. Nothing fails mechanically when this drifts, which is why it had drifted by one before anyone noticed
+- `commands/mozart.md` — the specialist enumeration in the slash-command wrapper
+- `scripts/mozart-contract-gates.sh` — `V4_population`'s pinned count, and a `V16` budget row for the new persona file
 
 ## Local testing
 

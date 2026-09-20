@@ -504,6 +504,7 @@ Filled at the final report stage. Be explicit — silence reads as oversight.
 - **dexter**: no shared abstractions or refactor surface
 - **ruby**: no UI surface
 - **otto**: no infra/manifest changes
+- **nina**: no cloud assertion
 - **dick**: not a bug-shaped task
 - **codebase-locator / codebase-analyzer**: not needed; sarah's research covered the scope
 
