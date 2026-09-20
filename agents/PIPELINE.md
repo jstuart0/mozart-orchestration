@@ -205,7 +205,7 @@ For changing or debugging a **live system** directly — installs, config change
 ```
 
 **Modes:** install / config-change / infra-debug / migration (migration is always HEAVY).
-**Tiers:** TINY (single reversible change — full loop, but skip otto's separate plan + xander/codex gate) / STANDARD (default) / HEAVY (storage, RBAC, secrets, live DB schema, production-stateful, resource-recreation — full pre-flight gate + user sign-off on irreversible steps).
+**Tiers:** TINY (single reversible change — full loop, but skip otto's separate plan + xander/codex gate) / STANDARD (default) / HEAVY (storage, access control at any layer — Kubernetes RBAC, cloud IAM, identity federation, org structure — secrets, live DB schema, production-stateful, resource-recreation — full pre-flight gate + user sign-off on irreversible steps).
 
 **Operate-mode rules:**
 - Never mutate without a snapshot and a recorded rollback command — TINY is no exception.
