@@ -1,1 +1,12 @@
+# RETIRED INPUT - 2026-09-19. The gate that read this file, V17_carve_phase, was
+# retired under D9 of 2026-09-19-deliver-nina-cloud-persona. Conservation was a
+# ONE-TIME MIGRATION PROOF and it was proven: the gate passed at 71024d1, the commit
+# that merged the carve. It is not re-provable once the carved files legitimately
+# change, because every table row a later campaign adds lands INSIDE a mapped range
+# and fails `C3c within-range`, which has no declaration mechanism by design.
+#
+# This file is RETAINED, not orphaned: it is the evidence the retirement rests on.
+# Do not delete it. See scripts/mozart-contract-gates.sh's V17 header for the full
+# disposition, and note that tests/carve/carve-map.tsv is still read by the STANDING
+# V23_absence gate.
 full

@@ -1858,34 +1858,46 @@ report "V16" "$([ -z "$v16_bad" ] && echo 0 || echo 1)" \
   "${v16_bad:-$v16_checked orchestration file(s) within their per-file ceilings:$v16_sizes}"
 
 # ---------------------------------------------------------------------------
-# V17 - the carve conservation gate (2026-09-19-deliver-mozart-md-carve).
-#
-# Two gates, deliberately separate:
+# V17 - the carve conservation self-test (2026-09-19-deliver-mozart-md-carve).
 #
 #   V17_carve_selftest  the gate's own 12-mutation self-test. Runs on a synthetic
-#                       mktemp fixture and never reads the repo tree, so it is
-#                       valid from Phase 1 onward - before any destination file
-#                       exists. A run reporting fewer than 12 mutations FAILS: the
-#                       floor is what stops a stale implementation from satisfying
-#                       this gate while C3 inverse and C3c go untested (F36/F43).
+#                       mktemp fixture and never reads the repo tree or any git
+#                       history, so it is valid independently of the tree's state.
+#                       A run reporting fewer than 12 mutations FAILS: the floor is
+#                       what stops a stale implementation from satisfying this gate
+#                       while C3 inverse and C3c go untested (F36/F43).
 #
-#   V17_carve_phase     conservation at the ordinal in tests/carve/PHASE, asserting
-#                       EXACTLY that every mapped range with ordinal <= it is in its
-#                       destination AND every range above it is still in
-#                       agents/mozart.md. Exact in both directions, so
-#                       under-delivering a phase fails as loudly as over-delivering.
-#                       The ordinal lives in a file a reviewer reads and each phase
-#                       commit bumps - not a constant nobody re-reads (F26/F41).
+#   V17_carve_phase     RETIRED 2026-09-19 (D9 of 2026-09-19-deliver-nina-cloud-persona).
+#                       It asserted POST-is-PRE-re-partitioned against a pinned
+#                       PRE-carve baseline: a ONE-TIME MIGRATION PROOF, verified when
+#                       the carve merged at 71024d1, and not re-provable once the
+#                       carved files legitimately change. Every trigger-table row a
+#                       later campaign adds lands INSIDE a mapped range, which fails
+#                       `C3c within-range` (the range is permuted) and has NO escape
+#                       hatch by design - additions.allow admits additions BETWEEN
+#                       ranges only. Left standing the gate did not inconvenience the
+#                       next edit, it forbade the entire class of edit the bundle
+#                       exists to receive, so it could thereafter produce only false
+#                       failures. What the carve proved stays proved.
+#
+#                       tests/carve/{carve-map.tsv,PHASE,phases.expected,additions.allow}
+#                       are RETAINED as the audit trail this retirement rests on, and
+#                       carve-map.tsv is additionally read by the STANDING V23_absence
+#                       gate - do not tidy them away. V18/V20/V21/V22/V24 remain the
+#                       bundle's standing invariants and are unaffected.
+#
+#                       Transferable lesson: a gate built to prove a migration must
+#                       declare its lifetime when it is built. This one did not, and
+#                       the campaign that wrote it never asked how it would behave on
+#                       the first ordinary edit afterwards.
 #
 # python3 missing is a FAIL, never a skip. A gate that quietly disappears when its
 # interpreter is absent is the vacuity case this suite exists to remove.
 v17_script="$gate_root/scripts/check-carve-conservation.py"
 if ! command -v python3 >/dev/null 2>&1; then
   report "V17_carve_selftest" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
-  report "V17_carve_phase" 1 "python3 not found - the conservation gate cannot run (FAIL, not skip)"
 elif [ ! -f "$v17_script" ]; then
   report "V17_carve_selftest" 1 "scripts/check-carve-conservation.py is missing"
-  report "V17_carve_phase" 1 "scripts/check-carve-conservation.py is missing"
 else
   v17_st_out=$(python3 "$v17_script" --self-test --quiet 2>&1); v17_st_rc=$?
   v17_st_n=$(printf '%s\n' "$v17_st_out" | sed -n 's/.*carve_selftest *\([0-9]*\) of \([0-9]*\) mutations.*/\1 \2/p')
@@ -1894,23 +1906,6 @@ else
     report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 12); positive control green"
   else
     report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 12): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
-  fi
-
-  v17_phase_file="$gate_root/tests/carve/PHASE"
-  if [ ! -f "$v17_phase_file" ]; then
-    report "V17_carve_phase" 1 "tests/carve/PHASE is missing - the campaign ordinal is unpinned"
-  else
-    v17_ord=$(tr -d ' \n' < "$v17_phase_file")
-    # Phase 6 sets tests/carve/PHASE to "full", which switches the gate from
-    # phase-aware to FULL conservation: every mapped range must be in its
-    # destination, in pinned order, in both directions of C3, with no phase
-    # exemption available to anything.
-    v17_out=$(python3 "$v17_script" --phase "$v17_ord" --quiet 2>&1); v17_rc=$?
-    if [ "$v17_rc" -eq 0 ]; then
-      report "V17_carve_phase" 0 "$(printf '%s' "$v17_out" | sed -n 's/^PASS  carve_conservation *//p')"
-    else
-      report "V17_carve_phase" 1 "ordinal $v17_ord: $(printf '%s' "$v17_out" | grep -v carve_selftest | tail -4 | tr '\n' ' ')"
-    fi
   fi
 fi
 

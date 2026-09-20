@@ -66,20 +66,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Default shallow checkout is deliberate. The full clone that used to live
+      # here existed ONLY so the carve conservation gate could resolve its pre-carve
+      # baseline with `git show <BASE_SHA>:agents/mozart.md`; that gate
+      # (V17_carve_phase) was retired 2026-09-19 under D9 of
+      # 2026-09-19-deliver-nina-cloud-persona, and nothing this job runs reads git
+      # history any more - the gates use `git ls-files` and `git rev-parse
+      # --show-toplevel`, and the surviving self-test runs on a synthetic fixture.
+      # Measured, not assumed: the whole suite is green in a tree with exactly one
+      # commit and no BASE_SHA object, and the same tree BEFORE the retirement fails
+      # V17_carve_phase on baseline resolution. Restore `fetch-depth: 0` if a future
+      # gate reads history. The old comment also asserted a `--no-ff` merge
+      # requirement to keep the baseline object reachable; that constraint died with
+      # the gate and is not a live requirement.
       - uses: actions/checkout@v4
-        with:
-          # The carve conservation gate resolves its baseline with
-          # `git show <BASE_SHA>:agents/mozart.md`, where BASE_SHA is a commit on the
-          # campaign branch. A shallow clone cannot see it, and the gate FAILs loudly
-          # rather than skipping - so without this the job goes red, not vacuously
-          # green (D-D, D3). It also means this campaign must merge --no-ff (D8): a
-          # squash would orphan the baseline object and break the gate retroactively.
-          fetch-depth: 0
       - name: Syntax-check the gate script
         run: bash -n scripts/mozart-contract-gates.sh
       - name: Run persona-contract gates
         run: bash scripts/mozart-contract-gates.sh
-      - name: Carve conservation self-test (11 mutations, synthetic fixture)
+      - name: Carve conservation self-test (12 mutations, synthetic fixture)
         run: python3 scripts/check-carve-conservation.py --self-test
       # scripts/mozart-lint.sh is deliberately NOT wired here: it reads .mozart/,
       # which is gitignored and therefore absent from every CI checkout, so the

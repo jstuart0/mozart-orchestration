@@ -28,9 +28,17 @@ line-oriented like the source, byte-exact, and need no transform to argue about.
 BASELINE: `git show <BASE_SHA>:agents/mozart.md`. The commit SHA proves WHICH
 object was asked for; the pinned SHA-256 proves WHAT came back. Only the pair
 survives a history rewrite or a corrupted object. Either failing is a hard FAIL,
-never a skip. BASE_SHA is a commit on the campaign branch, so this campaign MUST
-merge --no-ff (D8) - a squash would orphan the baseline and break the gate
-retroactively.
+never a skip.
+
+--phase IS RETIRED FROM THE GATE SUITE (2026-09-19, D9 of
+2026-09-19-deliver-nina-cloud-persona). Conservation was a one-time migration
+proof: it passed at 71024d1 and is not re-provable once the carved files
+legitimately change, because a table row added inside a mapped range permutes it
+and fails C3c, which has no declaration mechanism by design. The --self-test path
+below is what still runs. --phase remains invocable by hand for the historical
+re-proof, and needs the BASE_SHA object reachable; the `--no-ff` merge
+requirement that used to protect that reachability in CI is no longer live, since
+no CI job resolves the baseline any more.
 
 The 12-mutation self-test runs on a synthetic mktemp fixture and never reads the
 repo tree, which is what makes it valid from Phase 1 onward, before any
@@ -617,7 +625,7 @@ def build_repo_world(root):
 
 
 # ---------------------------------------------------------------------------
-# self-test: 11 mutations on a synthetic mktemp fixture
+# self-test: 12 mutations on a synthetic mktemp fixture
 #
 # Idiom copied from scripts/mozart-contract-gates.sh:805-812 (v7_neg_fixdir):
 # build the fixture, prove the filter both ways, remove it. The fixture never
