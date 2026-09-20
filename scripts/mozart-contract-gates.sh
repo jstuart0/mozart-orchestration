@@ -1703,7 +1703,8 @@ M4	agents/DELIVER.md
 M7	agents/harry.md
 MP	agents/mozart.md
 JP	agents/jackson.md
-S22	agents/nina.md
+S22a	agents/nina.md
+S22b	agents/nina.md
 S23	agents/DELIVER.md
 V15_REGISTRY_EOF
 )
@@ -1752,7 +1753,7 @@ v15_dupes=$(printf '%s\n' "$v15_keys" | uniq -d | tr '\n' ' ')
 v15_only_registry=$(comm -23 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
 v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
 
-[ "$v15_rows" -ge 27 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 27]"
+[ "$v15_rows" -ge 28 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 28]"
 # Braces are load-bearing on ${v15_dupes}: the message continues with an
 # em-dash, and bash reads the multibyte character as part of the variable NAME
 # without them, so under `set -u` the gate aborts with "unbound variable" on
@@ -1797,6 +1798,14 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # text was 2,325 bytes of rule prose, so closing a 299-byte gap meant deleting
 # a mechanism. D26 moved the number rather than the content.
 #
+# agents/nina.md's ceiling moved 31,523 -> 33,750 when the read rules were re-frozen as
+# S22a/S22b plus a Bucket-members section (D27). The file grew because the frozen spans
+# and the enumerated members are BOTH required and are deliberately not substitutes: a
+# span that enumerated every member would need re-freezing whenever a provider ships a
+# service, and members without the span leave the rule unfrozen. Reviewed content, so
+# the raise is taken on the D21 rule - raise when the content that consumed the budget
+# was reviewed, refuse when the raise is what makes an unreviewed edit fit.
+#
 # agents/OPERATE.md's ceiling is 14,991 per D21 of 2026-09-19-deliver-nina-cloud-
 # persona (was 14,600). Two reviewed changes consumed the old budget: the HEAVY
 # trigger widening, which is a live-pipeline defect fix independent of that
@@ -1838,7 +1847,7 @@ agents/DELIVER.md	62400
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
-agents/nina.md	31523
+agents/nina.md	33750
 V16_BUDGETS_EOF
 )
 
@@ -1979,7 +1988,9 @@ for prov, members in FAMS.items():
         if "`%s`" % m in t: fams += 1
         else: bad.append("A2 %s prefix family missing: %s" % (prov, m))
 need(fams == 8, "A2 prefix families == 8 (got %d)" % fams)
-need("denied by default" in t, "A2 default-deny sentence absent")
+# S22a wraps this sentence across two lines, so the probe normalises whitespace.
+need("denied by default, and the denial is a finding" in re.sub(r"\s+", " ", t),
+     "A2 default-deny sentence absent")
 NAMED = ["aws sts get-caller-identity", "az account show", "gcloud config list account"]
 named = sum(1 for c in NAMED if "`%s`" % c in t)
 need(named >= 3, "A2 named-allowed-call floor (got %d, want >= 3)" % named)
@@ -1998,7 +2009,9 @@ BUCKETS = {1: (10, "sts:AssumeRole"), 2: (6, "ec2 describe-instance-attribute --
            5: (8, "169.254.169.254")}
 counts = {}
 for b, (floor, member) in BUCKETS.items():
-    m = re.search(r'\*\*Bucket %d —.*?(?=\n\*\*Bucket |\n#### )' % b, t, re.S)
+    # Bucket 5 is last in the members section, so without \*\* as a stop it swallows the
+    # worked-examples block and reports a population it does not have.
+    m = re.search(r'\*\*Bucket %d —.*?(?=\n\*\*Bucket |\n\*\*Worked |\n#### )' % b, t, re.S)
     if not m:
         bad.append("A4 bucket %d header absent" % b); counts[b] = 0; continue
     members = [x for x in re.findall(r'`([^`]+)`', m.group(0)) if not x.startswith("kubectl")]

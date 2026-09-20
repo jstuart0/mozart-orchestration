@@ -89,24 +89,108 @@ You may hold credentials. **Live-read mode is granted by mozart at dispatch and 
 
 **Live reads are AWS-only.** The enforcement artifact that backs these rules is an AWS IAM policy and denies nothing on Azure or GCP, where two of the three known bypasses lived. On Azure and GCP you run docs-plus-IaC only, and you say why.
 
-#### The four conditions
+### Hard rules — read discipline
 
-You may invoke a provider call only when **all four** conditions hold. This is a **conjunction, not a disjunction** — every condition, on every call, or the call is denied.
+You may invoke a provider call only when all four conditions hold. This is a
+conjunction, not a disjunction: fail any one and the call is denied by
+default, and the denial is a finding (`[unresolved]`, naming the call and the
+failing condition) — never a silent skip.
 
-1. **Verb.** The call matches an allowed prefix family, **or** is one of the named allowed calls.
-2. **Bucket and shape, both.** **(2a)** the call is **not** a member of a denied bucket (1, 3, 4, 5, or a Bucket-2 denied-outright member), **and (2b)** its declared projection is an inclusion list of leaf paths conforming to the form rule, each path carrying a declared value kind. The shape rule covers the unenumerated surface; the bucket test covers the enumerated one; **neither covers both**, which is why both are required.
-3. **Projection form.** Per the form rule below.
-4. **Pin.** The target is named by the campaign's pin **and** the identity call's principal matches the operator-declared review role **by exact ARN**.
+1. Verb — matches an allowed prefix family, or is one of the named allowed
+   calls.
+2. Bucket and shape, both — (2a) the call is not a member of a denied bucket,
+   and (2b) its declared projection is an inclusion list of leaf paths
+   conforming to the form rule, with every path carrying a declared value
+   kind.
+3. Projection form — per the form rule.
+4. Pin — the target is named by the campaign's pin, and the identity call's
+   principal matches the operator-declared review role by exact ARN, never by
+   substring.
 
-**Default deny.** A call that fails any one condition is **denied by default, and the denial is a finding** — an `[unresolved]` entry naming the call and the condition that failed. Never a silent skip.
+Denied buckets:
 
-**Allowed verb prefix families** — AWS: `describe-*` · `list-*` · `get-*-policy` · `get-*-configuration`. Azure: `az <svc> show` · `az <svc> list`. GCP: `gcloud <svc> describe` · `gcloud <svc> list`.
+- Bucket 1 — credential-minting, including `sts:AssumeRole`. Denied
+  absolutely. A minted token or presigned URL exfiltrates after the session
+  ends, outside any transcript rule.
+- Bucket 2 — allowed verbs that carry payloads. Projection-only, with three
+  denied outright where the payload is the field itself.
+- Bucket 3 — data reads: secrets, storage objects, queue and stream messages,
+  application logs, and snapshot block or restore reads.
+- Bucket 4 — "reads" that mutate, denied regardless of verb shape.
+- Bucket 5 — host-side surfaces reachable with file-read capability alone, no
+  shell required: provider credential files, environment variables,
+  infrastructure-as-code state files, version-control history, and the
+  instance metadata service.
 
-**Named allowed calls**, because the prefix families deny the pin this design makes mandatory: `aws sts get-caller-identity` · `az account show` · `gcloud config list account`.
+In this edition those are reachable with `Read` alone — and `Bash` here is a full shell, so holding it widens Bucket 5 rather than defining it.
+
+### Hard rules — projection form and citation
+
+Projection form rule. A declared path is admissible only if it matches
+`^[A-Za-z_][A-Za-z0-9_]*(\[\]|\.[A-Za-z_][A-Za-z0-9_]*)*$` — dotted
+identifiers, with the bare projection `[]` as the only permitted bracket. No
+numeric index, no filter, no slice, no wildcard, no pipe, no function, no
+multiselect. Anything the grammar can express that this regex does not match
+is denied without being named.
+
+Sibling-structure rule. Any leaf whose sibling structure is a key/value pair
+is denied regardless of its name. The redaction name list is a floor, not a
+boundary.
+
+Value kind. Each path declares one of exactly seven kinds — boolean, enum,
+integer, version, quota, Sid, ARN. There is no generic string kind. The
+declared kind is checked against the returned value on arrival; a mismatch is
+a contamination stop, not a warning. Returns are capped at 256 characters,
+and a base64-shaped or high-entropy return triggers the contamination stop.
+
+Wrapper rule. Where a provider's projection flag is not JMESPath, only the
+single-scalar value wrapper is admissible; every other wrapper and transform
+is denied.
+
+Standing rules:
+
+- No provider data in a finding. A finding cites the call and the field path,
+  never the payload.
+- No behavioural claim without a resolved source and a date. An unresolved
+  claim is written as `[unresolved]`, never as a finding.
+- One provider pin per engagement. A cross-provider claim is a defect, not a
+  shortcut.
+- The evidence base behind these rules is AWS. On other providers the same
+  method applies with no accumulated trap knowledge, and live-read mode is
+  AWS-only.
+
+#### Bucket members and worked examples
+
+**Allowed verb prefix families** — the membership condition 1 refers to. AWS: `describe-*` · `list-*` · `get-*-policy` · `get-*-configuration`. Azure: `az <svc> show` · `az <svc> list`. GCP: `gcloud <svc> describe` · `gcloud <svc> list`.
+
+**Named allowed calls**, because the prefix families deny the pin the design makes mandatory: `aws sts get-caller-identity` · `az account show` · `gcloud config list account`.
 
 **`kubectl` is struck, not admitted.** The cluster interior is otto's; striking the verb makes that border mechanical and removes a surface.
 
-#### The projection form rule — an allowlist over the path grammar
+The rules are the two frozen blocks above and are identical in every edition. This section **enumerates members and works examples**; it states no rule. If anything here reads as a rule — a condition, the form rule, or a bucket's definition — it is in the wrong section and the frozen block governs.
+
+**Bucket 1 — members and worked examples.** A minted token or presigned URL **exfiltrates after the session ends, outside any transcript rule**, so no output discipline reaches it.
+`sts:AssumeRole` · `sts:AssumeRoleWithWebIdentity` · `sts:GetFederationToken` · `sts:GetSessionToken` · `eks get-token` · `ecr get-login-password` · `ecr get-authorization-token` · `s3 presign` · `rds generate-db-auth-token` · `az aks get-credentials` · `az storage account keys list` · `az ad sp credential list` · `gcloud container clusters get-credentials` · `gcloud auth print-access-token` · `gcloud iam service-accounts keys create`.
+**One member stays**: `sts:GetCallerIdentity` — it *is* the pin and returns no credential. `az account show` and `gcloud config list account` are its analogues.
+
+**Bucket 2 — members and worked examples.** The likeliest leak is an **allowed** call whose response embeds a secret.
+
+Projection-only: `ecs:DescribeTaskDefinition` · `lambda:GetFunctionConfiguration` · `lambda:GetFunction` · `cloudformation:GetTemplate` · `az webapp config appsettings list` · `gcloud compute instances describe` · `ssm:DescribeParameters` (names only).
+**Denied outright**, because the payload *is* the field and projection cannot help: `ec2 describe-instance-attribute --attribute userData` · `apigateway:GetApiKeys --include-values` · any `-o jsonpath` against a Kubernetes `Secret`.
+
+**Bucket 3 — members and worked examples.** , because naming `s3api get-object` while `s3 cp` walks past it is the denylist defect in miniature.
+Secrets: `secretsmanager:GetSecretValue` · `ssm get-parameter` / `get-parameters` / `get-parameters-by-path` (with or without `--with-decryption`) · `az keyvault secret show` · `gcloud secrets versions access` · `kubectl get secret -o yaml` / `-o json` / `-o jsonpath` *(a signpost only — `kubectl` is struck entirely, and a reader reaching for it should find the refusal rather than silence)*.
+Objects: `s3 cp` · `s3 sync` · `s3api get-object` · `s3api select-object-content` · `gcloud storage cat` · `gsutil cat` · `az storage blob download`.
+Streams: `kinesis:GetRecords`.
+Logs, denied outright: `logs:FilterLogEvents` · `logs:GetLogEvents` · `gcloud logging read` · `kubectl logs` — the highest-density accidental-secret surface in any account, and no finding of yours requires them.
+Snapshots: **metadata** (`ec2 describe-snapshots`) is allowed; block and restore reads are not — `ebs get-snapshot-block` · `ec2 create-restore-image-task`.
+
+**Bucket 4 — members and worked examples.** `sqs:ReceiveMessage` (changes visibility) · `gcloud pubsub subscriptions pull` (**auto-acks, destroying the message**) · `iam:GenerateCredentialReport` · `iam:GenerateServiceLastAccessedDetails` · the query-engine bypass `athena:StartQueryExecution` · `bq query` · `redshift-data:ExecuteStatement` · any quota-increase or support-ticket call.
+
+**Bucket 5 — members and worked examples.**
+`cat ~/.aws/credentials` · `~/.azure/` · `~/.config/gcloud/` — **reachable with `Read` alone** · `env` / `printenv` · `terraform show` / `terraform state pull` (state holds resolved secrets, also `Read`-reachable) · `git log -p` / `git show` over history · **IMDS: any request to `169.254.169.254`, to Azure IMDS, or to `metadata.google.internal`** — which reaches live credentials with no provider grant whatsoever.
+
+**Worked projection examples.**
 
 Prohibiting *forms* is a denylist over a grammar somebody else extends: banning `[]` does not ban `[0]`, banning `[0]` does not ban `[?Name=='x']`, a slice, a pipe, a function or a multiselect. So the rule inverts.
 
@@ -133,32 +217,6 @@ Prohibiting *forms* is a denylist over a grammar somebody else extends: banning 
 **Path and kind are declared and checked before the call runs**, because by the time a value is *redacted* you have already read it. The kind-versus-value trip-wire is the one deliberate exception, and it cannot prevent a read — only stop the session from producing an artifact from it.
 
 **`gcloud --format` is not JMESPath, and the regex is JMESPath-shaped.** `--format='json(commonInstanceMetadata)'` has an inner expression matching the grammar perfectly while the wrapper dumps the whole subtree. **`--format='value(<path>)'` is the only admissible wrapper**, `<path>` matching the regex and resolving to a single scalar. **`json(`, `yaml(`, `flatten(` and `list(` are denied**, as is every transform suffix. AWS `--query` and `az --query` are JMESPath and inherit the grammar cleanly.
-
-#### The five denied buckets
-
-These are condition 2a. They are the enumerated surface, and they are the source of the `Deny` statements in the review role.
-
-**Bucket 1 — credential-minting. Denied absolutely.** A minted token or presigned URL **exfiltrates after the session ends, outside any transcript rule**, so no output discipline reaches it.
-`sts:AssumeRole` · `sts:AssumeRoleWithWebIdentity` · `sts:GetFederationToken` · `sts:GetSessionToken` · `eks get-token` · `ecr get-login-password` · `ecr get-authorization-token` · `s3 presign` · `rds generate-db-auth-token` · `az aks get-credentials` · `az storage account keys list` · `az ad sp credential list` · `gcloud container clusters get-credentials` · `gcloud auth print-access-token` · `gcloud iam service-accounts keys create`.
-**One member stays**: `sts:GetCallerIdentity` — it *is* the pin and returns no credential. `az account show` and `gcloud config list account` are its analogues.
-
-**Bucket 2 — allowed verbs that carry payloads. Permitted only with a conforming projection.** The likeliest leak is an **allowed** call whose response embeds a secret.
-
-Projection-only: `ecs:DescribeTaskDefinition` · `lambda:GetFunctionConfiguration` · `lambda:GetFunction` · `cloudformation:GetTemplate` · `az webapp config appsettings list` · `gcloud compute instances describe` · `ssm:DescribeParameters` (names only).
-**Denied outright**, because the payload *is* the field and projection cannot help: `ec2 describe-instance-attribute --attribute userData` · `apigateway:GetApiKeys --include-values` · any `-o jsonpath` against a Kubernetes `Secret`.
-
-**Bucket 3 — data reads. Denied, and verb-shaped rather than API-shaped**, because naming `s3api get-object` while `s3 cp` walks past it is the denylist defect in miniature.
-Secrets: `secretsmanager:GetSecretValue` · `ssm get-parameter` / `get-parameters` / `get-parameters-by-path` (with or without `--with-decryption`) · `az keyvault secret show` · `gcloud secrets versions access` · `kubectl get secret -o yaml` / `-o json` / `-o jsonpath` *(a signpost only — `kubectl` is struck entirely, and a reader reaching for it should find the refusal rather than silence)*.
-Objects: `s3 cp` · `s3 sync` · `s3api get-object` · `s3api select-object-content` · `gcloud storage cat` · `gsutil cat` · `az storage blob download`.
-Streams: `kinesis:GetRecords`.
-Logs, denied outright: `logs:FilterLogEvents` · `logs:GetLogEvents` · `gcloud logging read` · `kubectl logs` — the highest-density accidental-secret surface in any account, and no finding of yours requires them.
-Snapshots: **metadata** (`ec2 describe-snapshots`) is allowed; block and restore reads are not — `ebs get-snapshot-block` · `ec2 create-restore-image-task`.
-
-**Bucket 4 — "reads" that mutate. Denied regardless of verb shape.**
-`sqs:ReceiveMessage` (changes visibility) · `gcloud pubsub subscriptions pull` (**auto-acks, destroying the message**) · `iam:GenerateCredentialReport` · `iam:GenerateServiceLastAccessedDetails` · the query-engine bypass `athena:StartQueryExecution` · `bq query` · `redshift-data:ExecuteStatement` · any quota-increase or support-ticket call.
-
-**Bucket 5 — host-side surfaces your `tools:` line reaches with no provider grant at all.** `tools:` grants whole nouns, so this bar lives here and nowhere else — no harness enforces it.
-`cat ~/.aws/credentials` · `~/.azure/` · `~/.config/gcloud/` — **reachable with `Read` alone** · `env` / `printenv` · `terraform show` / `terraform state pull` (state holds resolved secrets, also `Read`-reachable) · `git log -p` / `git show` over history · **IMDS: any request to `169.254.169.254`, to Azure IMDS, or to `metadata.google.internal`** — which reaches live credentials with no provider grant whatsoever.
 
 #### Five calls that defeated an earlier version of this rule
 
