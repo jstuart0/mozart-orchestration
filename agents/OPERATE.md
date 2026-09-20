@@ -4,7 +4,7 @@ For changing or debugging a **live system** directly — installs, config change
 
 **Use the DELIVER-vs-OPERATE boundary test at intake.** If the change reaches the system through a git commit + CI/Argo/release pipeline, it's DELIVER (otto reviews the manifest, jackson writes it, the pipeline deploys). If it lands straight on the running system (`kubectl apply`, `helm upgrade`, `apt install`, an in-place config edit, a service restart), it's OPERATE. When a change *could* go either way, prefer the GitOps/DELIVER path for anything that has one; OPERATE is for direct changes, installs, and live debugging with no repo in the loop.
 
-hank is the only agent that mutates live state. otto plans and reviews; dick investigates; xander reviews the security surface; scott documents — all read-only on the live system.
+hank is the only agent that mutates live state. otto plans and reviews; dick investigates; xander reviews the security surface; nina resolves cloud semantics; scott documents — all read-only on the live system.
 
 ### Modes (detected at intake)
 - **install** — bring up something new on the cluster/host (a package, a service, a Helm release, a new manifest set)
@@ -17,13 +17,16 @@ hank is the only agent that mutates live state. otto plans and reviews; dick inv
 |---|---|---|
 | **TINY** | A single, obviously reversible change on a non-stateful resource (restart a pod, apply a one-line ConfigMap edit with a clean server-side dry-run) | hank runs the full loop (verify → dry-run → snapshot → apply → verify → record) but skips otto's separate change-plan stage and the xander/codex pre-flight review. The loop is never skipped — even TINY takes a snapshot |
 | **STANDARD** | Default. Multi-step changes, installs, most config changes | Full pipeline below |
-| **HEAVY** | Anything touching storage (Ceph, PVs), RBAC, secrets, a live DB schema, production-stateful workloads, or any resource-recreation / immutable-field change | STANDARD + mandatory xander at the pre-flight gate + mandatory otto immutable-field / server-side-dry-run verification + **ian for code-side ramifications when the change touches a code-consumed resource** + codex on the change plan. Irreversible steps require explicit user sign-off before apply |
+| **HEAVY** | Anything touching storage (Ceph, PVs), **access control at any layer** — Kubernetes RBAC *and* cloud IAM (roles, policies, permission sets, trust relationships), identity federation (SSO/OIDC/SAML wiring, IdP configuration) or account/organization structure (org units, SCPs, project or subscription moves) — secrets, a live DB schema, production-stateful workloads, or any resource-recreation / immutable-field change | STANDARD + mandatory xander at the pre-flight gate + mandatory otto immutable-field / server-side-dry-run verification + **ian for code-side ramifications when the change touches a code-consumed resource** + codex on the change plan. Irreversible steps require explicit user sign-off before apply |
 
 When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the cost of an extra dry-run is seconds; the cost of an un-snapshotted storage mutation is a rebuild.
+
+**"Access control" here is not Kubernetes-only.** This row used to read "RBAC" alone, and in a manual whose every other noun is Kubernetes that reads as *Kubernetes* RBAC — so an identity-plane change (a permission set, a trust-policy edit, an org-unit move) classified STANDARD and skipped the pre-flight gate. Classify on what the change can reach, not on whose vocabulary it uses. A permission change is wide and quiet: nothing restarts, nothing goes red, and the grant is simply broader than it was — which is why it needs the gate more than a restart does, not less.
 
 ### 1. Intake + context pin
 - Restate the change in one sentence — what system, what change, why now
 - **Pin the target from both sides**: what the consuming repo documents and what a live command observes — the cluster context, the host name, the database the connection actually reaches, or the cloud account and region from an identity call against the expected profile. Record both as a `fact` conductor row linked to gate `1`; that row is the reference every mutating command is checked against. A mismatch stops the campaign; neither side wins by default
+- **On a cloud change the pin also names nina's credential profile** — the brief's declared principal, or absent with docs-plus-IaC declared. A record; mozart grants live-read at dispatch
 - Classify mode (install / config-change / infra-debug / migration) and tier (TINY / STANDARD / HEAVY)
 - **In install / upgrade mode, resolve the version before planning** — query the upstream project's current stable release and what the intended install source (chart, package, image) would actually land, and surface both plus the gap. Chart and distro defaults lag upstream routinely; a fresh install landing a major version behind is the failure this check exists to prevent. A major-version gap goes to the user as a decision (take current / stay back with a stated reason) before otto plans against a version
 - Run the **long-running drift sanity check** (the same one in the DELIVER pre-flight gates — node pressure, Failed-pod count, Argo OutOfSync). Surface drift before you change anything on top of it
@@ -33,6 +36,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 
 ### 2. Recon (infra-debug / migration modes)
 - For infra-debug: brief **dick** to investigate read-only (logs, events, `describe`, `--previous`, config dumps) and **otto** to reason about the manifests/charts. Produce a root-cause + a proposed change. Skip for clean install / config-change modes where there's nothing to diagnose
+- For a cloud control-plane change: **nina** resolves provider semantics read-only as an **input** to the plan, before otto authors it at stage 3
 - For migration: otto verifies which fields are immutable on the existing live resources and whether the change needs resource recreation (his immutable-field discipline) — this shapes the change plan's rollback and ordering
 
 ### 3. Change plan (otto)
@@ -49,7 +53,7 @@ When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the
 
 ### 4. Pre-flight gate (hank + xander/codex on HEAVY)
 - **hank** runs every dry-run in the plan and takes every snapshot, recording snapshot paths and rollback commands into the state file's **Change ledger — before applying anything.** A failed dry-run, an unexpected diff, an immutable-field `Forbidden`, or a snapshot that can't be taken is a **hard stop** back to otto/the user — not a warning to push through
-- **HEAVY**: **xander** reviews the security surface of the change (RBAC grants, secret exposure, network policy, new public surface); **otto** confirms the server-side dry-run is clean against the *actual live resources*; **codex** reviews the change plan (commands + rollback + ordering). Any BLOCK stops the apply
+- **HEAVY**: **xander** reviews the security surface of the change (RBAC and cloud IAM grants, federation trust, secret exposure, network policy, new public surface); **otto** confirms the server-side dry-run is clean against the *actual live resources*; **nina** reviews its cloud assertions on a cloud surface; **codex** reviews the change plan (commands + rollback + ordering). Any BLOCK stops the apply
 - The gate's output is a go/no-go. No apply happens until the snapshots exist and the dry-runs are clean
 
 ### 5. Apply (hank)
@@ -77,6 +81,6 @@ If the user asked for a change plan without execution, stop after stage 3: otto'
 - **Don't debug and mutate blind.** infra-debug investigates read-only first (dick + otto); mutations to test a hypothesis still go through the full loop
 - **Irreversible or out-of-authority steps escalate before apply.** PV deletion, destructive DDL, storage operations without a clean restore — user sign-off first
 - **Prefer GitOps when it exists.** If the change has a git/CI/Argo path, that's DELIVER — route there instead of applying directly. OPERATE is for what genuinely has no repo in the loop
-- **HEAVY on anything stateful.** Storage, RBAC, secrets, live DB schema, resource recreation — full pre-flight gate, no shortcuts
+- **HEAVY on anything stateful.** Storage, access control at any layer (Kubernetes RBAC, cloud IAM, identity federation, org structure), secrets, live DB schema, resource recreation — full pre-flight gate, no shortcuts
 - **One variable per mutation, with a mutation manifest.** Each step changes one field, or a set of fields that must move together with a `coupling:` rationale; a create or install is one entry, `created: <resource>` with its source digest, a multi-resource apply of pure creates is one step, and a modification bundled into an install is still its own entry. Each entry records field, old value, and new value. A secret-bearing value is always `<redacted>` with only its key name recorded; a hash is allowed only for generated high-entropy material (keys, tokens of at least 128 bits), and never a length. hank's Apply step defines the read-back check and the `ignore:` list of literal field paths it may skip. A dry-run is not this control
 

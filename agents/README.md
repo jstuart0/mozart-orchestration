@@ -6,7 +6,7 @@ To add a new agent, read the authoring contract in [`../CONTRIBUTING.md`](../CON
 
 ---
 
-## Specialists (17)
+## Specialists (18)
 
 Ordered by DELIVER pipeline stage.
 
@@ -20,6 +20,7 @@ Ordered by DELIVER pipeline stage.
 | xander | Security reviewer — threat model, injection, auth, secrets | sonnet | 2b, 4, 8 |
 | ruby | UX reviewer — states, accessibility, responsive, voice | sonnet | 4, 8 |
 | otto | Infrastructure-ops reviewer — infra, config, deployment, ops | sonnet | 4, 8 |
+| nina | Cloud specialist — resolves provider-behaviour assertions against a current source | sonnet | 4, 8; INCIDENT 2 |
 | tessa | Test-strategy and test-quality reviewer | sonnet | 4, 8 |
 | percy | Performance engineer — measurement-first | sonnet | 4, 8 |
 | librarian | Code archaeologist — does this already exist? (BROWNFIELD only) | sonnet | 4, 8 |

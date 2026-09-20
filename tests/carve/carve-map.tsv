@@ -145,3 +145,28 @@ pre_start	pre_end	destination	order	phase	heading
 # divergence	1	copilot's INTAKE.md also holds task tiers and project context; ours keeps both inline (D2 classes them activation-critical). OUR CALL IS BETTER for this edition - they are read before any file is opened.
 # divergence	2	local carved its activation check into ACTIVATION.md; D2 forbids that, so we ship no such file. OUR CALL IS BETTER - that is precisely the behaviour change D2 exists to prevent.
 # divergence	3	D-A puts files flat in agents/; both ports use a manual/ subdirectory. THEIRS IS TIDIER; OURS survives the documented non-recursive `cp agents/*.md ~/.claude/agents/`.
+
+# ============================================================================
+# DISPOSITION - V17_carve_phase retired 2026-09-19.
+#
+# Ruled as D9 of 2026-09-19-deliver-nina-cloud-persona, recorded here because the
+# contract was this campaign's.
+#
+# disposition	gate	V17_carve_phase	RETIRED	conservation proven at 71024d1 (the carve's merge commit), where the gate reported: full: 43 ranges partition PRE 1..2507 (1827 non-blank) across 14 mapped destination(s); 14 present; baseline 6180afa7ca36 digest verified.
+# disposition	gate	V17_carve_selftest	STANDING	tree-independent 12-mutation self-test on a synthetic fixture; unaffected by the retirement and deliberately left byte-identical by it.
+# disposition	file	tests/carve/carve-map.tsv	RETAINED - LIVE INPUT	read by the STANDING V23_absence gate (scripts/check-manual-bundle.py) for the Pattern-2 absence table below. This file is NOT retired residue; deleting it as part of any carve tidy-up takes a live invariant with it.
+# disposition	file	tests/carve/{PHASE,phases.expected,additions.allow}	RETAINED - AUDIT TRAIL	no longer read by any gate, kept because they are the evidence the retirement rests on. Each carries the same note in its own header.
+#
+# WHY the gate could not simply be re-baselined: re-pinning to 71024d1 makes it
+# assert the carved tree equals itself plus declarations - true, useless, and still
+# red on every future mid-range edit. And it cannot be patched around: the failure is
+# on TWO independent controls, and only C5 has a declaration mechanism. `C3c
+# within-range` has none, because additions.allow's own header states the placement
+# rule that makes it unavoidable - a declared addition goes BETWEEN mapped ranges,
+# never inside one.
+#
+# THE TRANSFERABLE LESSON: a gate built to prove a migration must declare its
+# lifetime when it is built. This one did not, and seven plan rounds and three
+# reviewers never asked how it would behave on the first ordinary edit afterwards.
+# "Is this check permanent or migration-scoped?" belongs in the design of every
+# such gate.

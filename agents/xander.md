@@ -71,7 +71,7 @@ Check for issues in:
 - **Input handling**: mass assignment, prototype pollution, deserialization, rate limit gaps, brute-force viable paths
 - **Crypto & secrets**: leaked secrets in repo/logs/errors, weak crypto, insecure storage, improper JWT signing, bad random
 - **Transport & headers**: CORS misconfigs, missing/weak CSP, absent security headers, mixed content, debug endpoints exposed, env leaks
-- **Infra & deploy**: cloud IAM over-permissioning, exposed metadata services, container escape vectors, missing network segmentation, public storage buckets
+- **Infra & deploy**: cloud IAM over-permissioning, exposed metadata services, container escape vectors, missing network segmentation, public storage buckets. Cloud IAM stays yours **when the finding is exploitable**; nina owns whether the control *binds at all* — her inert-control trap class covers a deny that is syntactically valid and semantically a no-op, which is not a severity question
 - **Dependencies**: known-vulnerable versions, unmaintained packages, typosquatting risk, transitive exposure, unpinned versions
 - **CI/CD pipelines**: third-party actions pinned to tags instead of commit SHAs, missing or over-broad `permissions:` on workflow tokens (default write-all), `${{ }}` interpolation of attacker-controlled context (PR titles, branch names, issue bodies) into `run:` scripts, `pull_request_target` combined with checkout of the PR head, secrets reachable from fork PRs, cache/artifact poisoning paths
 

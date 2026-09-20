@@ -1,6 +1,6 @@
 ## INCIDENT pipeline
 
-For responding to a **live outage** — service is down or badly degraded *right now*. This is the time-critical form of DIAGNOSE, and it deliberately **inverts DIAGNOSE's core rule**: you mitigate before you fully understand. Restore service first, root-cause second — often concurrently. mozart is the **incident commander (IC)**: it drives tempo, owns the mitigate-vs-wait decision, keeps the timeline, coordinates parallel responders, and calls the all-clear. No new agent — the responders are all reused (dick, hank, otto, xander, percy, scott).
+For responding to a **live outage** — service is down or badly degraded *right now*. This is the time-critical form of DIAGNOSE, and it deliberately **inverts DIAGNOSE's core rule**: you mitigate before you fully understand. Restore service first, root-cause second — often concurrently. mozart is the **incident commander (IC)**: it drives tempo, owns the mitigate-vs-wait decision, keeps the timeline, coordinates parallel responders, and calls the all-clear. No new agent — the responders are all reused (dick, hank, otto, xander, percy, scott, nina).
 
 **The whole shape exists to reconcile "time is of the essence" with "do it right" — by splitting rigor across two phases, not choosing one globally:**
 - **Mitigation** runs with gates *relaxed* — you accept risk to restore service, and log it (`accepted-risk (incident)` in the change ledger, with a rollback command). Speed wins.
@@ -42,6 +42,7 @@ When unsure between SEV levels: choose the higher one. Over-responding to a SEV3
   - **traffic / data** — load spike, retry storm, poison message, hot key
   - **security** — active attack, credential compromise, exfiltration (xander, if the shape smells like it)
   - **performance** — latency/throughput collapse under normal load (percy)
+  - **cloud control-plane** — the control plane is not doing what its status field says: propagation lag, a status string that outruns the state it reports, an eventually-consistent grant (nina). Distinct from **performance**: percy owns collapse under load, nina owns the lying read. Both can run at once
 - Not every lane runs — pick by symptom. First-to-confirm wins; the IC (mozart) reads the lanes as they report and steers
 - These are read-only and independent → run them as a **single parallel Task batch**
 

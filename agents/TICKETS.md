@@ -68,7 +68,7 @@ After project creation, bootstrap states and labels if the system requires it (P
 **Labels** (apply multiple per ticket as appropriate — most systems support labels/tags):
 - Type: `bug`, `feature`, `investigation`, `audit`, `remediation`, `tech-debt`, `infra`, `security`, `enhancement`, `refactor`
 - Severity: `severity:critical`, `severity:high`, `severity:medium`, `severity:low`
-- Source agent: `agent:dick`, `agent:harry`, `agent:jackson`, `agent:valerie`, `agent:dexter`, `agent:xander`, `agent:otto`, `agent:bob`, `agent:ruby`, `agent:mozart`, `agent:librarian`
+- Source agent: `agent:dick`, `agent:harry`, `agent:jackson`, `agent:valerie`, `agent:dexter`, `agent:xander`, `agent:otto`, `agent:bob`, `agent:ruby`, `agent:mozart`, `agent:librarian`, `agent:nina`
 
 The first agent to need ticketing in a fresh project runs the bootstrap. State file records bootstrap completion so subsequent runs skip it.
 
@@ -161,7 +161,7 @@ Tickets are durable. Body must be rich enough that a reader six months later und
 ## Remediation options
 1. **<Option A>** — <one-line approach>
    - Pros: <...>; Cons: <...>; Effort: <S \| M \| L>
-   - Recommended downstream agent: <jackson \| harry-then-jackson \| xander \| otto \| bob>
+   - Recommended downstream agent: <jackson \| harry-then-jackson \| xander \| otto \| bob \| nina>
 2. **<Option B>** — <one-line approach>
    - Pros / Cons / Effort / Downstream
 

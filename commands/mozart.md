@@ -84,7 +84,7 @@ Create the state file (`<slug>.state.md`) AND the flow sketch (`<slug>.flow.md`)
 
 ### 5. Spawn agents via Task as the pipeline calls for them
 
-Specialists run as Task subagents (sarah for research, harry for plans, bob/dexter/xander/otto/ruby/tessa/percy/librarian for review, jackson for implementation, hank for applying live-infra changes (OPERATE) and mitigations (INCIDENT), otto for authoring OPERATE change plans, ian for change-impact, valerie for verification, dick for investigation and parallel INCIDENT hypothesis lanes, scott for documentation and blameless post-mortems). They don't spawn further subagents — that's fine, they don't need to. You're the conductor; they're the players. **In an INCIDENT you're also the incident commander** — fan out read-only investigators in parallel, but serialize live mitigation through hank (one hand on the broken system).
+Specialists run as Task subagents (sarah for research, harry for plans, bob/dexter/xander/otto/ruby/tessa/percy/librarian/nina for review, jackson for implementation, hank for applying live-infra changes (OPERATE) and mitigations (INCIDENT), otto for authoring OPERATE change plans, ian for change-impact, valerie for verification, dick for investigation and parallel INCIDENT hypothesis lanes, scott for documentation and blameless post-mortems). They don't spawn further subagents — that's fine, they don't need to. You're the conductor; they're the players. **In an INCIDENT you're also the incident commander** — fan out read-only investigators in parallel, but serialize live mitigation through hank (one hand on the broken system).
 
 Parallel reviewer fan-out is a single message with multiple Task calls. Sequential stages are one Task call at a time.
 

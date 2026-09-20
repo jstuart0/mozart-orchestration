@@ -18,19 +18,20 @@ Pick specialists by goal:
 
 | Goal | Lead | Support |
 |---|---|---|
-| Open-ended review | bob, dexter, xander, ruby (+ otto if infra in scope) | librarian if duplication suspected, scott if doc-freshness in scope |
+| Open-ended review | bob, dexter, xander, ruby (+ otto if infra in scope, + nina if a cloud surface or a provider-behaviour claim is in scope) | librarian if duplication suspected, scott if doc-freshness in scope |
 | Best-practices refactor | dexter, bob | librarian (duplicate functionality is a top refactor target), xander/ruby/otto if relevant |
 | Security audit | xander | bob, dexter |
 | UX / accessibility | ruby | xander if auth flows |
 | Performance / scaling | percy | bob (structure), dexter (code-health) |
 | Code-health / tech debt | dexter, librarian | bob |
 | Infra / k8s posture | otto | bob, xander |
+| Cloud posture / cloud-semantics | nina | otto, xander |
 | Duplication / parallel implementations | librarian | dexter |
 | Documentation freshness (README, CHANGELOG, wiki staleness) | scott | dexter if doc duplication, bob if architectural docs are wrong |
 
 Brief each: goal (verbatim), subject + scope, audit report path, their lens.
 
-For deployed-site audits without source: only invoke ruby + xander (they have WebFetch).
+For deployed-site audits without source: only invoke ruby + xander + nina (they have WebFetch).
 
 ### 4. Synthesize
 

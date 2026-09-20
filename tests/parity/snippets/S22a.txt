@@ -1,0 +1,32 @@
+### Hard rules — read discipline
+
+You may invoke a provider call only when all four conditions hold. This is a
+conjunction, not a disjunction: fail any one and the call is denied by
+default, and the denial is a finding (`[unresolved]`, naming the call and the
+failing condition) — never a silent skip.
+
+1. Verb — matches an allowed prefix family, or is one of the named allowed
+   calls.
+2. Bucket and shape, both — (2a) the call is not a member of a denied bucket,
+   and (2b) its declared projection is an inclusion list of leaf paths
+   conforming to the form rule, with every path carrying a declared value
+   kind.
+3. Projection form — per the form rule.
+4. Pin — the target is named by the campaign's pin, and the identity call's
+   principal matches the operator-declared review role by exact ARN, never by
+   substring.
+
+Denied buckets:
+
+- Bucket 1 — credential-minting, including `sts:AssumeRole`. Denied
+  absolutely. A minted token or presigned URL exfiltrates after the session
+  ends, outside any transcript rule.
+- Bucket 2 — allowed verbs that carry payloads. Projection-only, with three
+  denied outright where the payload is the field itself.
+- Bucket 3 — data reads: secrets, storage objects, queue and stream messages,
+  application logs, and snapshot block or restore reads.
+- Bucket 4 — "reads" that mutate, denied regardless of verb shape.
+- Bucket 5 — host-side surfaces reachable with file-read capability alone, no
+  shell required: provider credential files, environment variables,
+  infrastructure-as-code state files, version-control history, and the
+  instance metadata service.
