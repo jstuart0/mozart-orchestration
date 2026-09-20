@@ -145,7 +145,7 @@ v1_fields=$(awk '/^\*\*Last updated\*\*/{f=1} f && /^\*\*[A-Z]/{gsub(/^\*\*/,"")
 v1_alt=$(printf '%s\n' "$v1_fields" | paste -sd'|' -)
 
 # Control on the derivation itself. Every other derived scope in this file has
-# one - V0b_derivation's floor, V4_population's pinned 17, V4c_shapes by name,
+# one - V0b_derivation's floor, V4_population's pinned 18, V4c_shapes by name,
 # V3_ctl's heading check - and V1, the gate for the campaign's headline bug, did
 # not. Rename the template's `**Last updated**` anchor and the field list comes
 # back EMPTY, the alternation `()` matches nothing, and a live bare-form
@@ -497,7 +497,7 @@ v4_roster=$(awk -F'|' '
     print nm "\t" cl
   }' agents/README.md)
 v4_n=$(printf '%s\n' "$v4_roster" | grep -c .)
-report "V4_population" "$(eq "$v4_n" 17)" "specialists derived from the roster=$v4_n (want 17)"
+report "V4_population" "$(eq "$v4_n" 18)" "specialists derived from the roster=$v4_n (want 18)"
 
 v4_bad=""
 while IFS="$(printf '\t')" read -r ag _; do
@@ -729,8 +729,8 @@ report "V6_hank_chain" "$(eq "$v6_hank_chain" 0)" "whole-pipeline restatement su
 #      capability its own contracts promise - spawning another agent, writing
 #      a persisted artifact, or claiming to be read-only.      (Rules 2, 3)
 # ---------------------------------------------------------------------------
-# Population: v4_roster, UNMODIFIED. mozart IS one of the 17 (agents/README.md
-# :15; V4_population pins 17) - hand-appending it here would be exactly the
+# Population: v4_roster, UNMODIFIED. mozart IS one of the 18 (agents/README.md
+# :15; V4_population pins 18) - hand-appending it here would be exactly the
 # scope-writing defect this gate exists to stop.
 #
 # Honest limitation, stated rather than left implicit: v7_verb and
@@ -1703,6 +1703,8 @@ M4	agents/DELIVER.md
 M7	agents/harry.md
 MP	agents/mozart.md
 JP	agents/jackson.md
+S22	agents/nina.md
+S23	agents/DELIVER.md
 V15_REGISTRY_EOF
 )
 
@@ -1750,7 +1752,7 @@ v15_dupes=$(printf '%s\n' "$v15_keys" | uniq -d | tr '\n' ' ')
 v15_only_registry=$(comm -23 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
 v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$v15_stems") | tr '\n' ' ')
 
-[ "$v15_rows" -ge 25 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 25]"
+[ "$v15_rows" -ge 27 ] || v15_bad="$v15_bad [registry has $v15_rows row(s), floor 27]"
 # Braces are load-bearing on ${v15_dupes}: the message continues with an
 # em-dash, and bash reads the multibyte character as part of the variable NAME
 # without them, so under `set -u` the gate aborts with "unbound variable" on
@@ -1793,8 +1795,17 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # paragraphs, 220 of them inside the byte-checked S3 snippet) could not fit.
 # Measured at the time: everything the campaign added outside frozen snippet
 # text was 2,325 bytes of rule prose, so closing a 299-byte gap meant deleting
-# a mechanism. D26 moved the number rather than the content. The other three
-# ceilings are unchanged, and all three files still sit inside them.
+# a mechanism. D26 moved the number rather than the content.
+#
+# agents/OPERATE.md's ceiling is 14,991 per D21 of 2026-09-19-deliver-nina-cloud-
+# persona (was 14,600). Two reviewed changes consumed the old budget: the HEAVY
+# trigger widening, which is a live-pipeline defect fix independent of that
+# campaign, and nina's four OPERATE sites. The file was first trimmed to 14,591 --
+# 9 bytes -- rather than raised mid-edit, and the raise was then taken on its own
+# merits afterwards. That ordering is the rule: RAISE when the content that
+# consumed the budget was reviewed; REFUSE when the raise is what makes an
+# unreviewed edit fit. A third raise here is not the answer -- the next campaign
+# needing room in OPERATE.md carves it.
 #
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
 # with their own tooling — copilot via scripts/check_agents.py against the
@@ -1815,7 +1826,7 @@ agents/AUDIT.md	4700
 agents/CONTEXT-BUDGET.md	1800
 agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
-agents/OPERATE.md	14600
+agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
 agents/STATE.md	53500
 agents/INTAKE.md	19900
@@ -1827,12 +1838,13 @@ agents/DELIVER.md	62400
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
+agents/nina.md	31523
 V16_BUDGETS_EOF
 )
 
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
-[ "$v16_rows" -ge 18 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 18 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto]"
+[ "$v16_rows" -ge 19 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 19 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina]"
 printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
 printf '%s\n' "$v16_budgets" | grep -qE '^agents/DELIVER\.md\t' \
@@ -1906,6 +1918,153 @@ else
     report "V17_carve_selftest" 0 "$v17_st_caught of $v17_st_total mutations rejected, each by its named control (floor 12); positive control green"
   else
     report "V17_carve_selftest" 1 "self-test rc=$v17_st_rc caught=${v17_st_caught:-?}/${v17_st_total:-?} (floor 12): $(printf '%s' "$v17_st_out" | tail -3 | tr '\n' ' ')"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# V25 - agents/nina.md still demands a source and a date, and still carries the
+#       read-rule controls in the SHAPE that makes them controls.
+#
+# HONEST RESIDUAL, stated here rather than discovered later: this gate proves
+# things about nina's FILE. It proves NOTHING about any finding she produces at
+# runtime. A persona file can carry every rule below and still return a
+# behavioural claim with no resolution behind it. The runtime discriminator is
+# the reviewer rule in agents/DELIVER.md - a nina behavioural claim with no
+# source and date attached is not a finding, it is an `[unresolved]` entry filed
+# in the wrong section, and the reviewer returns it as such. Gating a real
+# finding needs a findings-artifact linter that does not exist.
+#
+# WHY THE ASSERTIONS ARE SHAPED THE WAY THEY ARE. Floors and named members are
+# necessary and NOT sufficient here, and this campaign proved it three separate
+# times by watching a floor fail to discriminate:
+#   - A10 asserts the value-kind list is EXACTLY seven, not >= 7. A floor passes
+#     with `string` added as an eighth, which re-admits every argv leak the
+#     removal of `string` was written to close.
+#   - A4 asserts a named member PER BUCKET, not one global floor. A global floor
+#     lets one bucket be emptied into another.
+#   - A2 asserts the eight prefix families BY NAME, per provider, not `>= 4`.
+#     Measured by mutation: the AWS families alone are four, so a `>= 4` floor
+#     survives deleting any single family - the exact narrowing A2 exists to
+#     catch. The floor could not meet its own stated rationale (D19).
+# The general form: when the population is small and enumerable, assert the SET,
+# not its cardinality.
+#
+# python3 missing is a FAIL, never a skip.
+# ---------------------------------------------------------------------------
+v25_target="$gate_root/agents/nina.md"
+if ! command -v python3 >/dev/null 2>&1; then
+  report "V25_nina_template" 1 "python3 not found - the nina template gate cannot run (FAIL, not skip)"
+elif [ ! -f "$v25_target" ]; then
+  report "V25_nina_template" 1 "agents/nina.md is missing - the persona this gate asserts over does not exist"
+else
+  v25_out=$(python3 - "$v25_target" <<'V25_PY' 2>&1
+import re, sys, pathlib
+t = pathlib.Path(sys.argv[1]).read_text()
+bad = []
+def need(c, label):
+    if not c: bad.append(label)
+
+# A1 - the four conditions are a CONJUNCTION. A rewrite to "any of the following"
+# satisfies every floor and every named member while inverting the control.
+need("all four" in t and "conjunction, not a disjunction" in t, "A1 conjunction absent")
+need("any of the following" not in t.lower(), "A1 disjunction rewrite present")
+
+# A2 (D19) - the eight verb-prefix families, BY NAME, per provider.
+FAMS = {"AWS": ["describe-*", "list-*", "get-*-policy", "get-*-configuration"],
+        "Azure": ["az <svc> show", "az <svc> list"],
+        "GCP": ["gcloud <svc> describe", "gcloud <svc> list"]}
+fams = 0
+for prov, members in FAMS.items():
+    for m in members:
+        if "`%s`" % m in t: fams += 1
+        else: bad.append("A2 %s prefix family missing: %s" % (prov, m))
+need(fams == 8, "A2 prefix families == 8 (got %d)" % fams)
+need("denied by default" in t, "A2 default-deny sentence absent")
+NAMED = ["aws sts get-caller-identity", "az account show", "gcloud config list account"]
+named = sum(1 for c in NAMED if "`%s`" % c in t)
+need(named >= 3, "A2 named-allowed-call floor (got %d, want >= 3)" % named)
+
+# A3 - the projection form rule names all five prohibited forms.
+for k, v in (("wildcard", "a wildcard `*`"), ("current-node", "the current-node `@`"),
+             ("bare parent", "bare parent selector"), ("[] over object", "`[]` taken over an object"),
+             ("--output text", "`--output text` over a non-scalar")):
+    need(v in t, "A3 prohibited form missing: %s" % k)
+
+# A4 - per-bucket floor AND one named member each. Bucket 3's floor counts
+# provider-API members only: kubectl is struck from the allowed verbs entirely,
+# so padding that bucket with verbs nina cannot invoke must not satisfy it.
+BUCKETS = {1: (10, "sts:AssumeRole"), 2: (6, "ec2 describe-instance-attribute --attribute userData"),
+           3: (14, "secretsmanager:GetSecretValue"), 4: (5, "gcloud pubsub subscriptions pull"),
+           5: (8, "169.254.169.254")}
+counts = {}
+for b, (floor, member) in BUCKETS.items():
+    m = re.search(r'\*\*Bucket %d —.*?(?=\n\*\*Bucket |\n#### )' % b, t, re.S)
+    if not m:
+        bad.append("A4 bucket %d header absent" % b); counts[b] = 0; continue
+    members = [x for x in re.findall(r'`([^`]+)`', m.group(0)) if not x.startswith("kubectl")]
+    counts[b] = len(members)
+    if len(members) < floor:
+        bad.append("A4 bucket %d has %d provider-API member(s), floor %d" % (b, len(members), floor))
+    if member not in members:
+        bad.append("A4 bucket %d named member absent: %s" % (b, member))
+
+# A5 - the five calls that defeated the verb-only version.
+for c in ("lambda list-functions", "describe-launch-template-versions",
+          "cloudformation describe-stacks", "ecs describe-tasks", "compute project-info describe"):
+    need(c in t, "A5 defeating call absent: %s" % c)
+
+# A6 / A7 - one-line deletions with a security consequence.
+need("contaminated" in t and "do not write the findings artifact" in t, "A6 contamination stop absent")
+need("do not relax under INCIDENT" in t, "A7 no-relaxation-under-INCIDENT absent")
+
+# A8 - the enforcement half, and the comparison that makes the pin a pin.
+need("tests/policy/nina-review-role.json" in t, "A8 review-role path absent")
+need("operator-declared principal" in t, "A8 operator-declared-principal rule absent")
+need("exact-ARN string equality, never substring" in t, "A8 exact-ARN comparison absent")
+need("#### Review role" in t, "A8 anchor `#### Review role` absent")
+
+# A9 - condition 2b's operative content: the redaction floor, the boundary rule
+# the floor is a floor FOR, and the grammar the whole allowlist rests on.
+RED = ["`Environment.Variables.*`", "`userData`", "`*Password*`", "`*Token*`",
+       "`*Secret*`", "`*Credential*`", "`Condition.sts:ExternalId`", "connection strings"]
+red = sum(1 for x in RED if x in t)
+need(red >= 7, "A9 redaction path floor (got %d, want >= 7)" % red)
+need("`Environment.Variables.*`" in t, "A9 named member Environment.Variables absent")
+need("Sibling-structure rule" in t, "A9 sibling-structure rule absent")
+need(r"^[A-Za-z_][A-Za-z0-9_]*(\[\]|\.[A-Za-z_][A-Za-z0-9_]*)*$" in t, "A9 grammar regex absent")
+
+# A10 - EXACTLY seven value kinds, asserted as an equality. `string` must be absent.
+m = re.search(r'closed set of exactly seven\*\*:\s*\*\*(.+?)\*\*', t)
+if not m:
+    bad.append("A10 value-kind list not found")
+    kinds = []
+else:
+    kinds = [k.strip().strip('`') for k in m.group(1).split('·')]
+    need(len(kinds) == 7, "A10 value kinds == 7 (got %d: %s)" % (len(kinds), kinds))
+    need("ARN" in kinds, "A10 named member ARN absent")
+    need("string" not in [k.lower() for k in kinds], "A10 'string' must not be a declarable kind")
+
+# A11 - the wrapper, which the grammar regex does not constrain.
+need("is the only admissible wrapper" in t, "A11 value() sole-admissible-wrapper rule absent")
+for w in ("`json(`", "`yaml(`", "`flatten(`", "`list(`"):
+    need(w in t, "A11 denied wrapper absent: %s" % w)
+
+if bad:
+    print("FAIL " + "; ".join(bad)); sys.exit(1)
+print("PASS 11 assertions; conjunction; %d prefix families by name + %d named calls; "
+      "5 prohibited projection forms; buckets 1-5 = %d/%d/%d/%d/%d provider-API members "
+      "(floors 10/6/14/5/8), each with its named member; 5 defeating calls; contamination "
+      "stop; no-INCIDENT-relaxation; review role + exact-ARN at `#### Review role`; "
+      "%d redaction paths (floor 7) + sibling rule + grammar regex; value kinds == %d with "
+      "'string' absent; value() sole gcloud wrapper"
+      % (fams, named, counts[1], counts[2], counts[3], counts[4], counts[5], red, len(kinds)))
+V25_PY
+)
+  v25_rc=$?
+  if [ "$v25_rc" -eq 0 ]; then
+    report "V25_nina_template" 0 "${v25_out#PASS }"
+  else
+    report "V25_nina_template" 1 "${v25_out#FAIL }"
   fi
 fi
 
