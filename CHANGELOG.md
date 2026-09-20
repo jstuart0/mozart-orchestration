@@ -4,6 +4,93 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — nina, a cloud specialist who resolves provider assertions instead of recalling them
+
+`agents/nina.md` (33,350 B) is an eighteenth specialist. Her unit of review is **the
+assertion**, not the document: when a plan, a diff or a deliverable says something about
+how a cloud provider will behave — a support or deprecation status, a quota, a blocked or
+permitted action, "cannot be moved", a permission conclusion — she resolves it against the
+provider's current source and returns it with that source and a date attached, or as
+`[unresolved]` with what would settle it. She reviews only: never mutates, never authors an
+OPERATE change plan, never issues a security severity.
+
+- **Her evidence base is AWS, and the file says so where a reader lands** rather than six
+  bullets down. On Azure and GCP the same method applies with no accumulated trap
+  knowledge, and **live provider reads are AWS-only** — the enforcement half is an AWS IAM
+  policy, so shipping live reads for a provider with no role skeleton would be a control
+  that exists in prose alone.
+- **Reads are governed by an allowlist, not a denylist**, and that inversion is the
+  campaign's whole security story. Three successive denylists were each defeated by calls
+  that satisfied every rule they stated — a verb list, then a field-name list, then a
+  path-syntax list — because a denylist enumerates a surface the providers extend on their
+  own schedule. A call is admissible only on a conjunction: an allowed verb, **and** a
+  non-denied bucket, **and** a projection whose every leaf path matches a fixed grammar and
+  carries a declared value kind from **exactly seven** (there is deliberately no generic
+  `string` kind), **and** a pinned target whose principal matches the operator-declared
+  review role by exact ARN. Fail any one and the call is refused, and the refusal is a
+  finding rather than a silent skip.
+- **`tests/policy/nina-review-role.json`** (153 lines) is the enforcement half: a
+  deny-by-default IAM skeleton an operator adapts, so the refusals exist provider-side and
+  not only in the persona. It is partial coverage by construction — three projection-level
+  bypasses cannot be denied IAM-side without denying her core work — and its own comment
+  block says so. It ships in the repository and **a flat user-scope install does not carry
+  it**; `PRIVACY.md` states that, with the path.
+- **`PRIVACY.md`** gains the cloud-provider path: what nina fetches, what she may call when
+  credentials are present, that live reads are AWS-only, and that she never transmits
+  repository content to a provider.
+- **Frozen across four editions as two contiguous spans.** The read discipline is pinned as
+  parity snippets `S22a` and `S22b`, with the stage-4/stage-8 trigger row as `S23`. The
+  registry goes **25 → 28** rows and `V15`'s floor moves with it. The spans are two rather
+  than one because a one-line per-edition adjunct sits between them: the frozen text may not
+  name a tool some editions do not have, so each edition names its own read tool beside
+  Bucket 5 and nowhere inside the rules.
+- **`V25_nina_template`** is a new gate with **11 assertions** over `agents/nina.md`. Floors
+  and named members were not enough on their own: a rewrite of the four conditions from a
+  conjunction to "any of" would satisfy every floor while inverting the control, so the
+  conjunction is asserted directly, as are the seven value kinds *as an equality* and the
+  absence of `string`. Its PASS line prints per-bucket populations, so a reviewer reads the
+  counts rather than the word PASS. Its own comment block records the honest residual: it
+  proves things about nina's **file** and nothing about any finding she produces.
+- **Wiring**: 40 positions across 17 files — stage-4 and stage-8 triggers, the AUDIT lead
+  row, an INCIDENT `cloud control-plane` hypothesis lane, OPERATE recon and HEAVY pre-flight
+  review, the fifth pre-plan consult lens, and xander's disambiguating clause (cloud IAM
+  stays his when the finding is *exploitable*; nina owns whether the control binds at all).
+  `V4_population` moves 17 → 18, `V16` gains a row and a floor of 19, and the add-an-agent
+  checklist in `CONTRIBUTING.md` gains `.claude-plugin/plugin.json`, `commands/mozart.md`
+  and `scripts/mozart-contract-gates.sh` — three sites a name-based sweep had been missing.
+- **`V17_carve_phase` is retired**; `V17_carve_selftest` stays. The conservation gate was a
+  one-time migration proof, and its within-range control has no declaration mechanism by
+  design — so every trigger-table row any future campaign adds would fail it. Left standing
+  it would not have inconvenienced the next edit, it would have forbidden the whole class of
+  edit the bundled manual exists to receive. The carve's fixtures are retained as its audit
+  trail; `tests/carve/carve-map.tsv` in particular still feeds the standing `V23_absence`.
+
+### Fixed — HEAVY classifies access control at any layer, not just Kubernetes RBAC
+
+`agents/OPERATE.md`'s HEAVY tier read "storage (Ceph, PVs), RBAC, secrets, …". In a manual
+whose every other noun is Kubernetes, "RBAC" reads as *Kubernetes* RBAC — so a cloud
+identity-plane change (a permission set, a trust-policy edit, an org-unit move) classified
+STANDARD and the entire HEAVY apparatus sat out: no mandatory xander at the pre-flight gate,
+no mandatory immutable-field / server-side-dry-run verification, no codex on the change plan,
+no sign-off on irreversible steps.
+
+That is the wrong way round. A permission change is wide and quiet — nothing restarts,
+nothing goes red, and the grant is simply broader than it was — so it is *harder* to notice
+afterwards than the storage mutation the tier was written for.
+
+Widened to "access control at any layer": Kubernetes RBAC and cloud IAM (roles, policies,
+permission sets, trust relationships), identity federation (SSO/OIDC/SAML wiring, IdP
+configuration), and account or organization structure (org units, SCPs, project and
+subscription moves). Landed across all four restatements of the rule —
+`agents/OPERATE.md`'s tier cell, xander's HEAVY review surface, the operate-rules
+restatement, and `agents/PIPELINE.md`'s tier mirror — plus a disambiguating paragraph,
+because fixing one cell leaves the file contradicting itself. Verified red-before-green over
+that enumerated population: 0 of 4 sites named a cloud identity surface before, 4 of 4 after.
+
+This is a defect in the live pipeline that nina's review surfaced, and it landed in its own
+commit before the nina wiring so that it survives a revert of the rest. **It reclassifies
+real campaigns into HEAVY. That is the intent.**
+
 ### Changed — `agents/mozart.md` is carved into a persona plus a bundled manual
 
 `agents/mozart.md` goes from **269,299 B to 49,709 B (-81.5%)**. Stage-time procedure moves
