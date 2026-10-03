@@ -567,7 +567,7 @@ v4c_shapes=$(cat agents/*.md 2>/dev/null \
   | grep -oE '^## [A-Z]+ pipeline' | sed 's/^## //; s/ pipeline$//' | sort -u)
 v4c_missing=""
 for want in DELIVER AUDIT DIAGNOSE OPERATE INCIDENT EVAL; do
-  printf '%s\n' "$v4c_shapes" | grep -qx "$want" || v4c_missing="$v4c_missing $want"
+  grep -qx "$want" <<<"$v4c_shapes" || v4c_missing="$v4c_missing $want"
 done
 [ "$v4c_files" -ge 20 ] || v4c_missing="$v4c_missing [population: agents/*.md matched only $v4c_files file(s), floor 20]"
 report "V4c_shapes" "$([ -z "$v4c_missing" ] && echo 0 || echo 1)" \
@@ -654,7 +654,7 @@ report "V4c_agreement" "$([ -z "$v4c_diff" ] && echo 0 || echo 1)" "$v4c_msg"
 v4c_unknown=$(printf '%s\n%s\n' "$v4c_rosterpairs" "$v4c_markerpairs" | cut -f2 | sort -u \
   | while IFS= read -r pp; do
       [ -n "$pp" ] || continue
-      printf '%s\n' "$v4c_shapes" | grep -qx "$pp" || printf '%s ' "$pp"
+      grep -qx "$pp" <<<"$v4c_shapes" || printf '%s ' "$pp"
     done)
 report "V4c_known_shapes" "$([ -z "$v4c_unknown" ] && echo 0 || echo 1)" \
   "${v4c_unknown:-every pipeline word used is a derived shape}${v4c_unknown:+<- not in the derived shape set}"
@@ -785,7 +785,7 @@ v7_fx3='Proposals are gathered via the Agent tool before comparing.'
 v7_fx4='Task(subagent_type="xander", prompt="review the plan")'
 v7_spawnctl_bad=""
 for v7_fxline in "$v7_fx1" "$v7_fx2" "$v7_fx3" "$v7_fx4"; do
-  printf '%s\n' "$v7_fxline" | grep -qE "$v7_spawn_pat" || v7_spawnctl_bad="$v7_spawnctl_bad [not matched: $v7_fxline]"
+  grep -qE "$v7_spawn_pat" <<<"$v7_fxline" || v7_spawnctl_bad="$v7_spawnctl_bad [not matched: $v7_fxline]"
 done
 report "V7_spawn_control" "$([ -z "$v7_spawnctl_bad" ] && echo 0 || echo 1)" \
   "${v7_spawnctl_bad:-all four spawn-imperative alternatives independently matched by an isolated, frozen fixture}"
@@ -833,7 +833,7 @@ while IFS="$(printf '\t')" read -r ag _; do
   [ -n "$ag" ] || continue
   af="agents/$ag.md"
   [ -f "$af" ] || { v7_write_bad="$v7_write_bad [$ag: no file $af]"; continue; }
-  printf '%s\n' "$v7_claimlines_pad" | grep -qiE "(^|[^A-Za-z])${ag}[^A-Za-z]" || continue
+  grep -qiE "(^|[^A-Za-z])${ag}[^A-Za-z]" <<<"$v7_claimlines_pad" || continue
   v7_claimants="$v7_claimants $ag"
   v7_tools=$(grep -m1 '^tools:' "$af")
   case "$v7_tools" in
@@ -885,9 +885,9 @@ report "V7_negation_fixture" "$([ -z "$v7_neg_bad" ] && echo 0 || echo 1)" \
 v7_manual_re='^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md:'
 v7_manual_files=$(ls agents/*.md 2>/dev/null | grep -cE '^agents/(mozart|AUDIT|CONTEXT-BUDGET|COUNTERPOINT|DELIVER|DIAGNOSE|EVAL|FLOWS|INCIDENT|INTAKE|OPERATE|STATE|TICKETS|WORKTREES)\.md$')
 v7_mzclaims_pad=$(printf '%s\n' "$v7_claimlines_pad" | grep -E "$v7_manual_re")
-v7_mzharry=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" && echo 1 || echo 0)
-v7_mzvalerie=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" && echo 1 || echo 0)
-v7_mzsarah=$(printf '%s\n' "$v7_mzclaims_pad" | grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" && echo 1 || echo 0)
+v7_mzharry=$(grep -qiE "(^|[^A-Za-z])harry[^A-Za-z]" <<<"$v7_mzclaims_pad" && echo 1 || echo 0)
+v7_mzvalerie=$(grep -qiE "(^|[^A-Za-z])valerie[^A-Za-z]" <<<"$v7_mzclaims_pad" && echo 1 || echo 0)
+v7_mzsarah=$(grep -qiE "(^|[^A-Za-z])sarah[^A-Za-z]" <<<"$v7_mzclaims_pad" && echo 1 || echo 0)
 v7_claimn=$(printf '%s\n' "$v7_claimants" | tr ' ' '\n' | grep -c .)
 if [ "$v7_claimn" -ge 5 ] && [ "$v7_manual_files" -ge 8 ] && [ "$v7_mzharry" = 1 ] && [ "$v7_mzvalerie" = 1 ] && [ "$v7_mzsarah" = 1 ]; then
   v7_claimctl=0
@@ -1205,11 +1205,11 @@ v10a_rc=$?
 v10a_bad=""
 [ "$v10a_rc" -eq 0 ] || v10a_bad="$v10a_bad [exit=$v10a_rc want 0]"
 [ "$v10a_floor" -ge 2 ] || v10a_bad="$v10a_bad [expected-file floor $v10a_floor < 2 -- corpus file empty or truncated]"
-printf '%s\n' "$v10a_out" | grep -qxF "$v10a_member" || v10a_bad="$v10a_bad [named member absent: $v10a_member]"
+grep -qxF "$v10a_member" <<<"$v10a_out" || v10a_bad="$v10a_bad [named member absent: $v10a_member]"
 v10a_missing=""
 while IFS= read -r v10a_line; do
   [ -n "$v10a_line" ] || continue
-  printf '%s\n' "$v10a_out" | grep -qxF "$v10a_line" || v10a_missing="$v10a_missing [$v10a_line]"
+  grep -qxF "$v10a_line" <<<"$v10a_out" || v10a_missing="$v10a_missing [$v10a_line]"
 done < <(cut -f2 "$v10a_expected")
 [ -z "$v10a_missing" ] || v10a_bad="$v10a_bad expected line(s) absent:$v10a_missing"
 report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
@@ -1232,6 +1232,15 @@ v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
 v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b|split-layout|stranded-artifacts|stale-paths|escape-unrecorded'
 v11_bad=""
+# The awk on this machine splits strings by byte: a lone byte of a multibyte
+# character tested against a bracket expression aborts it ("towc: multibyte
+# conversion failure") in a UTF-8 locale and nowhere else. Lint, metrics and the
+# library are therefore run here under a UTF-8 locale the machine is checked to
+# have (a missing one fails, it does not skip), and once under C. A multibyte
+# fixture run under whatever locale the caller exported passes by accident.
+gate_utf8=$(locale -a 2>/dev/null | grep -iE '\.utf-?8$' | grep -ixE 'en_US\.utf-?8' | head -1)
+[ -n "$gate_utf8" ] || gate_utf8=$(locale -a 2>/dev/null | grep -iE '\.utf-?8$' | head -1)
+[ -n "$gate_utf8" ] || v11_bad="$v11_bad [no UTF-8 locale in locale -a: the multibyte lint fixtures cannot be exercised]"
 v11_scratch=$(mktemp -d) || { v11_bad="$v11_bad [mktemp failed -- no scratch space for the corpus copies]"; v11_scratch=""; }
 
 # F47: the floor used to count only the two subdirs, so the legacy prefix,
@@ -1340,10 +1349,10 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     return
   fi
 
-  v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  v11_ov_out=$(LC_ALL="$gate_utf8" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
   local ov_rc=$?
   local no_out
-  no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  no_out=$(LC_ALL="$gate_utf8" bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
 
   local ov_triples no_triples
   ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
@@ -1355,9 +1364,9 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   # missing-12b as well as its intended missing-2b, so it was not failing only
   # for its stated reason and nothing said so. Compare totals, not just the
   # filtered set: N emitted lines, N expected rows, N distinct triples.
-  v11_emitted=$(printf '%s\n' "$v11_ov_out" | grep -c '^LINT \[' || true)
+  v11_emitted=$(grep -c '^LINT \[' <<<"$v11_ov_out" || true)
   local triple_n
-  triple_n=$(printf '%s\n' "$ov_triples" | grep -c . || true)
+  triple_n=$(grep -c . <<<"$ov_triples" || true)
 
   [ "$ov_rc" -eq 1 ] || arm_bad="$arm_bad [override rc=$ov_rc want 1]"
   [ "$v11_emitted" -eq "$v11_expected_n" ] || arm_bad="$arm_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
@@ -1434,19 +1443,20 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-11-10-phase-lenshyphen\tCR1')" \
     "$(printf 'conductor-row\t2099-11-11-phase-lensrunning\tCR1')" \
     "$(printf 'conductor-row\t2099-11-12-phase-lenswsreason\tCR1')" \
-    "$(printf 'conductor-row\t2099-11-15-phase-lenscell\tCR1')"
+    "$(printf 'conductor-row\t2099-11-15-phase-lenscell\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-17-phase-heavyrepeat\tCR1')"
   do
-    printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
+    grep -qxF "$member" <<<"$ov_triples" || arm_bad="$arm_bad [named member absent: $member]"
   done
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
+  grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
   # F48 control: the escaped-pipe fixture's CR2 carries `\|` in BOTH source and
   # control and is otherwise well formed. It must stay silent — otherwise the
   # width rule is just rejecting every row that mentions a pipe, and CR1's
   # finding would prove nothing about column alignment.
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" \
+  grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
+  grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
   # Check M and the sibling readers must stay silent on these (the contract's
   # 2.1, 2.2-silent, 2.8 a and b, 2.9, 2.11 Check M, 2.12, and the four
@@ -1456,48 +1466,48 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     2099-09-11-deliver-mixed-ledger 2099-09-15-deliver-split-placeholders active-2099-09-17-deliver-split-aprefix \
     2099-09-22-deliver-split-flat 2099-09-24-deliver-split-finishedclean 2099-09-09-deliver-split-emptyledger \
     2099-05-22-deliver-split-emptypre; do
-    printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
+    grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'split-layout\t2099-09-14-deliver-split-pathsstale\tfindings-ledger-missing')" \
+  grep -qxF "$(printf 'split-layout\t2099-09-14-deliver-split-pathsstale\tfindings-ledger-missing')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: Check M fired on pathsstale, whose derived sibling exists]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-unlinked\t2099-09-05-deliver-split-dupledger\tF2')" \
+  grep -qxF "$(printf 'conductor-unlinked\t2099-09-05-deliver-split-dupledger\tF2')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: the in-file rejected row of dupledger was read though the sibling wins]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-duplicate')" \
+  grep -qxF "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-duplicate')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: a headingless ledger sibling was treated as usable and reported as a duplicate of the in-file section]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-missing\t2099-09-08-deliver-split-conductornohead\t-')" \
+  grep -qxF "$(printf 'conductor-missing\t2099-09-08-deliver-split-conductornohead\t-')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: a headingless conductor sibling also yielded conductor-missing (one cause, one line)]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR1')" \
+  grep -qxF "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR1')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: the CRLF sibling's well-formed CR1 fired]"
-  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-unlinked\t2099-09-18-deliver-split-crlf\t9')" \
+  grep -qxF "$(printf 'conductor-unlinked\t2099-09-18-deliver-split-crlf\t9')" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: the CRLF sibling's CR1 (links 9) was not read]"
-  printf '%s\n' "$v11_ov_out" | grep -qE '^LINT .*\.(ledger|conductor)\.md — ' \
+  grep -qE '^LINT .*\.(ledger|conductor)\.md — ' <<<"$v11_ov_out" \
     && arm_bad="$arm_bad [a LINT line names a sibling file as its path: findings are always reported against the state file]"
-  printf '%s\n' "$ov_triples" | grep -q "	2099-07-27-operate-j	" \
+  grep -q "	2099-07-27-operate-j	" <<<"$ov_triples" \
     && arm_bad="$arm_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
   # Phase rows are required on HEAVY only. Each of these carries a ticked,
   # unlinked or lens-free Phase line and must stay silent for its own reason.
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
-    2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd \
+    2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd 2099-11-16-phase-lensemdash \
     2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface; do
-    printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
+    grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
   # 4.17: a HEAVY phase with no row at all is one cause, one line.
-  [ "$(printf '%s\n' "$ov_triples" | grep -c "	2099-10-10-phase-heavyfmt	")" -eq 1 ] \
+  [ "$(grep -c "	2099-10-10-phase-heavyfmt	" <<<"$ov_triples")" -eq 1 ] \
     || arm_bad="$arm_bad [heavyfmt (HEAVY, P2 has no row) did not produce exactly one triple]"
   # 4.14: the phase-row message and the expected P<digit> rows are the same
   # population, and the expected side has a floor so 1 = 1 cannot pass.
   local p_msgs p_rows
-  p_msgs=$(printf '%s\n' "$v11_ov_out" | grep -c 'ticked Phase line has no linked conductor row' || true)
+  p_msgs=$(grep -c 'ticked Phase line has no linked conductor row' <<<"$v11_ov_out" || true)
   p_rows=$(awk -F'\t' '$1 == "lint" && $2 == "conductor-unlinked" && $4 ~ /^P[0-9]/' "$v11_expected" | grep -c . || true)
   [ "$p_msgs" -eq "$p_rows" ] || arm_bad="$arm_bad [phase-row message count $p_msgs != $p_rows expected P<N> rows]"
   [ "$p_rows" -ge 5 ] || arm_bad="$arm_bad [expected P<N> rows $p_rows < floor 5]"
   local slug
   for slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
     2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
-    printf '%s\n' "$ov_triples" | grep -q "	${slug}	" \
+    grep -q "	${slug}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [pre-adoption or accepted-spelling slug $slug produced a triple]"
   done
 
@@ -1533,9 +1543,10 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-after')" \
     "$(printf 'escape-unrecorded\t2099-09-18-diagnose-dotted\t2099-09-18-diagnose-dotted')" \
     "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-extslug')" \
-    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrap2')"
+    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrap2')" \
+    "$(printf 'escape-unrecorded\t2099-05-28-deliver-esc-mb\t2099-09-28-diagnose-mbunrec')"
   do
-    printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
+    grep -qxF "$member" <<<"$ov_triples" || arm_bad="$arm_bad [named member absent: $member]"
   done
   for member in \
     "$(printf 'escape-unrecorded\t2099-05-01-deliver-esc-recorded\t2099-09-01-diagnose-recorded')" \
@@ -1557,14 +1568,17 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-tilde')" \
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-open')" \
     "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-external')" \
-    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrapcarry')"
+    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrapcarry')" \
+    "$(printf 'escape-unrecorded\t2099-05-28-deliver-esc-mb\t2099-09-28-diagnose-mbquote')" \
+    "$(printf 'escape-unrecorded\t2099-05-28-deliver-esc-mb\t2099-09-28-diagnose-mbdash')" \
+    "$(printf 'escape-unrecorded\t2099-05-28-deliver-esc-mb\t2099-09-28-diagnose-mbpre')"
   do
-    printf '%s\n' "$ov_triples" | grep -qxF "$member" \
+    grep -qxF "$member" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: ${member//$'\t'/ / }]"
   done
   esc_want=$(awk -F'\t' '$1 == "lint" && $2 == "escape-unrecorded"' "$v11_expected" | grep -c . || true)
-  esc_n=$(printf '%s\n' "$ov_triples" | grep -c '^escape-unrecorded	' || true)
-  no_esc=$(printf '%s\n' "$no_triples" | grep -c '^escape-unrecorded	' || true)
+  esc_n=$(grep -c '^escape-unrecorded	' <<<"$ov_triples" || true)
+  no_esc=$(grep -c '^escape-unrecorded	' <<<"$no_triples" || true)
   [ "$esc_n" -eq "$esc_want" ] || arm_bad="$arm_bad [escape-unrecorded: $esc_n emitted, $esc_want in expected.tsv]"
   [ "$esc_want" -ge 6 ] || arm_bad="$arm_bad [escape-unrecorded expected rows $esc_want < floor 6]"
   [ "$no_esc" -eq "$esc_want" ] || arm_bad="$arm_bad [escape-unrecorded fires $no_esc time(s) without the adoption-date override, want $esc_want: the check must not be gated on it]"
@@ -1574,7 +1588,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   # set-equality check. Assert the actual message text too, so the gate
   # proves each fired for ITS OWN stated reason.
   msg_check() { # $1=path-suffix (basename), $2=key, $3=expected message substring
-    printf '%s\n' "$v11_ov_out" | grep -F "$1" | grep -F -- "— $2:" | grep -qF "$3" \
+    grep -F "$1" <<<"$v11_ov_out" | grep -F -- "— $2:" | grep -qF "$3" \
       || arm_bad="$arm_bad [message mismatch: $1 $2 does not contain '$3']"
   }
   msg_check "2099-07-03-deliver-ctl.state.md" "CR1" "control restates the claim"
@@ -1610,17 +1624,18 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-11-11-phase-lensrunning.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-12-phase-lenswsreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-15-phase-lenscell.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-17-phase-heavyrepeat.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
   msg_check "2099-05-02-deliver-esc-noneyet.state.md" "2099-09-02-diagnose-noneyet" "## Escapes block has no Traces-to: line naming 2099-09-02-diagnose-noneyet"
   msg_check "2099-09-08-diagnose-nostate.md" "2099-09-08-diagnose-nostate" "traces to 2099-05-08-deliver-esc-ghost, which has no state file in this repo"
   msg_check "2099-08-30-diagnose-nostate.postmortem.md" "2099-08-30-diagnose-nostate" "traces to 2099-05-08-deliver-esc-ghosttwo, which has no state file in this repo"
-  printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
+  grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" <<<"$no_triples" \
     || arm_bad="$arm_bad [override-control triple absent from the no-override run]"
-  printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
+  grep -qxF 'conductor adoption date overridden: 2099-06-01' <<<"$v11_ov_out" \
     || arm_bad="$arm_bad [override-visibility line absent from the override run]"
-  printf '%s\n' "$no_out" | grep -q '^conductor adoption date overridden:' \
+  grep -q '^conductor adoption date overridden:' <<<"$no_out" \
     && arm_bad="$arm_bad [no-override run printed an override line]"
   [ -z "$arm_bad" ] || v11_bad="$v11_bad [$label:$arm_bad]"
 }
@@ -1659,6 +1674,11 @@ if [ -n "$v11_scratch" ]; then
   v11_arm "in-repo corpus" "$v11_corpus"
   v11_arm_a_emitted=$v11_emitted
   v11_arm "aged corpus copy" "$v11_aged"
+  # Once under C: the same corpus, the same verdict count, no abort.
+  v11_c_out=$(LC_ALL=C MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_scratch/fresh-in-repo-corpus" 2>&1); v11_c_rc=$?
+  v11_c_n=$(grep -c '^LINT \[' <<<"$v11_c_out" || true)
+  { [ "$v11_c_rc" -eq 1 ] && [ "$v11_c_n" -eq "$v11_expected_n" ]; } \
+    || v11_bad="$v11_bad [LC_ALL=C: lint exited $v11_c_rc with $v11_c_n LINT line(s), want 1 and $v11_expected_n]"
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
@@ -1683,6 +1703,40 @@ v11_st=$(mktemp -d) && {
   [ "$v11_st_disk" -ne "$v11_st_tracked" ] || v11_bad="$v11_bad [tracked-vs-disk self-test: a planted ignored file did not make the counts differ ($v11_st_disk vs $v11_st_tracked)]"
   rm -rf "$v11_st"
 } || v11_bad="$v11_bad [mktemp failed -- the tracked-vs-disk self-test could not run]"
+# F49: two overlapping suite runs failed V11 with a "named member absent" for a
+# member that was there, and a 9-way batch failed V10b the same way. The shape is
+# a variable piped into a quiet grep under pipefail: grep -q exits on its first
+# hit, the producer still has a write to make (bash's printf issues the closing
+# newline separately, and the 78 KB lint output and 17 KB triple list need
+# several), and a producer that writes into a closed pipe gets SIGPIPE, so the
+# pipeline reports failure for a match. Idle it almost never loses the race; CPU
+# contention from another run makes it lose. Reproduced in isolation under load:
+# 1 in 400 at 20 KB and 1 in 3000 at 1.2 KB, member on the first line, against
+# 0 for a here-string. A variable read through a here-string has no producer to
+# kill. Three parts: the hazard is real here (a 3 MB producer loses every time,
+# so this is not folklore), the here-string form is immune, and no line in this
+# file pipes a variable straight into a quiet grep. A multi-stage pipe whose
+# first stage is not quiet is outside the scan: that stage reads to the end and
+# its successor's output is a single small write.
+v11_big=$(head -c 3000000 /dev/zero | tr '\0' 'x' | fold -w 80)
+v11_big="first-line"$'\n'"$v11_big"
+echo "$v11_big" | grep -qxF first-line \
+  && v11_bad="$v11_bad [SIGPIPE control: a 3 MB variable piped into a quiet grep found its first-line member; the hazard F49 closed is not reproducing, so the immunity check below proves nothing]"
+grep -qxF first-line <<<"$v11_big" \
+  || v11_bad="$v11_bad [a here-string quiet grep lost a first-line member in a 3 MB variable]"
+unset v11_big
+v11_pipe_pat=$'printf \'%s(\\\\n)?\' "[^"]*" *\\| *grep +-[a-zA-Z]*q'
+v11_pipe_count() { grep -cE "$v11_pipe_pat" || true; }
+v11_plant_nl=$'  printf \'%s\\n\' "$x" | grep -qxF y'
+v11_plant_s=$'  printf \'%s\' "$x" | grep -qE -- "$p" || true'
+v11_plant_c=$'  printf \'%s\\n\' "$x" | grep -c y'
+v11_plant_ok=$'  grep -qxF y <<<"$x"'
+[ "$(v11_pipe_count <<<"$v11_plant_nl")" -eq 1 ] && [ "$(v11_pipe_count <<<"$v11_plant_s")" -eq 1 ] \
+  || v11_bad="$v11_bad [pipe-into-quiet-grep scan did not flag a planted printf-variable | grep -q line (newline form and bare form)]"
+{ [ "$(v11_pipe_count <<<"$v11_plant_c")" -eq 0 ] && [ "$(v11_pipe_count <<<"$v11_plant_ok")" -eq 0 ]; } \
+  || v11_bad="$v11_bad [pipe-into-quiet-grep scan flagged a grep -c line or a here-string line]"
+v11_pipe_sites=$(v11_pipe_count < "$gatefile")
+[ "$v11_pipe_sites" -eq 0 ] || v11_bad="$v11_bad [$v11_pipe_sites line(s) of this file pipe a variable into a quiet grep (SIGPIPE under pipefail): write grep -q ... <<<\"\$var\"]"
 v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
   | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
 if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
@@ -1742,16 +1796,16 @@ v12_check_family "OPERATE" "" "CONDUCTOR_GATES_OPERATE" "CONDUCTOR_FLOWS_OPERATE
 v12_check_family "INCIDENT" "" "CONDUCTOR_GATES_INCIDENT" "CONDUCTOR_FLOWS_INCIDENT"
 
 v12_deliver_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| DELIVER \|')
-printf '%s\n' "$v12_deliver_row" | grep -qF '`9`' || v12_bad="$v12_bad [DELIVER named member 9 absent from prose row]"
-printf '%s\n' "$v12_deliver_row" | grep -qF '`P<N>:heavy`' || v12_bad="$v12_bad [DELIVER named member P<N>:heavy absent from prose row]"
+grep -qF '`9`' <<<"$v12_deliver_row" || v12_bad="$v12_bad [DELIVER named member 9 absent from prose row]"
+grep -qF '`P<N>:heavy`' <<<"$v12_deliver_row" || v12_bad="$v12_bad [DELIVER named member P<N>:heavy absent from prose row]"
 [ "$CONDUCTOR_GATES_DELIVER" = "5 9 10 13 P:heavy" ] || v12_bad="$v12_bad [CONDUCTOR_GATES_DELIVER is '$CONDUCTOR_GATES_DELIVER', want exactly '5 9 10 13 P:heavy']"
-printf '%s\n' "$CONDUCTOR_GATES_DELIVER" | grep -qF 'P:heavy' || v12_bad="$v12_bad [lint constant lacks P:heavy]"
+grep -qF 'P:heavy' <<<"$CONDUCTOR_GATES_DELIVER" || v12_bad="$v12_bad [lint constant lacks P:heavy]"
 [ "$CONDUCTOR_GATES_OPERATE" = "1:fact 4 6" ] && [ "$CONDUCTOR_GATES_INCIDENT" = "1 5" ] \
   || v12_bad="$v12_bad [OPERATE or INCIDENT constant changed: '$CONDUCTOR_GATES_OPERATE' / '$CONDUCTOR_GATES_INCIDENT']"
 v12_operate_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| OPERATE \|')
-printf '%s\n' "$v12_operate_row" | grep -qF '`1:fact`' || v12_bad="$v12_bad [OPERATE named member 1:fact absent from prose row]"
+grep -qF '`1:fact`' <<<"$v12_operate_row" || v12_bad="$v12_bad [OPERATE named member 1:fact absent from prose row]"
 v12_incident_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| INCIDENT \|')
-printf '%s\n' "$v12_incident_row" | grep -qF '`MITIGATE-ONLY`' || v12_bad="$v12_bad [INCIDENT named member MITIGATE-ONLY absent from prose row]"
+grep -qF '`MITIGATE-ONLY`' <<<"$v12_incident_row" || v12_bad="$v12_bad [INCIDENT named member MITIGATE-ONLY absent from prose row]"
 
 report "V12" "$([ -z "$v12_bad" ] && echo 0 || echo 1)" \
   "${v12_bad:-S3 table agrees with lint constants: 3 families, per-family keys and flow tokens set-equal, named members present, anchor found once}"
@@ -1778,18 +1832,18 @@ v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
   missing=""
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    printf '%s\n' "$out" | grep -qxF "$line" || missing="$missing [$line]"
+    grep -qxF "$line" <<<"$out" || missing="$missing [$line]"
   done < <(cut -f2 "$expected")
   [ -z "$missing" ] || v10b_bad="$v10b_bad [$case expected line(s) absent:$missing]"
   shift 2
   for member in "$@"; do
-    printf '%s\n' "$out" | grep -qxF "$member" || v10b_bad="$v10b_bad [$case named member absent: $member]"
+    grep -qxF "$member" <<<"$out" || v10b_bad="$v10b_bad [$case named member absent: $member]"
   done
   if [ "$case" != "metrics-split" ]; then
     # Both counted lines print only when non-zero. These corpora have no sibling
     # that is skipped or that shadows an in-file section, so a line here means
     # the zero case started printing.
-    printf '%s\n' "$out" | grep -q '^  sibling files ' \
+    grep -q '^  sibling files ' <<<"$out" \
       && v10b_bad="$v10b_bad [$case prints a sibling-count line though its count is 0]"
   fi
   if [ "$case" = "metrics-split" ]; then
@@ -1798,18 +1852,18 @@ v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
     # single-file campaigns. Absent: everything that must not be read.
     lens_line=$(printf '%s\n' "$out" | grep '^  by lens:')
     for tok in bob ruby tessa percy xander ian dexter hank nina jackson scott sarah infile; do
-      printf '%s' "$lens_line" | grep -qE "(^| )$tok=1( |$)" || v10b_bad="$v10b_bad [metrics-split catches-by-lens token absent: $tok=1]"
+      grep -qE "(^| )$tok=1( |$)" <<<"$lens_line" || v10b_bad="$v10b_bad [metrics-split catches-by-lens token absent: $tok=1]"
     done
     for tok in shadow orphan zerostate nohead otto; do
-      printf '%s' "$lens_line" | grep -q "$tok=" && v10b_bad="$v10b_bad [metrics-split catches-by-lens token present: $tok= (must not be read)]"
+      grep -q "$tok=" <<<"$lens_line" && v10b_bad="$v10b_bad [metrics-split catches-by-lens token present: $tok= (must not be read)]"
     done
   fi
   if [ "$case" = "metrics-conductor" ]; then
     lens_line=$(printf '%s\n' "$out" | grep '^  rejected by lens:')
     for tok in "bob=1/1" "tessa=1/1" "ruby=1/1"; do
-      printf '%s' "$lens_line" | grep -qF "$tok" || v10b_bad="$v10b_bad [metrics-conductor rejected-by-lens token absent: $tok]"
+      grep -qF "$tok" <<<"$lens_line" || v10b_bad="$v10b_bad [metrics-conductor rejected-by-lens token absent: $tok]"
     done
-    printf '%s' "$lens_line" | grep -q 'xander=' && v10b_bad="$v10b_bad [metrics-conductor reversed lens xander= present in rejected-by-lens line]"
+    grep -q 'xander=' <<<"$lens_line" && v10b_bad="$v10b_bad [metrics-conductor reversed lens xander= present in rejected-by-lens line]"
   fi
 }
 
@@ -1987,13 +2041,13 @@ v14_floor=$(find "$v14_root" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
 v14_m_out=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v14_root" 2>&1)
 v14_m_rc=$?
 [ "$v14_m_rc" -eq 0 ] || v14_bad="$v14_bad [metrics exit=$v14_m_rc want 0 under a spaced root]"
-printf '%s\n' "$v14_m_out" | grep -q 'nothing to aggregate' \
+grep -q 'nothing to aggregate' <<<"$v14_m_out" \
   && v14_bad="$v14_bad [metrics reported 'nothing to aggregate' under a spaced root]"
 # The spaced FILE must reach the tally, not merely fail to crash the run: its
 # two conductor rows are the ONLY rows in this corpus, so these counts are
 # non-zero if and only if awk opened the spaced path intact.
 v14_m_member='Conductor rows: check=1 adjudication=0 fact=1'
-printf '%s\n' "$v14_m_out" | grep -qxF "$v14_m_member" \
+grep -qxF "$v14_m_member" <<<"$v14_m_out" \
   || v14_bad="$v14_bad [named member absent from metrics output: $v14_m_member]"
 
 # Check F needs a file older than STALE_DAYS to have anything to report.
@@ -2117,10 +2171,10 @@ v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$
 [ -z "$v15_dupes" ] || v15_bad="${v15_bad} [duplicate registry key(s): ${v15_dupes}— a duplicate preserves the row count while some other snippet goes unchecked]"
 [ -z "$v15_only_registry" ] || v15_bad="${v15_bad} [registered with no snippet file: ${v15_only_registry}]"
 [ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
-printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/STATE.md')" \
+grep -qxF "$(printf 'S3\tagents/STATE.md')" <<<"$v15_registry" \
   || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/STATE.md]"
 for v15_nm in "S2	agents/TEMPLATE-CONDUCTOR.md" "S5	agents/TEMPLATE-STATE.md" "S6	agents/TEMPLATE-STATE.md" "S18	agents/TEMPLATE-STATE.md"; do
-  printf '%s\n' "$v15_registry" | grep -qxF "$v15_nm" \
+  grep -qxF "$v15_nm" <<<"$v15_registry" \
     || v15_bad="$v15_bad [named member absent from the registry: $(printf '%s' "$v15_nm" | tr '\t' ' ')]"
 done
 
@@ -2217,7 +2271,7 @@ V16_BUDGETS_EOF
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
 [ "$v16_rows" -ge 24 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 24 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina + 5 TEMPLATE files]"
-printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
+grep -qxF "$(printf 'agents/mozart.md\t55000')" <<<"$v16_budgets" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
 v16_has_row() { # $1 = table, $2 = path: true when the FIRST field equals the path exactly
   printf '%s\n' "$1" | awk -F'\t' -v f="$2" '$1 == f { found = 1 } END { exit !found }'
@@ -2659,7 +2713,7 @@ done < <(find "$v30_tmp/crlf" -name '*.state.md' -print0)
 [ "$v30_crlf_n" -ge 1 ] || v30_bad="$v30_bad [no state file found to convert to CRLF]"
 v30_lf=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v30_corpus" 2>&1; echo "rc=$?")
 v30_cr=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v30_tmp/crlf" 2>&1; echo "rc=$?")
-printf '%s\n' "$v30_lf" | grep -qxF '== mozart pipeline economics ==' || v30_bad="$v30_bad [the LF metrics run printed no table]"
+grep -qxF '== mozart pipeline economics ==' <<<"$v30_lf" || v30_bad="$v30_bad [the LF metrics run printed no table]"
 [ "$v30_cr" = "$v30_lf" ] || v30_bad="$v30_bad [metrics on a CRLF copy of metrics-conductor differs from the LF original]"
 
 if [ -s "$v30_lib" ]; then
@@ -2670,7 +2724,7 @@ if [ -s "$v30_lib" ]; then
   for v30_s in mozart-lint mozart-metrics; do
     v30_out=$(bash "$v30_tmp/dup/scripts/$v30_s.sh" "$v30_corpus" 2>/dev/null); v30_rc=$?
     [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with a function defined twice: exit $v30_rc, want 3 (an awk failure is not 'nothing to lint' or 'findings')]"
-    printf '%s\n' "$v30_out" | grep -qE 'pipeline economics|^LINT ' && v30_bad="$v30_bad [$v30_s printed results with a function defined twice]"
+    grep -qE 'pipeline economics|^LINT ' <<<"$v30_out" && v30_bad="$v30_bad [$v30_s printed results with a function defined twice]"
   done
 fi
 
@@ -2815,11 +2869,11 @@ for v32_layout in single split mixed; do
   v32_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v32_tmp/$v32_layout" 2>&1; echo "rc=$?")
   if [ "$v32_layout" = single ]; then
     v32_ref_lint=$v32_l; v32_ref_metrics=$v32_m
-    printf '%s\n' "$v32_l" | grep -qF "conductor-unlinked" && printf '%s\n' "$v32_l" | grep -qF "— F3:" \
+    grep -qF "conductor-unlinked" <<<"$v32_l" && grep -qF "— F3:" <<<"$v32_l" \
       || v32_bad="$v32_bad [single-file reference lint run did not report the unadjudicated F3: $(printf '%s' "$v32_l" | head -3)]"
-    printf '%s\n' "$v32_m" | grep -qxF "Wrong-override rate: 1/2 rejected findings later reversed (50%)" \
+    grep -qxF "Wrong-override rate: 1/2 rejected findings later reversed (50%)" <<<"$v32_m" \
       || v32_bad="$v32_bad [single-file reference metrics run lacks the wrong-override line]"
-    printf '%s\n' "$v32_m" | grep -qxF "Conductor rows: check=1 adjudication=1 fact=1" \
+    grep -qxF "Conductor rows: check=1 adjudication=1 fact=1" <<<"$v32_m" \
       || v32_bad="$v32_bad [single-file reference metrics run lacks the conductor-rows line]"
   else
     [ "$v32_l" = "$v32_ref_lint" ] || v32_bad="$v32_bad [lint differs between the single-file and $v32_layout layouts]"
@@ -2869,25 +2923,25 @@ v33_count() { printf '%s\n' "$1" | grep -c "$2" ; }
 v33_raw="$v33_tmp/raw"
 if v33_build "$v33_raw"; then
   v33_out=$(v33_lint "$v33_raw")
-  printf '%s\n' "$v33_out" | grep -qF "conductor adoption date overridden: 2099-06-01" \
+  grep -qF "conductor adoption date overridden: 2099-06-01" <<<"$v33_out" \
     || v33_bad="$v33_bad [lint did not run on the raw copies: $(printf '%s' "$v33_out" | head -2 | tr '\n' ' ')]"
   # The adoption-date line above shows lint ran. A raw copy is a clean campaign, so any
   # LINT line (a tick left in the skeleton, a placeholder read as a declaration) fails.
-  printf '%s\n' "$v33_out" | grep -q '^mozart-lint: clean' \
+  grep -q '^mozart-lint: clean' <<<"$v33_out" \
     || v33_bad="$v33_bad [a raw template trio does not lint clean: $(printf '%s' "$v33_out" | grep '^LINT' | head -3 | tr '\n' ' ')]"
   [ "$(v33_count "$v33_out" '^LINT \[split-layout\]')" = "0" ] \
     || v33_bad="$v33_bad [a raw template trio emits split-layout: a placeholder was read as a declaration]"
   [ "$(v33_count "$v33_out" '^LINT \[conductor-row\]')" = "0" ] \
     || v33_bad="$v33_bad [a raw template trio emits conductor-row: the template header does not resolve]"
   v33_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v33_raw" 2>&1; echo "rc=$?")
-  printf '%s\n' "$v33_m" | grep -qxF "rc=2" \
+  grep -qxF "rc=2" <<<"$v33_m" \
     || v33_bad="$v33_bad [metrics on the raw trio did not exit 2: $(printf '%s' "$v33_m" | tr '\n' ' ')]"
-  printf '%s\n' "$v33_m" | grep -qF "no findings-ledger data yet" \
+  grep -qF "no findings-ledger data yet" <<<"$v33_m" \
     || v33_bad="$v33_bad [metrics on the raw trio read rows from a template]"
   # The Tier pipe-list is not a tier: one real finding row makes metrics print its tier line.
   printf '%s\n' '| F1 | 4-plan-review | bob | High | fixed (plan r2) | x |' >> "$v33_raw/.mozart/plans/active/$v33_slug.ledger.md"
   v33_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v33_raw" 2>&1)
-  printf '%s\n' "$v33_m" | grep -qxF "Campaigns: 1 (1 UNTIERED)" \
+  grep -qxF "Campaigns: 1 (1 UNTIERED)" <<<"$v33_m" \
     || v33_bad="$v33_bad [the template Tier pipe-list was classified as a tier: $(printf '%s' "$v33_m" | grep -m1 '^Campaigns:')]"
 else
   v33_bad="$v33_bad [the raw trio could not be built -- a template is missing or unreadable]"
@@ -2968,7 +3022,7 @@ for v34_pat in 'reachable from HEAD' 'Paths block lists the ACTUAL artifact path
   v34_line=$(printf '%s\n' "$v34_closeout" | grep -m1 -F -- "$v34_pat")
   [ -n "$v34_line" ] || { v34_bad="$v34_bad [DELIVER closeout bullet absent from its section: $v34_pat]"; continue; }
   for v34_sib in .ledger.md .conductor.md; do
-    printf '%s' "$v34_line" | grep -qF -- "$v34_sib" \
+    grep -qF -- "$v34_sib" <<<"$v34_line" \
       || v34_bad="$v34_bad [DELIVER closeout bullet '$v34_pat' does not name $v34_sib]"
   done
 done
@@ -2986,15 +3040,15 @@ v34_have=$(printf '%s' "$v34_list" | grep -o '`[a-z0-9-]*`' | grep -c .)
 [ "$v34_want" = "$v34_have" ] \
   || v34_bad="$v34_bad [STATE category sentence says '$v34_word' ($v34_want) but lists $v34_have backticked categories]"
 [ "$v34_word" = "seventeen" ] || v34_bad="$v34_bad [STATE category sentence says '$v34_word', want seventeen after phase 5]"
-printf '%s' "$v34_list" | grep -qF '`escape-unrecorded`' || v34_bad="$v34_bad [STATE category sentence omits escape-unrecorded]"
-printf '%s' "$v34_list" | grep -qF '`split-layout`' || v34_bad="$v34_bad [STATE category sentence omits split-layout]"
+grep -qF '`escape-unrecorded`' <<<"$v34_list" || v34_bad="$v34_bad [STATE category sentence omits escape-unrecorded]"
+grep -qF '`split-layout`' <<<"$v34_list" || v34_bad="$v34_bad [STATE category sentence omits split-layout]"
 # state_md5: no 'state-file hash' wording left; the order is defined once, in the state_md5
 # bullet of docs/EVAL.md's ledger section, and that bullet names both siblings.
 v34_old=$(grep -ciE 'state-file hash' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" | awk -F: '{ s += $NF } END { print s + 0 }')
 [ "$v34_old" = "0" ] || v34_bad="$v34_bad [$v34_old 'state-file hash' line(s) left in agents/EVAL.md and commands/mozart-eval.md]"
 v34_md5=$(printf '%s\n' "$v34_ledger" | grep -m1 -F -- '`state_md5`**:')
 for v34_sib in .ledger.md .conductor.md 'in that order'; do
-  printf '%s' "$v34_md5" | grep -qF -- "$v34_sib" || v34_bad="$v34_bad [docs/EVAL.md's state_md5 bullet (ledger section) does not say '$v34_sib']"
+  grep -qF -- "$v34_sib" <<<"$v34_md5" || v34_bad="$v34_bad [docs/EVAL.md's state_md5 bullet (ledger section) does not say '$v34_sib']"
 done
 [ "$(grep -c 'in that order' "$gate_root/docs/EVAL.md")" = "1" ] || v34_bad="$v34_bad [docs/EVAL.md must define the state_md5 concatenation order exactly once]"
 for v34_f in agents/EVAL.md commands/mozart-eval.md docs/EVAL.md; do
@@ -3035,6 +3089,9 @@ v34_corpus="$gate_root/tests/fixtures/conductor/lint/.mozart/plans/active"
 v34_tmp=$(mktemp -d) || { v34_bad="$v34_bad [mktemp failed]"; v34_tmp=/nonexistent-v34; }
 v34_n=0
 v34_lint="$gate_root/scripts/mozart-lint.sh"
+# Every case runs under the UTF-8 locale V11 resolved (see gate_utf8); the
+# multibyte cases run once more under C.
+v34_loc="$gate_utf8"
 # Lint exits 0 on a root with no finding and 1 on a root with findings; metrics
 # exits 0 on any root holding a state file. Both statuses are read beside the
 # output, so a script that crashes (empty output, nonzero status) cannot pass as
@@ -3044,9 +3101,9 @@ v34_case() { # $1 = slug, $2 = 1 when lint must report the Phase line, $3 = metr
   root="$v34_tmp/$slug"
   mkdir -p "$root/.mozart/plans/active" && cp "$v34_corpus/$slug.state.md" "$root/.mozart/plans/active/" \
     || { v34_bad="$v34_bad [$slug: could not stage the fixture]"; return; }
-  lout=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$v34_lint" "$root" 2>&1); lrc=$?
+  lout=$(LC_ALL="$v34_loc" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$v34_lint" "$root" 2>&1); lrc=$?
   fired=$(printf '%s\n' "$lout" | grep -c 'ticked Phase line has no linked conductor row' || true)
-  mout=$(bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1); mrc=$?
+  mout=$(LC_ALL="$v34_loc" bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1); mrc=$?
   bucket=$(printf '%s\n' "$mout" | sed -n 's/^Campaigns: 1 (1 \(.*\))$/\1/p')
   v34_n=$((v34_n + 1))
   want_lrc=0; [ "$want_fire" = "1" ] && want_lrc=1
@@ -3087,8 +3144,14 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-11-08-phase-boldcombined 0 STANDARD
   v34_case 2099-11-09-phase-ticked 1 UNTIERED
   v34_case 2099-11-14-phase-boldlist 1 UNTIERED
+  v34_case 2099-11-16-phase-lensemdash 0 HEAVY
+  v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
+  v34_loc=C
+  v34_case 2099-11-16-phase-lensemdash 0 HEAVY
+  v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
+  v34_loc="$gate_utf8"
 fi
-[ "$v34_n" -ge 30 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 30]"
+[ "$v34_n" -ge 34 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 34]"
 
 # The helper can fail. A lint that crashes prints nothing and exits 3: without
 # the status check that reads as "fired 0 times", the answer a silent case wants.
@@ -3154,16 +3217,31 @@ BEGIN {
   chk("**Tier**: `HEAVY`", "")
   chk("**Tier**: *STANDARD* (plain call)", "")
   chk("**Tier**: _LIGHT_", "")
+  chk("**Tier**: STANDARD(x)", "STANDARD")
+  chk("**Tier**: STANDARD—free text", "STANDARD")
+  chk("**Tier**: STANDARD(escalated to HEAVY)", "")
+  chk("**Tier**: STANDARD (NOHEAVY)", "STANDARD")
+  chk("**Tier**: STANDARD (xHEAVY)", "STANDARD")
+  chk("**Tier**: HEAVY (maintainer confirmed HEAVY)", "HEAVY")
+  chk("**Tier**: **HEAVY** — HEAVY after review", "HEAVY")
+  chk("**Tier**: STANDARD (escalated→HEAVY)", "")
+  chk("**Tier**: STANDARD (escalated to HEAVY—maintainer)", "")
+  chk("**Tier**: STANDARD (HEAVY…)", "")
+  chk("**Tier**: STANDARD — now “HEAVY”", "")
+  chk("**Tier**: STANDARD—HEAVY", "")
+  chk("**Tier**: STANDARD (“HEAVYish”)", "STANDARD")
   printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY")
   printf "{%d}", n
 }'
-v34_got=$( . "$v34_lib" 2>/dev/null; awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
-v34_want="[0][1][1][0]{43}"
-[ "$v34_got" = "$v34_want" ] \
-  || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface returned '$v34_got', want '$v34_want']"
+v34_want="[0][1][1][0]{56}"
+for v34_l in "$gate_utf8" C; do
+  v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
+  [ "$v34_got" = "$v34_want" ] \
+    || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
+done
 
 # Neither script spells the Tier field itself: the rule lives in the library.
 for v34_s in mozart-lint mozart-metrics; do
@@ -3174,7 +3252,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 43 library tier_of cases; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases, each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)
@@ -3231,14 +3309,14 @@ if v35_pick bonly b; then
   v35_fired=$(v35_lint "$v35_tmp/bonly" | grep -c '^LINT \[escape-unrecorded\]' || true)
   v35_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v35_tmp/bonly" 2>&1)
   [ "$v35_fired" = "1" ] || v35_bad="$v35_bad [B alone: lint fired $v35_fired time(s), want 1]"
-  printf '%s\n' "$v35_m" | grep -qxF 'Escapes (Traces-to links): 0' || v35_bad="$v35_bad [B alone: metrics did not print 'Escapes (Traces-to links): 0']"
+  grep -qxF 'Escapes (Traces-to links): 0' <<<"$v35_m" || v35_bad="$v35_bad [B alone: metrics did not print 'Escapes (Traces-to links): 0']"
 else
   v35_bad="$v35_bad [the B-only copy could not be built]"
 fi
 # A repo with plans and no investigations or incidents tree: no error, no finding.
 if v35_pick noinv a && rm -rf "$v35_tmp/noinv/.mozart/investigations"; then
   v35_l=$(v35_lint "$v35_tmp/noinv"; echo "rc=$?")
-  printf '%s\n' "$v35_l" | grep -q '^mozart-lint: clean' && printf '%s\n' "$v35_l" | grep -qxF 'rc=0' \
+  grep -q '^mozart-lint: clean' <<<"$v35_l" && grep -qxF 'rc=0' <<<"$v35_l" \
     || v35_bad="$v35_bad [a repo with no investigations or incidents tree did not lint clean: $(printf '%s' "$v35_l" | tail -2 | tr '\n' ' ')]"
 else
   v35_bad="$v35_bad [the no-investigations copy could not be built]"
@@ -3379,7 +3457,7 @@ v28_missing() { # $1 = text -> the union terms it lacks, one per line
   local name pat
   while IFS=$'\t' read -r name pat; do
     [ -n "$name" ] || continue
-    printf '%s\n' "$1" | grep -qE -- "$pat" || printf '%s\n' "$name"
+    grep -qE -- "$pat" <<<"$1" || printf '%s\n' "$name"
   done < <(printf '%s\n' "$v28_terms")
 }
 v28_once() { # $1 = text, $2 = fixed phrase (case-insensitive), $3 = label -> appends to v28_bad unless it occurs on exactly one line
@@ -3395,11 +3473,11 @@ printf '%s\n' '| Tier | What |' '|---|---|' '| **TINY** | x |' '| **LIGHT** | y 
 printf '%s\n' '```' '| Stage | TINY | STANDARD |' '|---|---|---|' '```' > "$v28_tmp/fenced.md"
 printf '%s\n' '| Tier | <TINY \| STANDARD \| HEAVY> |' '|---|---|' '| a | b |' > "$v28_tmp/escaped.md"
 v28_t=$(v28_tables "$v28_tmp/ragged.md")
-printf '%s' "$v28_t" | grep -qE 'light=1 ragged= 4$' || v28_bad="$v28_bad [self-test: a table with one short row was not reported ragged at its line: $v28_t]"
+grep -qE 'light=1 ragged= 4$' <<<"$v28_t" || v28_bad="$v28_bad [self-test: a table with one short row was not reported ragged at its line: $v28_t]"
 v28_t=$(v28_tables "$v28_tmp/nolight.md")
-printf '%s' "$v28_t" | grep -q 'light=0' || v28_bad="$v28_bad [self-test: a TINY/STANDARD table with no LIGHT header was not reported light=0: $v28_t]"
+grep -q 'light=0' <<<"$v28_t" || v28_bad="$v28_bad [self-test: a TINY/STANDARD table with no LIGHT header was not reported light=0: $v28_t]"
 v28_t=$(v28_tables "$v28_tmp/column.md")
-printf '%s' "$v28_t" | grep -q 'light=1 ragged= *$' || v28_bad="$v28_bad [self-test: a table that names the tiers in its first column was not found, or its LIGHT row was missed: $v28_t]"
+grep -q 'light=1 ragged= *$' <<<"$v28_t" || v28_bad="$v28_bad [self-test: a table that names the tiers in its first column was not found, or its LIGHT row was missed: $v28_t]"
 [ -z "$(v28_tables "$v28_tmp/fenced.md")" ] || v28_bad="$v28_bad [self-test: a table inside a code fence was scanned]"
 [ -z "$(v28_tables "$v28_tmp/escaped.md")" ] || v28_bad="$v28_bad [self-test: an escaped-pipe cell was read as a tier table]"
 printf '%s\n' 'Tiers: TINY / STANDARD / HEAVY' > "$v28_tmp/gap.md"
@@ -3425,14 +3503,14 @@ v28_ntab=0
 # agents/OPERATE.md is out of scope (its tier axis is OPERATE's own); its table is asserted to exist and to
 # stay three-tier, so the exclusion is a checked fact and not a gap.
 v28_op=$(v28_tables agents/OPERATE.md)
-printf '%s' "$v28_op" | grep -q 'light=0' || v28_bad="$v28_bad [exclusion: agents/OPERATE.md no longer has its own three-tier table (found: '$v28_op')]"
+grep -q 'light=0' <<<"$v28_op" || v28_bad="$v28_bad [exclusion: agents/OPERATE.md no longer has its own three-tier table (found: '$v28_op')]"
 for v28_f in $v28_docs; do
   [ "$v28_f" = "agents/OPERATE.md" ] && continue
   while IFS= read -r v28_t; do
     [ -n "$v28_t" ] || continue
     v28_ntab=$((v28_ntab + 1))
-    printf '%s' "$v28_t" | grep -q 'light=1' || v28_bad="$v28_bad [tier table does not name LIGHT: ${v28_t%% rows*}]"
-    printf '%s' "$v28_t" | grep -qE 'ragged= *$' || v28_bad="$v28_bad [tier table has a row whose cell count differs from the header: ${v28_t#*ragged=}  in ${v28_t%% rows*}]"
+    grep -q 'light=1' <<<"$v28_t" || v28_bad="$v28_bad [tier table does not name LIGHT: ${v28_t%% rows*}]"
+    grep -qE 'ragged= *$' <<<"$v28_t" || v28_bad="$v28_bad [tier table has a row whose cell count differs from the header: ${v28_t#*ragged=}  in ${v28_t%% rows*}]"
   done < <(v28_tables "$v28_f")
 done
 [ "$v28_ntab" -ge 4 ] || v28_bad="$v28_bad [only $v28_ntab tier table(s) found, floor 4: mozart.md tiers, PIPELINE adjustments, PIPELINE tier policy, README]"
@@ -3472,10 +3550,10 @@ v28_mz=$(v28_sec agents/mozart.md '^## Task tiers' '^## ')
 v28_mz_light=$(v28_rows "$v28_mz" LIGHT)
 [ "$(printf '%s\n' "$v28_mz_light" | grep -c .)" = "1" ] || v28_bad="$v28_bad [agents/mozart.md tier table must hold exactly one LIGHT row]"
 for v28_p in 'short plan' 'bob' 'codex r2 runs'; do
-  printf '%s' "$v28_mz_light" | grep -qF -- "$v28_p" || v28_bad="$v28_bad [mozart.md LIGHT row does not say '$v28_p']"
+  grep -qF -- "$v28_p" <<<"$v28_mz_light" || v28_bad="$v28_bad [mozart.md LIGHT row does not say '$v28_p']"
 done
-printf '%s' "$v28_mz_light" | grep -qiE 'skip[^;|]*codex r2|codex r2 (is )?(skipped|optional)' && v28_bad="$v28_bad [mozart.md LIGHT row skips or softens codex r2]"
-printf '%s' "$v28_mz_light" | grep -qF 'sub-50-LOC' && v28_bad="$v28_bad [mozart.md LIGHT row carries the sub-50-LOC skip clause]"
+grep -qiE 'skip[^;|]*codex r2|codex r2 (is )?(skipped|optional)' <<<"$v28_mz_light" && v28_bad="$v28_bad [mozart.md LIGHT row skips or softens codex r2]"
+grep -qF 'sub-50-LOC' <<<"$v28_mz_light" && v28_bad="$v28_bad [mozart.md LIGHT row carries the sub-50-LOC skip clause]"
 v28_once "$v28_mz" "any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT" "mozart.md tier text"
 v28_once "$v28_mz" 'lockfile lines never count toward the size bound' "mozart.md tier text"
 v28_once "$v28_mz" 'disqualifies LIGHT outright' "mozart.md tier text"
@@ -3485,7 +3563,7 @@ v28_once "$v28_mz" 'the tier follows the surface' "mozart.md tier text"
 v28_once "$v28_mz" 'tiers only go up' "mozart.md tier text"
 v28_esc=$(printf '%s\n' "$v28_mz" | grep -i -F 'tiers only go up')
 for v28_p in 'update `**Tier**:` in place' 'log the decision' 'run the stages the higher tier requires that have not run' 'give each ticked phase its conductor row'; do
-  printf '%s' "$v28_esc" | grep -qF -- "$v28_p" || v28_bad="$v28_bad [the escalation rule does not say: $v28_p]"
+  grep -qF -- "$v28_p" <<<"$v28_esc" || v28_bad="$v28_bad [the escalation rule does not say: $v28_p]"
 done
 v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`'
 [ "$(printf '%s\n' "$v28_mz" | grep -cF -- "$v28_list")" = "1" ] || v28_bad="$v28_bad [the closed seven-word surface list must occur on exactly one line of mozart.md's tier text]"
@@ -3543,7 +3621,7 @@ for v28_pair in "DELIVER stage-4 xander:$v28_x_del4" "DELIVER stage-8 xander:$v2
   [ "$(printf '%s\n' "${v28_pair#*:}" | grep -c .)" = "1" ] || v28_bad="$v28_bad [${v28_pair%%:*}: the heading-scoped extraction must yield exactly one row]"
 done
 for v28_pair in "DELIVER stage-8 xander:$v28_x_del8" "DELIVER stage-8 ian:$v28_i_del8" "PIPELINE stage-8 xander:$v28_x_pip8" "PIPELINE stage-8 ian:$v28_i_pip8"; do
-  printf '%s' "${v28_pair#*:}" | grep -qF 'touches the recorded HEAVY surface' || v28_bad="$v28_bad [${v28_pair%%:*} row lacks the surface-trigger phrase 'touches the recorded HEAVY surface']"
+  grep -qF 'touches the recorded HEAVY surface' <<<"${v28_pair#*:}" || v28_bad="$v28_bad [${v28_pair%%:*} row lacks the surface-trigger phrase 'touches the recorded HEAVY surface']"
 done
 for v28_pair in "DELIVER stage-4:$v28_x_del4" "DELIVER stage-8:$v28_x_del8" "PIPELINE stage-4:$v28_x_pip4" "PIPELINE stage-8:$v28_x_pip8"; do
   v28_m=$(v28_missing "${v28_pair#*:}" | tr '\n' ',')
@@ -3551,11 +3629,11 @@ for v28_pair in "DELIVER stage-4:$v28_x_del4" "DELIVER stage-8:$v28_x_del8" "PIP
 done
 v28_n_terms=$(printf '%s\n' "$v28_terms" | grep -c .)
 [ "$v28_n_terms" = "12" ] || v28_bad="$v28_bad [the union term table holds $v28_n_terms terms, want 12]"
-printf '%s' "$v28_x_pip4$v28_x_del4" | grep -qF 'CSP' || v28_bad="$v28_bad [named member CSP absent from the stage-4 rows]"
-printf '%s' "$v28_x_pip8$v28_x_del8" | grep -qF 'outbound requests' || v28_bad="$v28_bad [named member 'outbound requests' absent from the stage-8 rows]"
+grep -qF 'CSP' <<<"$v28_x_pip4$v28_x_del4" || v28_bad="$v28_bad [named member CSP absent from the stage-4 rows]"
+grep -qF 'outbound requests' <<<"$v28_x_pip8$v28_x_del8" || v28_bad="$v28_bad [named member 'outbound requests' absent from the stage-8 rows]"
 # The stage-2b trigger is deliberately narrower: asserted, so the exclusion is a fact and not an omission.
-printf '%s' "$v28_x_pip2b" | grep -qF 'CSP' && v28_bad="$v28_bad [PIPELINE stage-2b xander row carries CSP: it must stay narrower than stage 4 and stage 8]"
-printf '%s\n' "$v28_del_s2b" | grep -qF 'CSP' && v28_bad="$v28_bad [DELIVER stage-2b section carries CSP: it must stay narrower than stage 4 and stage 8]"
+grep -qF 'CSP' <<<"$v28_x_pip2b" && v28_bad="$v28_bad [PIPELINE stage-2b xander row carries CSP: it must stay narrower than stage 4 and stage 8]"
+grep -qF 'CSP' <<<"$v28_del_s2b" && v28_bad="$v28_bad [DELIVER stage-2b section carries CSP: it must stay narrower than stage 4 and stage 8]"
 v28_xm=$(v28_missing "$(sed -n '/^Mozart invokes you on plans or slices/p' agents/xander.md)" | tr '\n' ',')
 [ -z "$v28_xm" ] || v28_bad="$v28_bad [agents/xander.md trigger paragraph lacks union term(s): $v28_xm]"
 grep -q '^Mozart invokes you on plans or slices' agents/xander.md || v28_bad="$v28_bad [agents/xander.md trigger paragraph moved: its first words changed]"
@@ -3576,7 +3654,7 @@ v28_s4_tab=$(printf '%s\n' "$v28_del_s4" | grep -n '^| Reviewer |' | head -1 | c
 v28_light=$(printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]LIGHT[*][*]:')
 [ "$(printf '%s\n' "$v28_light" | grep -c .)" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must hold exactly one LIGHT bullet]"
 [ "$(printf '%s' "$v28_light" | sed 's/^- [*][*]LIGHT[*][*]: *//; s/ *$//')" = "run" ] || v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet text is not exactly 'run': $v28_light]"
-printf '%s' "$v28_light" | grep -qi 'skip' && v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet contains skip]"
+grep -qi 'skip' <<<"$v28_light" && v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet contains skip]"
 [ "$(printf '%s\n' "$v28_del_s9" | grep -c 'sub-50-LOC')" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must carry the sub-50-LOC clause exactly once]"
 printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:' | grep -qF 'sub-50-LOC' || v28_bad="$v28_bad [the sub-50-LOC clause is not on the STANDARD bullet]"
 
@@ -3598,17 +3676,17 @@ for v28_f in agents/mozart.md agents/DELIVER.md agents/PIPELINE.md agents/INTAKE
 done
 v28_ig=$(v28_sec INTEGRATION.md '^## 6\. Pipeline flags [(]stanza optional[)]' '^---$')
 [ "$(printf '%s\n' "$v28_ig" | grep -c .)" -ge 5 ] || v28_bad="$v28_bad [INTEGRATION.md section '6. Pipeline flags (stanza optional)' is missing or under 5 lines]"
-printf '%s\n' "$v28_ig" | grep -qF 'every_phase: true' || v28_bad="$v28_bad [INTEGRATION.md section 6 does not show every_phase: true]"
+grep -qF 'every_phase: true' <<<"$v28_ig" || v28_bad="$v28_bad [INTEGRATION.md section 6 does not show every_phase: true]"
 v28_ih=$(v28_sec INTEGRATION.md '^## How agents read these stanzas' '^---$')
 printf '%s\n' "$v28_ih" | grep -F 'every_phase' | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md How-agents-read paragraph does not say mozart reads every_phase and never writes it]"
-printf '%s\n' "$v28_ig" | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md section 6 does not say mozart never writes the stanza]"
+grep -qE 'never writes' <<<"$v28_ig" || v28_bad="$v28_bad [INTEGRATION.md section 6 does not say mozart never writes the stanza]"
 
 # ---- 7. dead persona text (step 28a) ---------------------------------------
 [ "$(grep -cE '^## Communicate as you work' agents/mozart.md)" = "0" ] || v28_bad="$v28_bad [agents/mozart.md still has its '## Communicate as you work' section]"
 [ "$(grep -c 'You run in a subprocess' agents/mozart.md)" = "0" ] || v28_bad="$v28_bad [agents/mozart.md still says 'You run in a subprocess']"
 v28_comm=$(grep -lE '^## Communicate as you work' agents/*.md | grep -vc '^agents/mozart\.md$')
 [ "$v28_comm" = "17" ] || v28_bad="$v28_bad [control: $v28_comm agents/*.md besides mozart.md carry the Communicate section, want 17]"
-printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" || v28_bad="$v28_bad [the V16 ceiling for agents/mozart.md is no longer 55000]"
+grep -qxF "$(printf 'agents/mozart.md\t55000')" <<<"$v16_budgets" || v28_bad="$v28_bad [the V16 ceiling for agents/mozart.md is no longer 55000]"
 
 # ---- 8. a LIGHT campaign is read by metrics --------------------------------
 v28_lf="$gate_root/tests/fixtures/conductor/metrics-light/.mozart/plans/finished/2099-10-20-deliver-light.state.md"
@@ -3627,7 +3705,7 @@ if [ -f "$v28_lf" ]; then
   [ "$(v28_bucket combined)" = "LIGHT" ] || v28_bad="$v28_bad [metrics does not bucket a combined header carrying LIGHT as LIGHT: '$(v28_bucket combined)']"
   [ "$(v28_bucket template)" = "UNTIERED" ] || v28_bad="$v28_bad [metrics reads the raw state-template Tier line ($v28_tier_template) as '$(v28_bucket template)', want UNTIERED]"
   [ "$(v28_bucket heavylist)" = "UNTIERED" ] || v28_bad="$v28_bad [metrics reads a pipe-list of all four tiers as '$(v28_bucket heavylist)', want UNTIERED]"
-  printf '%s' "$v28_tier_template" | grep -qF 'TINY | LIGHT | STANDARD | HEAVY' || v28_bad="$v28_bad [agents/TEMPLATE-STATE.md Tier line does not list LIGHT]"
+  grep -qF 'TINY | LIGHT | STANDARD | HEAVY' <<<"$v28_tier_template" || v28_bad="$v28_bad [agents/TEMPLATE-STATE.md Tier line does not list LIGHT]"
 else
   v28_bad="$v28_bad [the LIGHT metrics fixture is missing]"
 fi

@@ -195,10 +195,10 @@ function lens_recorded(claim, lens,   rest, p, pre, after, dash, reason) {
   dash = "—"
   rest = claim
   while ((p = index(rest, lens ":")) > 0) {
-    pre = (p > 1) ? substr(rest, p - 1, 1) : ""
+    pre = substr(rest, 1, p - 1)
     after = trim(substr(rest, p + length(lens) + 1))
     rest = substr(rest, p + length(lens) + 1)
-    if (pre ~ /[A-Za-z0-9_]/) continue
+    if (pre ~ /[A-Za-z0-9_]$/) continue
     if (after ~ /^run([^A-Za-z0-9]|$)/) return 1
     if (after ~ /^no trigger/) {
       after = trim(substr(after, 11))
@@ -751,9 +751,9 @@ IFS= read -r -d '' ESCAPE_RECORDED_AWK <<'ESCAPE_RECORDED_AWK_EOF' || true
 function has_token(line, tok,   off, rest, p, pre, post) {
   off = 0; rest = line
   while ((p = index(rest, tok)) > 0) {
-    pre = (off + p > 1) ? substr(line, off + p - 1, 1) : ""
-    post = substr(line, off + p + length(tok), 1)
-    if (pre !~ /[a-z0-9-]/ && post !~ /[a-z0-9-]/) return 1
+    pre = substr(line, 1, off + p - 1)
+    post = substr(line, off + p + length(tok))
+    if (pre !~ /[a-z0-9-]$/ && post !~ /^[a-z0-9-]/) return 1
     off += p
     rest = substr(line, off + 1)
   }

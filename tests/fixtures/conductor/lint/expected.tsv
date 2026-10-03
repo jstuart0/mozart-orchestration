@@ -129,3 +129,5 @@ lint	conductor-row	2099-11-10-phase-lenshyphen	CR1
 lint	conductor-row	2099-11-11-phase-lensrunning	CR1
 lint	conductor-row	2099-11-12-phase-lenswsreason	CR1
 lint	conductor-row	2099-11-15-phase-lenscell	CR1
+lint	conductor-row	2099-11-17-phase-heavyrepeat	CR1
+lint	escape-unrecorded	2099-05-28-deliver-esc-mb	2099-09-28-diagnose-mbunrec

@@ -121,13 +121,15 @@ function tier_of(line,   t, rest, tok, after) {
   return tok
 }
 # True when s holds HEAVY as a whole word: not preceded or followed by a letter
-# or digit ("HEAVYish" and "NOHEAVY" are not).
+# or digit ("HEAVYish" and "NOHEAVY" are not). The neighbours are tested as a
+# whole prefix and suffix, never as one byte: awk here splits bytes, and a lone
+# byte of a multibyte character next to HEAVY aborts it in a UTF-8 locale.
 function has_heavy_word(s,   i, n) {
   n = length(s)
   for (i = 1; i + 4 <= n; i++) {
     if (substr(s, i, 5) != "HEAVY") continue
-    if (i > 1 && substr(s, i - 1, 1) ~ /[A-Za-z0-9]/) continue
-    if (i + 5 <= n && substr(s, i + 5, 1) ~ /[A-Za-z0-9]/) continue
+    if (substr(s, 1, i - 1) ~ /[A-Za-z0-9]$/) continue
+    if (substr(s, i + 5) ~ /^[A-Za-z0-9]/) continue
     return 1
   }
   return 0

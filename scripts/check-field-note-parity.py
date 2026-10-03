@@ -321,6 +321,7 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-11-11-phase-lensrunning", "CR1"),
     ("conductor-row", "2099-11-12-phase-lenswsreason", "CR1"),
     ("conductor-row", "2099-11-15-phase-lenscell", "CR1"),
+    ("conductor-row", "2099-11-17-phase-heavyrepeat", "CR1"),
     # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
     ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
     ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
@@ -337,6 +338,7 @@ NAMED_PRESENT = (
     ("escape-unrecorded", "2099-09-18-diagnose-dotted", "2099-09-18-diagnose-dotted"),
     ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-extslug"),
     ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrap2"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbunrec"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -371,6 +373,10 @@ NAMED_ABSENT_TRIPLES = (
     ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-open"),
     ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-external"),
     ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrapcarry"),
+    # a multibyte character beside the slug is not a slug character: still recorded
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbquote"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbdash"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbpre"),
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the
@@ -406,6 +412,7 @@ NAMED_MESSAGES = (
     ("2099-11-11-phase-lensrunning", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-12-phase-lenswsreason", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-15-phase-lenscell", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-17-phase-heavyrepeat", "CR1", "HEAVY phase row does not record ian and xander"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -424,6 +431,8 @@ NAMED_ABSENT_SLUGS = (
     "2099-10-25-phase-escalated", "2099-10-28-phase-lowersurface",
     # a balanced ** wrapper is not part of the value; a free-text STANDARD is still STANDARD
     "2099-10-30-phase-boldstd", "2099-11-06-phase-stdfree", "2099-11-08-phase-boldcombined",
+    # an em dash before the lens name is not a letter: both lenses recorded
+    "2099-11-16-phase-lensemdash",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing
@@ -448,10 +457,24 @@ def read_tsv(path):
     return rows
 
 
+def utf8_locale():
+    """A UTF-8 locale this machine has, or exit. Lint's awk dies on a lone byte
+    of a multibyte character only in such a locale, so a harness that runs under
+    whatever the caller exported can pass without ever meeting the failure."""
+    names = subprocess.run(["locale", "-a"], capture_output=True, text=True).stdout.split()
+    found = [n for n in names if re.search(r"\.utf-?8$", n, re.I)]
+    if not found:
+        print("FAIL  behaviour: no UTF-8 locale in `locale -a`; the multibyte lint "
+              "fixtures cannot be exercised")
+        sys.exit(1)
+    return "en_US.UTF-8" if "en_US.UTF-8" in found else found[0]
+
+
 def run_script(script, root, env_overrides):
     env = dict(os.environ)
     env.pop("MOZART_LINT_CONDUCTOR_SINCE", None)
     env.update(env_overrides)
+    env["LC_ALL"] = utf8_locale()
     if not script.exists():
         return None, f"script not found: {script}"
     proc = subprocess.run(["bash", str(script), str(root)],
