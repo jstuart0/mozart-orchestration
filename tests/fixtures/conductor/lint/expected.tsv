@@ -45,3 +45,26 @@ lint	conductor-row	2099-08-15-deliver-pipe-raw	CR1
 lint	conductor-row	2099-08-16-deliver-pipe-escaped	CR1
 lint	conductor-missing	active-2099-08-12-deliver-prefix	-
 lint	conductor-unlinked	finished-2099-08-13-deliver-prefix	5
+lint	conductor-unlinked	2099-09-02-deliver-split-unlinked	9
+lint	conductor-unlinked	2099-09-03-deliver-split-rejected	F2
+lint	split-layout	2099-09-04-deliver-split-dupconductor	conductor-record-duplicate
+lint	conductor-unlinked	2099-09-04-deliver-split-dupconductor	9
+lint	split-layout	2099-09-05-deliver-split-dupledger	findings-ledger-duplicate
+lint	split-layout	2099-09-06-deliver-split-ledgermissing	findings-ledger-missing
+lint	split-layout	2099-05-21-deliver-split-conductormissing	conductor-record-missing
+lint	split-layout	2099-09-07-deliver-split-ledgernohead	findings-ledger-noheading
+lint	split-layout	2099-09-08-deliver-split-conductornohead	conductor-record-noheading
+lint	conductor-missing	2099-09-10-deliver-split-emptyconductor	-
+lint	conductor-unlinked	2099-09-12-deliver-mixed-conductor	F3
+lint	stranded-artifacts	2099-09-13-deliver-split-halfmoved	state is in finished/ but sibling artifact(s) remain in active/
+lint	split-layout	2099-09-13-deliver-split-halfmoved	findings-ledger-missing
+lint	stale-paths	2099-09-14-deliver-split-pathsstale	Paths block still points at plans/active/ (closeout didn't rewrite it)
+lint	split-layout	2099-09-16-deliver-split-liedecl	findings-ledger-missing
+lint	conductor-unlinked	2099-09-18-deliver-split-crlf	F2
+lint	conductor-row	2099-09-18-deliver-split-crlf	CR2
+lint	conductor-row	2099-09-18-deliver-split-crlf	CR3
+lint	conductor-unlinked	2099-09-19-deliver-split-quoted	5
+lint	conductor-unlinked	2099-09-20-deliver-zerostate	F2
+lint	conductor-unlinked	2099-05-25-deliver-split-preadopted	9
+lint	conductor-unlinked	finished-2099-09-21-deliver-split-fprefix	5
+lint	conductor-unlinked	2099-09-23-deliver-split-legacyroot	F2

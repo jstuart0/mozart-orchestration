@@ -1216,12 +1216,15 @@ report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
 # repo, script under test from $gate_root, so pointing gate_root at a base
 # worktree exercises base scripts against head fixtures. Category set is the
 # six K/L names plus missing-2b (phase 5b, step 31, now that Check J's
-# DELIVER-family gating is fixed).
+# DELIVER-family gating is fixed), plus split-layout (Check M, phase 2b) and
+# the two older categories the split fixtures exercise: stranded-artifacts
+# (Check H, a ledger left behind in active/) and stale-paths (Check G, a Paths
+# block that still names active/).
 # ---------------------------------------------------------------------------
 v11_script_repo=$(dirname "$(dirname "$gatefile")")
 v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
-v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b'
+v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b|split-layout|stranded-artifacts|stale-paths'
 v11_bad=""
 v11_scratch=$(mktemp -d) || { v11_bad="$v11_bad [mktemp failed -- no scratch space for the corpus copies]"; v11_scratch=""; }
 
@@ -1230,6 +1233,10 @@ v11_scratch=$(mktemp -d) || { v11_bad="$v11_bad [mktemp failed -- no scratch spa
 # to it — a floor that cannot see the layouts the check was blind to cannot
 # notice them being deleted. Count every state file under the corpus.
 v11_floor=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+# Sibling files get their own floors: a state-file floor cannot notice a split
+# fixture losing its ledger or conductor half.
+v11_ledger_floor=$(find "$v11_corpus" -name '*.ledger.md' 2>/dev/null | wc -l | tr -d ' ')
+v11_conductor_floor=$(find "$v11_corpus" -name '*.conductor.md' 2>/dev/null | wc -l | tr -d ' ')
 # ...and assert each of the six layouts K/L must reach is actually populated.
 # A total floor alone cannot tell "47 files, all in active/" from "47 files
 # across six layouts"; the second is what this corpus is for.
@@ -1246,6 +1253,15 @@ v11_layout_probe "legacy active- prefix" "$v11_corpus/.mozart/plans"/active-*.st
 v11_layout_probe "legacy finished- prefix" "$v11_corpus/.mozart/plans"/finished-*.state.md
 v11_layout_probe "legacy flat prefixless" "$v11_corpus/.mozart/plans"/[0-9]*.state.md
 v11_layout_probe "legacy root thoughts/shared" "$v11_corpus/thoughts/shared/plans"/[0-9]*.state.md
+# ...and the split pair (state + ledger + conductor) in each layout it can sit in.
+v11_layout_probe "split pair current/active (ledger)" "$v11_corpus/.mozart/plans/active"/*.ledger.md
+v11_layout_probe "split pair current/active (conductor)" "$v11_corpus/.mozart/plans/active"/*.conductor.md
+v11_layout_probe "split pair current/finished (ledger)" "$v11_corpus/.mozart/plans/finished"/*.ledger.md
+v11_layout_probe "split pair current/finished (conductor)" "$v11_corpus/.mozart/plans/finished"/*.conductor.md
+v11_layout_probe "split pair legacy active- prefix" "$v11_corpus/.mozart/plans"/active-*.conductor.md
+v11_layout_probe "split pair legacy finished- prefix" "$v11_corpus/.mozart/plans"/finished-*.conductor.md
+v11_layout_probe "split pair legacy flat prefixless" "$v11_corpus/.mozart/plans"/[0-9]*.conductor.md
+v11_layout_probe "split pair legacy root thoughts/shared" "$v11_corpus/thoughts/shared/plans"/[0-9]*.ledger.md
 
 v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restricted to $1 (pipe-joined)
   awk -F'\t' -v cats="$1" '
@@ -1357,7 +1373,28 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
     "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
     "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')" \
-    "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')"
+    "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')" \
+    "$(printf 'split-layout\t2099-09-05-deliver-split-dupledger\tfindings-ledger-duplicate')" \
+    "$(printf 'split-layout\t2099-09-04-deliver-split-dupconductor\tconductor-record-duplicate')" \
+    "$(printf 'split-layout\t2099-09-06-deliver-split-ledgermissing\tfindings-ledger-missing')" \
+    "$(printf 'split-layout\t2099-05-21-deliver-split-conductormissing\tconductor-record-missing')" \
+    "$(printf 'split-layout\t2099-09-07-deliver-split-ledgernohead\tfindings-ledger-noheading')" \
+    "$(printf 'split-layout\t2099-09-08-deliver-split-conductornohead\tconductor-record-noheading')" \
+    "$(printf 'conductor-unlinked\t2099-09-04-deliver-split-dupconductor\t9')" \
+    "$(printf 'conductor-unlinked\t2099-09-02-deliver-split-unlinked\t9')" \
+    "$(printf 'conductor-unlinked\t2099-09-03-deliver-split-rejected\tF2')" \
+    "$(printf 'conductor-missing\t2099-09-10-deliver-split-emptyconductor\t-')" \
+    "$(printf 'conductor-unlinked\t2099-09-12-deliver-mixed-conductor\tF3')" \
+    "$(printf 'stranded-artifacts\t2099-09-13-deliver-split-halfmoved\tstate is in finished/ but sibling artifact(s) remain in active/')" \
+    "$(printf 'split-layout\t2099-09-13-deliver-split-halfmoved\tfindings-ledger-missing')" \
+    "$(printf 'conductor-unlinked\tfinished-2099-09-21-deliver-split-fprefix\t5')" \
+    "$(printf 'conductor-unlinked\t2099-09-23-deliver-split-legacyroot\tF2')" \
+    "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR2')" \
+    "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR3')" \
+    "$(printf 'conductor-unlinked\t2099-09-18-deliver-split-crlf\tF2')" \
+    "$(printf 'conductor-unlinked\t2099-09-19-deliver-split-quoted\t5')" \
+    "$(printf 'conductor-unlinked\t2099-05-25-deliver-split-preadopted\t9')" \
+    "$(printf 'conductor-unlinked\t2099-09-20-deliver-zerostate\tF2')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1371,6 +1408,29 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     && arm_bad="$arm_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
   printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
     && arm_bad="$arm_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
+  # Check M and the sibling readers must stay silent on these (the contract's
+  # 2.1, 2.2-silent, 2.8 a and b, 2.9, 2.11 Check M, 2.12, and the four
+  # layouts that carry a clean or exempt split pair).
+  local quiet
+  for quiet in 2099-09-01-deliver-split-clean 2099-05-23-deliver-split-exempt 2099-05-24-deliver-split-preledger \
+    2099-09-11-deliver-mixed-ledger 2099-09-15-deliver-split-placeholders active-2099-09-17-deliver-split-aprefix \
+    2099-09-22-deliver-split-flat 2099-09-24-deliver-split-finishedclean 2099-09-09-deliver-split-emptyledger \
+    2099-05-22-deliver-split-emptypre; do
+    printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
+      && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
+  done
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'split-layout\t2099-09-14-deliver-split-pathsstale\tfindings-ledger-missing')" \
+    && arm_bad="$arm_bad [named-absent member present: Check M fired on pathsstale, whose derived sibling exists]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-unlinked\t2099-09-05-deliver-split-dupledger\tF2')" \
+    && arm_bad="$arm_bad [named-absent member present: the in-file rejected row of dupledger was read though the sibling wins]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-missing\t2099-09-08-deliver-split-conductornohead\t-')" \
+    && arm_bad="$arm_bad [named-absent member present: a headingless conductor sibling also yielded conductor-missing (one cause, one line)]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR1')" \
+    && arm_bad="$arm_bad [named-absent member present: the CRLF sibling's well-formed CR1 fired]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-unlinked\t2099-09-18-deliver-split-crlf\t9')" \
+    && arm_bad="$arm_bad [named-absent member present: the CRLF sibling's CR1 (links 9) was not read]"
+  printf '%s\n' "$v11_ov_out" | grep -qE '^LINT .*\.(ledger|conductor)\.md — ' \
+    && arm_bad="$arm_bad [a LINT line names a sibling file as its path: findings are always reported against the state file]"
   printf '%s\n' "$ov_triples" | grep -q "	2099-07-27-operate-j	" \
     && arm_bad="$arm_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
   local slug
@@ -1401,6 +1461,16 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-08-15-deliver-pipe-raw.state.md" "CR1" "row has 8 cells, header has 7"
   msg_check "2099-08-16-deliver-pipe-escaped.state.md" "CR1" "empty or placeholder control"
   msg_check "2099-07-31-operate-ignore.state.md" "C7" "row has 8 cells, header has 7"
+  # Check M: six keys, six reasons. A key-only check would pass if two keys
+  # swapped their texts.
+  msg_check "2099-09-05-deliver-split-dupledger.state.md" "findings-ledger-duplicate" "## Findings ledger is in the state file and in the sibling ledger file"
+  msg_check "2099-09-04-deliver-split-dupconductor.state.md" "conductor-record-duplicate" "## Conductor record is in the state file and in the sibling conductor file"
+  msg_check "2099-09-06-deliver-split-ledgermissing.state.md" "findings-ledger-missing" "declares a findings ledger but the sibling ledger file"
+  msg_check "2099-05-21-deliver-split-conductormissing.state.md" "conductor-record-missing" "declares a conductor record but the sibling conductor file"
+  msg_check "2099-09-07-deliver-split-ledgernohead.state.md" "findings-ledger-noheading" "sibling ledger file has content outside a ## Findings ledger section"
+  msg_check "2099-09-08-deliver-split-conductornohead.state.md" "conductor-record-noheading" "sibling conductor file has content outside a ## Conductor record section"
+  msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
+  msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
     || arm_bad="$arm_bad [override-control triple absent from the no-override run]"
   printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
@@ -1441,7 +1511,9 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 48 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 48]"
+[ "$v11_floor" -ge 77 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 77]"
+[ "$v11_ledger_floor" -ge 15 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 15]"
+[ "$v11_conductor_floor" -ge 23 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 23]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 # Self-test: the widened comparison can fail. An ignored file planted in a
@@ -1460,7 +1532,7 @@ if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf 
   v11_bad="$v11_bad [CONDUCTOR_SINCE default '$v11_default' < 2026-09-18]"
 fi
 report "V11" "$([ -z "$v11_bad" ] && echo 0 || echo 1)" \
-  "${v11_bad:-lint corpus, in-repo and aged copy (raw aged lint emits $v11_stale_n stale-active): override rc=1, floor=$v11_floor across 6 layouts, $v11_arm_a_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
+  "${v11_bad:-lint corpus, in-repo and aged copy (raw aged lint emits $v11_stale_n stale-active): override rc=1, floor=$v11_floor across 6 layouts plus the split pair ($v11_ledger_floor ledger and $v11_conductor_floor conductor siblings), $v11_arm_a_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
 
 # ---------------------------------------------------------------------------
 # V12 — S3's row-required-gate table agrees with the lint constants (cut 2)
@@ -1551,6 +1623,18 @@ v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
   for member in "$@"; do
     printf '%s\n' "$out" | grep -qxF "$member" || v10b_bad="$v10b_bad [$case named member absent: $member]"
   done
+  if [ "$case" = "metrics-split" ]; then
+    # One lens per layout: the catches line is unordered, so each token is
+    # checked on its own. Present: the seven layouts and the split, mixed and
+    # single-file campaigns. Absent: everything that must not be read.
+    lens_line=$(printf '%s\n' "$out" | grep '^  by lens:')
+    for tok in bob ruby tessa percy xander ian dexter hank nina jackson scott sarah; do
+      printf '%s' "$lens_line" | grep -qE "(^| )$tok=1( |$)" || v10b_bad="$v10b_bad [metrics-split catches-by-lens token absent: $tok=1]"
+    done
+    for tok in shadow orphan zerostate nohead otto; do
+      printf '%s' "$lens_line" | grep -q "$tok=" && v10b_bad="$v10b_bad [metrics-split catches-by-lens token present: $tok= (must not be read)]"
+    done
+  fi
   if [ "$case" = "metrics-conductor" ]; then
     lens_line=$(printf '%s\n' "$out" | grep '^  rejected by lens:')
     for tok in "bob=1/1" "tessa=1/1" "ruby=1/1"; do
@@ -1565,9 +1649,14 @@ v10b_run_case "metrics-conductor" 6 \
   "  rejected (judgment): 1 of 3"
 v10b_run_case "metrics-vacuity" 1 \
   "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)"
+v10b_run_case "metrics-split" 15 \
+  "Campaigns: 15 (15 STANDARD)" \
+  "Confirmed catches (Critical/High, disposition=fixed): 12" \
+  "  sibling files skipped (no section heading): 2" \
+  "Wrong-override rate: 1/1 rejected findings later reversed (100%)"
 
 report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
-  "${v10b_bad:-metrics-conductor and metrics-vacuity: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
+  "${v10b_bad:-metrics-conductor, metrics-vacuity and metrics-split: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
 
 # ---------------------------------------------------------------------------
 # V13 — cross-file conductor-prose parity, section-scoped (phase 7)

@@ -188,22 +188,31 @@ def cmd_bullets(bullet_files, paths, roots):
 
 # --- V-FN3: behaviour (PD24 runner loop) ------------------------------------
 
-CASES = ("lint", "metrics-placeholder", "metrics-conductor", "metrics-vacuity")
+CASES = ("lint", "metrics-placeholder", "metrics-conductor", "metrics-vacuity", "metrics-split")
+# The six K/L names, missing-2b, split-layout (Check M), and the two older
+# categories the split fixtures exercise: stranded-artifacts (Check H, a ledger
+# left behind in active/) and stale-paths (Check G).
 LINT_CATEGORIES = frozenset({
     "conductor-missing", "conductor-unlinked", "conductor-row",
     "conductor-reference", "decision-trigger", "mutation-manifest",
-    "missing-2b",
+    "missing-2b", "split-layout", "stranded-artifacts", "stale-paths",
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 48
+LINT_FIXTURE_FLOOR = 77
+# Sibling files get their own floors: a state-file floor cannot notice a split
+# fixture losing its ledger or conductor half.
+LINT_LEDGER_FLOOR = 15
+LINT_CONDUCTOR_FLOOR = 23
 # F59: the path was parsed as \S+, so a corpus under a path containing a space
 # parsed ZERO triples while the linter it was checking emitted all of them
 # correctly — the harness carried the very defect F50 fixed in the shell
 # scripts. The linter's own format is `<path> — <key>: <msg>`, so take the path
 # non-greedily up to the FIRST " — ", which is how the bash-side extractor in
-# mozart-contract-gates.sh has always split it.
-LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(.+?) — ([^:]*):")
+# mozart-contract-gates.sh has always split it. The key runs to the first colon
+# or, for a message that has none (stale-paths), to the end of the line, as the
+# bash side's split on ": " does.
+LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(.+?) — ([^:]*)(?::|$)")
 
 # Named members (Fixture corpus, r5+) — asserted independently of aggregate
 # set-equality, per M7: a check that counts or globs needs a member whose
@@ -217,6 +226,15 @@ LINT_LAYOUTS = (
     ("legacy finished- prefix", ".mozart/plans", "finished-*.state.md"),
     ("legacy flat prefixless", ".mozart/plans", "[0-9]*.state.md"),
     ("legacy root thoughts/shared", "thoughts/shared/plans", "[0-9]*.state.md"),
+    # the split pair (state + ledger + conductor) in each layout it can sit in
+    ("split pair current/active (ledger)", ".mozart/plans/active", "*.ledger.md"),
+    ("split pair current/active (conductor)", ".mozart/plans/active", "*.conductor.md"),
+    ("split pair current/finished (ledger)", ".mozart/plans/finished", "*.ledger.md"),
+    ("split pair current/finished (conductor)", ".mozart/plans/finished", "*.conductor.md"),
+    ("split pair legacy active- prefix", ".mozart/plans", "active-*.conductor.md"),
+    ("split pair legacy finished- prefix", ".mozart/plans", "finished-*.conductor.md"),
+    ("split pair legacy flat prefixless", ".mozart/plans", "[0-9]*.conductor.md"),
+    ("split pair legacy root thoughts/shared", "thoughts/shared/plans", "[0-9]*.ledger.md"),
 )
 
 NAMED_PRESENT = (
@@ -238,6 +256,30 @@ NAMED_PRESENT = (
     # slug is BEFORE the override cutoff and carries a conductor record, so
     # only the union reaches its decisions log.
     ("decision-trigger", "2099-05-30-deliver-precutoff-header", "D1"),
+    # Check M, one fixture per key
+    ("split-layout", "2099-09-05-deliver-split-dupledger", "findings-ledger-duplicate"),
+    ("split-layout", "2099-09-04-deliver-split-dupconductor", "conductor-record-duplicate"),
+    ("split-layout", "2099-09-06-deliver-split-ledgermissing", "findings-ledger-missing"),
+    ("split-layout", "2099-05-21-deliver-split-conductormissing", "conductor-record-missing"),
+    ("split-layout", "2099-09-07-deliver-split-ledgernohead", "findings-ledger-noheading"),
+    ("split-layout", "2099-09-08-deliver-split-conductornohead", "conductor-record-noheading"),
+    # the sibling is read, in each place it can be
+    ("conductor-unlinked", "2099-09-04-deliver-split-dupconductor", "9"),
+    ("conductor-unlinked", "2099-09-02-deliver-split-unlinked", "9"),
+    ("conductor-unlinked", "2099-09-03-deliver-split-rejected", "F2"),
+    ("conductor-missing", "2099-09-10-deliver-split-emptyconductor", "-"),
+    ("conductor-unlinked", "2099-09-12-deliver-mixed-conductor", "F3"),
+    ("stranded-artifacts", "2099-09-13-deliver-split-halfmoved",
+     "state is in finished/ but sibling artifact(s) remain in active/"),
+    ("split-layout", "2099-09-13-deliver-split-halfmoved", "findings-ledger-missing"),
+    ("conductor-unlinked", "finished-2099-09-21-deliver-split-fprefix", "5"),
+    ("conductor-unlinked", "2099-09-23-deliver-split-legacyroot", "F2"),
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR2"),
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR3"),
+    ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "F2"),
+    ("conductor-unlinked", "2099-09-19-deliver-split-quoted", "5"),
+    ("conductor-unlinked", "2099-05-25-deliver-split-preadopted", "9"),
+    ("conductor-unlinked", "2099-09-20-deliver-zerostate", "F2"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -245,6 +287,11 @@ NAMED_ABSENT_TRIPLES = (
     # is just rejecting every row that mentions a pipe and CR1 proves nothing.
     ("conductor-row", "2099-08-16-deliver-pipe-escaped", "CR2"),
     ("mutation-manifest", "2099-07-31-operate-ignore", "C8"),      # the escaped change-ledger twin
+    ("split-layout", "2099-09-14-deliver-split-pathsstale", "findings-ledger-missing"),  # derived sibling exists
+    ("conductor-unlinked", "2099-09-05-deliver-split-dupledger", "F2"),  # the in-file row is ignored, the sibling wins
+    ("conductor-missing", "2099-09-08-deliver-split-conductornohead", "-"),  # one cause, one line
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR1"),
+    ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "9"),  # the CRLF sibling's CR1 was read
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the
@@ -253,17 +300,43 @@ NAMED_MESSAGES = (
     ("2099-08-15-deliver-pipe-raw", "CR1", "row has 8 cells, header has 7"),
     ("2099-08-16-deliver-pipe-escaped", "CR1", "empty or placeholder control"),
     ("2099-07-31-operate-ignore", "C7", "row has 8 cells, header has 7"),
+    # Check M: six keys, six reasons
+    ("2099-09-05-deliver-split-dupledger", "findings-ledger-duplicate",
+     "## Findings ledger is in the state file and in the sibling ledger file"),
+    ("2099-09-04-deliver-split-dupconductor", "conductor-record-duplicate",
+     "## Conductor record is in the state file and in the sibling conductor file"),
+    ("2099-09-06-deliver-split-ledgermissing", "findings-ledger-missing",
+     "declares a findings ledger but the sibling ledger file"),
+    ("2099-05-21-deliver-split-conductormissing", "conductor-record-missing",
+     "declares a conductor record but the sibling conductor file"),
+    ("2099-09-07-deliver-split-ledgernohead", "findings-ledger-noheading",
+     "sibling ledger file has content outside a ## Findings ledger section"),
+    ("2099-09-08-deliver-split-conductornohead", "conductor-record-noheading",
+     "sibling conductor file has content outside a ## Conductor record section"),
+    ("2099-09-18-deliver-split-crlf", "CR2", "row has 8 cells, header has 7"),
+    ("2099-09-18-deliver-split-crlf", "CR3", "empty or placeholder control"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
     "2000-01-03-deliver-legacy-ledger",                            # F39: pre-adoption, no grandfathering needed
     "2099-08-08-deliver-revisit-trigger", "2099-08-09-deliver-revisit-when",  # F43: both spellings accepted
+    # clean or exempt split pairs and silent mixes: nothing may fire on them
+    "2099-09-01-deliver-split-clean", "2099-05-23-deliver-split-exempt",
+    "2099-05-24-deliver-split-preledger", "2099-09-11-deliver-mixed-ledger",
+    "2099-09-15-deliver-split-placeholders", "active-2099-09-17-deliver-split-aprefix",
+    "2099-09-22-deliver-split-flat", "2099-09-24-deliver-split-finishedclean",
+    "2099-09-09-deliver-split-emptyledger", "2099-05-22-deliver-split-emptypre",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing
 # NAMED_PRESENT[0], so deleting this line is a visible edit rather than a
 # silently weaker assertion.
 SPACED_NAMED_MEMBER = ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1")
+# metrics-split: one lens per layout and campaign kind. The catches-by-lens line
+# is unordered, so each token is checked on its own (mirror of V10b).
+SPLIT_LENSES_PRESENT = ("bob", "ruby", "tessa", "percy", "xander", "ian", "dexter",
+                        "hank", "nina", "jackson", "scott", "sarah")
+SPLIT_LENSES_ABSENT = ("shadow", "orphan", "zerostate", "nohead", "otto")
 
 
 def read_tsv(path):
@@ -322,6 +395,13 @@ def cmd_behaviour(corpus, scripts_roots):
     if state_floor < LINT_FIXTURE_FLOOR:
         print(f"FAIL  behaviour: corpus has {state_floor} lint fixtures, below floor "
               f"{LINT_FIXTURE_FLOOR} — population would be vacuous")
+        return 1
+    ledger_floor = len(list(lint_root.rglob("*.ledger.md")))
+    conductor_floor = len(list(lint_root.rglob("*.conductor.md")))
+    if ledger_floor < LINT_LEDGER_FLOOR or conductor_floor < LINT_CONDUCTOR_FLOOR:
+        print(f"FAIL  behaviour: corpus has {ledger_floor} ledger and {conductor_floor} conductor "
+              f"siblings, below floors {LINT_LEDGER_FLOOR} and {LINT_CONDUCTOR_FLOOR} — the split "
+              f"fixtures lost a half")
         return 1
     unpopulated = [label for label, sub, pat in LINT_LAYOUTS
                    if not list((lint_root / sub).glob(pat))]
@@ -419,6 +499,13 @@ def cmd_behaviour(corpus, scripts_roots):
             if not hit:
                 print(f"FAIL  {port}  lint: message mismatch — {slug} {key} does not contain {want!r}")
                 port_fail = 1
+        # Findings are always reported against the state file, never a sibling.
+        sibling_paths = [l for l in proc_ov.stdout.splitlines()
+                         if re.match(r"^LINT .*\.(ledger|conductor)\.md — ", l)]
+        if sibling_paths:
+            print(f"FAIL  {port}  lint: {len(sibling_paths)} LINT line(s) name a sibling file as "
+                  f"their path, e.g. {sibling_paths[0]!r}")
+            port_fail = 1
         if not override_present:
             print(f"FAIL  {port}  lint: override run missing '{OVERRIDE_LINE_PREFIX} {OVERRIDE_DATE}'")
             port_fail = 1
@@ -472,6 +559,18 @@ def cmd_behaviour(corpus, scripts_roots):
                 if line not in outlines:
                     print(f"FAIL  {port}  {case}: expected line absent: {line!r}")
                     port_fail = 1
+            if case == "metrics-split":
+                by_lens = next((l for l in proc.stdout.splitlines()
+                                 if l.startswith("  by lens:")), "")
+                tokens = by_lens.split()
+                for lens in SPLIT_LENSES_PRESENT:
+                    if f"{lens}=1" not in tokens:
+                        print(f"FAIL  {port}  {case}: '{lens}=1' absent from the catches-by-lens line")
+                        port_fail = 1
+                for lens in SPLIT_LENSES_ABSENT:
+                    if any(t.startswith(f"{lens}=") for t in tokens):
+                        print(f"FAIL  {port}  {case}: '{lens}=' present in the catches-by-lens line (must not be read)")
+                        port_fail = 1
             if case == "metrics-conductor":
                 lens_line = next((l for l in proc.stdout.splitlines()
                                    if l.startswith("  rejected by lens:")), "")
