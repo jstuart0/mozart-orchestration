@@ -300,12 +300,27 @@ NAMED_PRESENT = (
     ("conductor-unlinked", "2099-10-27-phase-quoted", "P2"),
     # a bold Tier value is a value: HEAVY, so the Phase line is required
     ("conductor-unlinked", "2099-10-29-phase-boldheavy", "P2"),
+    # escalation text, lists, suffixes, italic and backticked values are no value
+    ("conductor-unlinked", "2099-10-11-phase-stdfmt", "P2"),
+    ("conductor-unlinked", "2099-10-31-phase-italicstd", "P2"),
+    ("conductor-unlinked", "2099-11-01-phase-underlight", "P2"),
+    ("conductor-unlinked", "2099-11-02-phase-stdarrow", "P2"),
+    ("conductor-unlinked", "2099-11-03-phase-stdnow", "P2"),
+    ("conductor-unlinked", "2099-11-04-phase-commaplaceholder", "P2"),
+    ("conductor-unlinked", "2099-11-05-phase-suffixed", "P2"),
+    ("conductor-unlinked", "2099-11-07-phase-boldstdesc", "P2"),
+    ("conductor-unlinked", "2099-11-09-phase-ticked", "P2"),
+    ("conductor-unlinked", "2099-11-14-phase-boldlist", "P2"),
     ("conductor-row", "2099-10-16-phase-stdmalformed", "CR1"),
     ("conductor-row", "2099-10-19-phase-lensbad", "CR2"),
     ("conductor-row", "2099-10-21-phase-lensian", "CR1"),
     ("conductor-row", "2099-10-22-phase-lensreason", "CR1"),
     ("conductor-row", "2099-10-23-phase-lenstoken", "CR1"),
     ("conductor-row", "2099-10-26-phase-widgets", "CR1"),
+    ("conductor-row", "2099-11-10-phase-lenshyphen", "CR1"),
+    ("conductor-row", "2099-11-11-phase-lensrunning", "CR1"),
+    ("conductor-row", "2099-11-12-phase-lenswsreason", "CR1"),
+    ("conductor-row", "2099-11-15-phase-lenscell", "CR1"),
     # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
     ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
     ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
@@ -385,6 +400,10 @@ NAMED_MESSAGES = (
     ("2099-10-22-phase-lensreason", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-10-23-phase-lenstoken", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-10-26-phase-widgets", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-10-phase-lenshyphen", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-11-phase-lensrunning", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-12-phase-lenswsreason", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-15-phase-lenscell", "CR1", "HEAVY phase row does not record ian and xander"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -398,11 +417,11 @@ NAMED_ABSENT_SLUGS = (
     "2099-09-09-deliver-split-emptyledger", "2099-05-22-deliver-split-emptypre",
     # STANDARD, LIGHT, TINY and the lens-exempt shapes: nothing may fire
     "2099-10-02-phase-standard", "2099-10-03-phase-light", "2099-10-04-phase-tiny",
-    "2099-10-09-phase-combinedstd", "2099-10-11-phase-stdfmt", "2099-10-15-phase-stdfirst",
+    "2099-10-09-phase-combinedstd", "2099-10-15-phase-stdfirst",
     "2099-10-18-phase-lensok", "2099-10-20-phase-lenspre", "2099-10-24-phase-stdsurface",
     "2099-10-25-phase-escalated", "2099-10-28-phase-lowersurface",
-    # emphasis around a Tier value is not part of it: STANDARD and LIGHT, so no Phase line is required
-    "2099-10-30-phase-boldstd", "2099-10-31-phase-italicstd", "2099-11-01-phase-underlight",
+    # a balanced ** wrapper is not part of the value; a free-text STANDARD is still STANDARD
+    "2099-10-30-phase-boldstd", "2099-11-06-phase-stdfree", "2099-11-08-phase-boldcombined",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing

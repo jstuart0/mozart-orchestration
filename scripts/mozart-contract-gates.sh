@@ -1414,13 +1414,27 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-unlinked\t2099-10-13-phase-title\tP2')" \
     "$(printf 'conductor-unlinked\t2099-10-14-phase-heavyfirst\tP2')" \
     "$(printf 'conductor-unlinked\t2099-10-27-phase-quoted\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-11-phase-stdfmt\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-31-phase-italicstd\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-01-phase-underlight\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-02-phase-stdarrow\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-03-phase-stdnow\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-04-phase-commaplaceholder\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-05-phase-suffixed\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-07-phase-boldstdesc\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-09-phase-ticked\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-11-14-phase-boldlist\tP2')" \
     "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
     "$(printf 'conductor-row\t2099-10-16-phase-stdmalformed\tCR1')" \
     "$(printf 'conductor-row\t2099-10-19-phase-lensbad\tCR2')" \
     "$(printf 'conductor-row\t2099-10-21-phase-lensian\tCR1')" \
     "$(printf 'conductor-row\t2099-10-22-phase-lensreason\tCR1')" \
     "$(printf 'conductor-row\t2099-10-23-phase-lenstoken\tCR1')" \
-    "$(printf 'conductor-row\t2099-10-26-phase-widgets\tCR1')"
+    "$(printf 'conductor-row\t2099-10-26-phase-widgets\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-10-phase-lenshyphen\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-11-phase-lensrunning\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-12-phase-lenswsreason\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-15-phase-lenscell\tCR1')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1464,7 +1478,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   # Phase rows are required on HEAVY only. Each of these carries a ticked,
   # unlinked or lens-free Phase line and must stay silent for its own reason.
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
-    2099-10-09-phase-combinedstd 2099-10-11-phase-stdfmt 2099-10-15-phase-stdfirst \
+    2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
+    2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd \
     2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface; do
     printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
@@ -1589,6 +1604,10 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-10-22-phase-lensreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-10-23-phase-lenstoken.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-10-26-phase-widgets.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-10-phase-lenshyphen.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-11-phase-lensrunning.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-12-phase-lenswsreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-15-phase-lenscell.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
@@ -3000,16 +3019,25 @@ v34_lib="$gate_root/scripts/lib-campaign.sh"
 v34_corpus="$gate_root/tests/fixtures/conductor/lint/.mozart/plans/active"
 v34_tmp=$(mktemp -d) || { v34_bad="$v34_bad [mktemp failed]"; v34_tmp=/nonexistent-v34; }
 v34_n=0
-v34_case() { # $1 = slug, $2 = 1 when lint must report the Phase line, $3 = metrics tier bucket
-  local slug="$1" want_fire="$2" want_bucket="$3" root lout mout fired bucket
+v34_lint="$gate_root/scripts/mozart-lint.sh"
+# Lint exits 0 on a root with no finding and 1 on a root with findings; metrics
+# exits 0 on any root holding a state file. Both statuses are read beside the
+# output, so a script that crashes (empty output, nonzero status) cannot pass as
+# "fired 0 times" or as an empty bucket.
+v34_case() { # $1 = slug, $2 = 1 when lint must report the Phase line, $3 = metrics tier bucket, $4 = lint exit status when it is not decided by $2
+  local slug="$1" want_fire="$2" want_bucket="$3" root lout mout fired bucket lrc mrc want_lrc
   root="$v34_tmp/$slug"
   mkdir -p "$root/.mozart/plans/active" && cp "$v34_corpus/$slug.state.md" "$root/.mozart/plans/active/" \
     || { v34_bad="$v34_bad [$slug: could not stage the fixture]"; return; }
-  lout=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$root" 2>&1)
+  lout=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$v34_lint" "$root" 2>&1); lrc=$?
   fired=$(printf '%s\n' "$lout" | grep -c 'ticked Phase line has no linked conductor row' || true)
-  mout=$(bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1)
+  mout=$(bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1); mrc=$?
   bucket=$(printf '%s\n' "$mout" | sed -n 's/^Campaigns: 1 (1 \(.*\))$/\1/p')
   v34_n=$((v34_n + 1))
+  want_lrc=0; [ "$want_fire" = "1" ] && want_lrc=1
+  want_lrc="${4:-$want_lrc}"
+  [ "$lrc" = "$want_lrc" ] || v34_bad="$v34_bad [$slug: lint exited $lrc, want $want_lrc]"
+  [ "$mrc" = "0" ] || v34_bad="$v34_bad [$slug: metrics exited $mrc, want 0]"
   [ "$fired" = "$want_fire" ] || v34_bad="$v34_bad [$slug: lint reported the Phase line $fired time(s), want $want_fire]"
   [ "$bucket" = "$want_bucket" ] || v34_bad="$v34_bad [$slug: metrics bucket '$bucket', want '$want_bucket']"
 }
@@ -3024,41 +3052,103 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-10-08-phase-combinedheavy 1 HEAVY
   v34_case 2099-10-09-phase-combinedstd 0 STANDARD
   v34_case 2099-10-10-phase-heavyfmt 1 HEAVY
-  v34_case 2099-10-11-phase-stdfmt 0 STANDARD
+  v34_case 2099-10-11-phase-stdfmt 1 UNTIERED
   v34_case 2099-10-12-phase-lower 1 UNTIERED
   v34_case 2099-10-13-phase-title 1 UNTIERED
   v34_case 2099-10-14-phase-heavyfirst 1 HEAVY
   v34_case 2099-10-15-phase-stdfirst 0 STANDARD
-  v34_case 2099-10-16-phase-stdmalformed 0 STANDARD
+  v34_case 2099-10-16-phase-stdmalformed 0 STANDARD 1
   v34_case 2099-10-27-phase-quoted 1 UNTIERED
   v34_case 2099-10-29-phase-boldheavy 1 HEAVY
   v34_case 2099-10-30-phase-boldstd 0 STANDARD
-  v34_case 2099-10-31-phase-italicstd 0 STANDARD
-  v34_case 2099-11-01-phase-underlight 0 LIGHT
+  v34_case 2099-10-31-phase-italicstd 1 UNTIERED
+  v34_case 2099-11-01-phase-underlight 1 UNTIERED
+  v34_case 2099-11-02-phase-stdarrow 1 UNTIERED
+  v34_case 2099-11-03-phase-stdnow 1 UNTIERED
+  v34_case 2099-11-04-phase-commaplaceholder 1 UNTIERED
+  v34_case 2099-11-05-phase-suffixed 1 UNTIERED
+  v34_case 2099-11-06-phase-stdfree 0 STANDARD
+  v34_case 2099-11-07-phase-boldstdesc 1 UNTIERED
+  v34_case 2099-11-08-phase-boldcombined 0 STANDARD
+  v34_case 2099-11-09-phase-ticked 1 UNTIERED
+  v34_case 2099-11-14-phase-boldlist 1 UNTIERED
 fi
-[ "$v34_n" -ge 21 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 21]"
+[ "$v34_n" -ge 30 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 30]"
 
-# The library function on its own: the cases that matter, including the two
-# that a naive parse gets wrong (the unfilled template and a lower-case value).
-v34_prog='BEGIN {
-  printf "[%s]", tier_of("**Tier**: HEAVY (surface: auth, secrets; escalated from STANDARD, D4)")
-  printf "[%s]", tier_of("**Tier**: TINY | LIGHT | STANDARD | HEAVY")
-  printf "[%s]", tier_of("**Tier**: <tier>")
-  printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS")
-  printf "[%s]", tier_of("**Tier**: heavy")
-  printf "[%s]", tier_of("**Tier**: HEAVYish")
-  printf "[%s]", tier_of("**Tier**: **HEAVY** — maintainer confirmed")
-  printf "[%s]", tier_of("**Tier**: *STANDARD*")
-  printf "[%s]", tier_of("**Tier**: _LIGHT_")
-  printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: **HEAVY** | **Mode**: AUTONOMOUS")
+# The helper can fail. A lint that crashes prints nothing and exits 3: without
+# the status check that reads as "fired 0 times", the answer a silent case wants.
+# Point the helper at a stub that does exactly that and require it to object.
+printf '#!/bin/bash\nexit 3\n' > "$v34_tmp/crash-lint.sh" || v34_bad="$v34_bad [could not write the crash stub]"
+v34_keep_bad="$v34_bad"; v34_keep_lint="$v34_lint"; v34_keep_n="$v34_n"
+v34_bad=""; v34_lint="$v34_tmp/crash-lint.sh"
+if [ -d "$v34_corpus" ]; then v34_case 2099-10-02-phase-standard 0 STANDARD; fi
+v34_selftest="$v34_bad"
+v34_bad="$v34_keep_bad"; v34_lint="$v34_keep_lint"; v34_n="$v34_keep_n"
+case "$v34_selftest" in
+  *"lint exited 3"*) : ;;
+  *) v34_bad="$v34_bad [self-test: a lint that crashes (exit 3, no output) did not fail v34_case]" ;;
+esac
+
+# The library function on its own. Each row is a full line and the tier it must
+# return; the awk program prints only the rows that disagree.
+v34_prog='function chk(line, want,   got) {
+  got = tier_of(line); n++
+  if (got != want) printf "[%s: want %s got %s]", line, want, got
+}
+BEGIN {
+  chk("**Tier**: HEAVY (surface: auth, secrets; escalated from STANDARD, D4)", "HEAVY")
+  chk("**Tier**: HEAVY (escalated from STANDARD, D4)", "HEAVY")
+  chk("**Tier**: TINY | LIGHT | STANDARD | HEAVY", "")
+  chk("**Tier**: <tier>", "")
+  chk("**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS", "LIGHT")
+  chk("**Shape**: DELIVER | **Tier**: **HEAVY** | **Mode**: AUTONOMOUS", "HEAVY")
+  chk("**Shape**: DELIVER | **Tier**: **STANDARD** | **Mode**: AUTONOMOUS", "STANDARD")
+  chk("**Tier**: STANDARD | **Mode:** AUTONOMOUS", "STANDARD")
+  chk("**Tier**: heavy", "")
+  chk("**Tier**: Standard", "")
+  chk("**Tier**: HEAVYish", "")
+  chk("**Tier**: TINY, LIGHT, STANDARD, HEAVY", "")
+  chk("**Tier**: TINY / LIGHT / STANDARD / HEAVY", "")
+  chk("**Tier**: LIGHT or HEAVY", "")
+  chk("**Tier**: STANDARD2", "")
+  chk("**Tier**: STANDARD_x", "")
+  chk("**Tier**: STANDARD/HEAVY", "")
+  chk("**Tier**: STANDARD-HEAVY", "")
+  chk("**Tier**: STANDARD.", "")
+  chk("**Tier**: STANDARD", "STANDARD")
+  chk("**Tier**: STANDARD (x)", "STANDARD")
+  chk("**Tier**: STANDARD — free text", "STANDARD")
+  chk("**Tier**: STANDARD; free text", "STANDARD")
+  chk("**Tier**: HEAVY", "HEAVY")
+  chk("**Tier**: STANDARD (escalated to HEAVY)", "")
+  chk("**Tier**: STANDARD → HEAVY", "")
+  chk("**Tier**: STANDARD, now HEAVY", "")
+  chk("**Tier**: LIGHT; HEAVY after review", "")
+  chk("**Tier**: STANDARD (HEAVYish is not a word)", "STANDARD")
+  chk("**Tier**: **HEAVY**", "HEAVY")
+  chk("**Tier**: **STANDARD**", "STANDARD")
+  chk("**Tier**: **HEAVY** (surface: x)", "HEAVY")
+  chk("**Tier**: **HEAVY** — maintainer confirmed (was STANDARD)", "HEAVY")
+  chk("**Tier**: **STANDARD** (escalated to HEAVY)", "")
+  chk("**Tier**: **HEAVY", "")
+  chk("**Tier**: ****", "")
+  chk("**Tier**: **TINY | LIGHT**", "")
+  chk("**Tier**: **TINY** | **LIGHT**", "")
+  chk("**Tier**: *HEAVY*", "")
+  chk("**Tier**: _HEAVY_", "")
+  chk("**Tier**: `HEAVY`", "")
+  chk("**Tier**: *STANDARD* (plain call)", "")
+  chk("**Tier**: _LIGHT_", "")
   printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY")
+  printf "{%d}", n
 }'
 v34_got=$( . "$v34_lib" 2>/dev/null; awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
-[ "$v34_got" = "[HEAVY][][][LIGHT][][][HEAVY][STANDARD][LIGHT][HEAVY][0][1][1][0]" ] \
-  || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface returned '$v34_got']"
+v34_want="[0][1][1][0]{43}"
+[ "$v34_got" = "$v34_want" ] \
+  || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface returned '$v34_got', want '$v34_want']"
 
 # Neither script spells the Tier field itself: the rule lives in the library.
 for v34_s in mozart-lint mozart-metrics; do
@@ -3069,7 +3159,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics: Phase rows required on HEAVY and on a missing, placeholder or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses; library tier_of cases; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 43 library tier_of cases; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)

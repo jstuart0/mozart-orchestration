@@ -89,24 +89,48 @@ function split_cells(line, arr,   t, i, n) {
 # the FIRST such line in the state file; a later one is never a second vote.
 function is_tier_line(line) { return (index(line, "**Tier**:") > 0 && line !~ /^[ \t]*\|/) }
 # The tier that line names: its leading upper-case token ("HEAVY (surface: ...)"
-# is HEAVY; "**HEAVY** — why", "*HEAVY*" and "_HEAVY_" too, emphasis markers
-# around the value are not part of it), or "" when the line holds no value. "" covers the unfilled template
-# (a pipe-list not followed by another bold field, or an unfilled <tier>) and
-# anything not upper case ("heavy", "Standard", "HEAVYish"); callers read ""
-# as untiered.
-function tier_of(line,   t, rest, tok) {
+# is HEAVY), or "" when the line holds no value. A balanced ** wrapper around
+# the leading token ("**HEAVY** — why") is not part of it; italic, underscore
+# and backticked values are no value, because only the ** wrapper is an
+# observed shape and unparseable is the fail-safe side (phase rows required,
+# metrics UNTIERED). "" also covers: the unfilled template (a pipe-list not
+# followed by another **Field**: label, or an unfilled <tier>), anything not
+# upper case ("heavy", "Standard"), a token followed by anything but the end of
+# the value, a space, "(", an em dash or ";" (so "STANDARD2", "STANDARD/HEAVY",
+# "TINY, LIGHT, STANDARD, HEAVY" are lists or typos, not values), and a
+# non-HEAVY token whose remaining text names HEAVY as a whole word
+# ("STANDARD (escalated to HEAVY)": the writer is saying HEAVY, so the line is
+# not read as STANDARD).
+function tier_of(line,   t, rest, tok, after) {
   t = substr(line, index(line, "**Tier**:") + 9)
   if (t ~ /\|/) {
     rest = t; sub(/^[^|]*\|[ \t]*/, "", rest)
-    if (rest !~ /^\*\*[A-Za-z]/) return ""
+    if (rest !~ /^\*\*[A-Za-z][^*|]*(\*\*[ \t]*:|:\*\*)/) return ""
     sub(/[ \t]*\|.*$/, "", t)
   }
   t = trim(t)
-  sub(/^[*_]+/, "", t)
+  if (t ~ /^\*\*[A-Z]+\*\*/) {
+    match(t, /^\*\*[A-Z]+/)
+    t = substr(t, 3, RLENGTH - 2) substr(t, RLENGTH + 3)
+  }
   if (!match(t, /^[A-Z]+/)) return ""
   tok = substr(t, 1, RLENGTH)
-  if (substr(t, RLENGTH + 1, 1) ~ /[A-Za-z]/) return ""
+  after = substr(t, RLENGTH + 1)
+  if (after != "" && after !~ /^[ (;]/ && after !~ /^—/) return ""
+  if (tok != "HEAVY" && has_heavy_word(after)) return ""
   return tok
+}
+# True when s holds HEAVY as a whole word: not preceded or followed by a letter
+# or digit ("HEAVYish" and "NOHEAVY" are not).
+function has_heavy_word(s,   i, n) {
+  n = length(s)
+  for (i = 1; i + 4 <= n; i++) {
+    if (substr(s, i, 5) != "HEAVY") continue
+    if (i > 1 && substr(s, i - 1, 1) ~ /[A-Za-z0-9]/) continue
+    if (i + 5 <= n && substr(s, i + 5, 1) ~ /[A-Za-z0-9]/) continue
+    return 1
+  }
+  return 0
 }
 # True when the Tier value carries a "(surface:" record. Keyed on the literal
 # prefix only: the closed word list is a writer rule, not something to validate.
