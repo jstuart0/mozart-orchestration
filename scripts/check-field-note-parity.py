@@ -322,6 +322,7 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-11-12-phase-lenswsreason", "CR1"),
     ("conductor-row", "2099-11-15-phase-lenscell", "CR1"),
     ("conductor-row", "2099-11-17-phase-heavyrepeat", "CR1"),
+    ("conductor-row", "2099-11-18-phase-xanderskip", "CR2"),
     # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
     ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
     ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
@@ -413,6 +414,7 @@ NAMED_MESSAGES = (
     ("2099-11-12-phase-lenswsreason", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-15-phase-lenscell", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-17-phase-heavyrepeat", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-18-phase-xanderskip", "CR2", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -433,6 +435,8 @@ NAMED_ABSENT_SLUGS = (
     "2099-10-30-phase-boldstd", "2099-11-06-phase-stdfree", "2099-11-08-phase-boldcombined",
     # an em dash before the lens name is not a letter: both lenses recorded
     "2099-11-16-phase-lensemdash",
+    # surface carries secrets, xander skipped with the one allowed reason: the pre-escalation form is silent
+    "2099-11-19-phase-xanderpre",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing

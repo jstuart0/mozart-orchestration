@@ -140,6 +140,22 @@ function tier_has_surface(line,   t) {
   t = substr(line, index(line, "**Tier**:") + 9)
   return (index(t, "(surface:") > 0)
 }
+# True when the "(surface:" record names auth, secrets or security as a whole
+# word: the surfaces on which xander runs every phase. The record ends at the
+# first ")" or ";" ("(surface: billing; maintainer says auth)" names billing).
+function tier_surface_wants_xander(line,   t, n, i, w, words) {
+  t = substr(line, index(line, "**Tier**:") + 9)
+  i = index(t, "(surface:")
+  if (i == 0) return 0
+  t = substr(t, i + 9)
+  sub(/[;)].*$/, "", t)
+  n = split(t, words, /[ \t,]+/)
+  for (i = 1; i <= n; i++) {
+    w = words[i]
+    if (w == "auth" || w == "secrets" || w == "security") return 1
+  }
+  return 0
+}
 # True when a line of a state file's ## Escapes block records an escape: it holds
 # "Traces-to:", is not a "(none yet)" line, and what follows the label is not a
 # <...> placeholder. Text after the target ("n<3 affected") does not matter.

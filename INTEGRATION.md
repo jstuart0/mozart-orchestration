@@ -334,7 +334,7 @@ If neither is installed, mozart falls back to a fixed high-signal pattern set â€
 
 ## 6. Pipeline flags (stanza optional)
 
-On a HEAVY campaign, ian and xander both run on phase 1. From phase 2 each runs when its trigger matches the phase or the phase touches the surface that made the campaign HEAVY, and xander runs on every phase when that surface is `auth`, `secrets` or `security`. **If you declare nothing, that is the behaviour.**
+On a HEAVY campaign, ian and xander both run on phase 1. From phase 2 each runs when its trigger matches the phase or the phase touches the surface that made the campaign HEAVY, and xander runs on every phase when that surface is `auth`, `secrets` or `security`. Mozart records every listed word that applies, and any term in xander's stage-8 row maps to `security`. **If you declare nothing, that is the behaviour.**
 
 Declare a `## Pipeline flags` stanza when you want the stricter reading, ian and xander at every phase of every HEAVY campaign in this repo:
 

@@ -211,6 +211,28 @@ function lens_recorded(claim, lens,   rest, p, pre, after, dash, reason) {
   return 0
 }
 
+# True when claim records xander in the form a surface of auth, secrets or
+# security allows: "xander: run", or the one pre-escalation reason. Any other
+# "no trigger" reason is a skipped lens on a phase that needed it.
+function xander_every_phase_ok(claim,   rest, p, pre, after, dash) {
+  dash = "—"
+  rest = claim
+  while ((p = index(rest, "xander:")) > 0) {
+    pre = substr(rest, 1, p - 1)
+    after = trim(substr(rest, p + 7))
+    rest = substr(rest, p + 7)
+    if (pre ~ /[A-Za-z0-9_]$/) continue
+    if (after ~ /^run([^A-Za-z0-9]|$)/) return 1
+    if (after ~ /^no trigger/) {
+      after = trim(substr(after, 11))
+      if (index(after, dash) != 1) continue
+      after = trim(substr(after, length(dash) + 1))
+      if (index(after, "phase ran before escalation") == 1) return 1
+    }
+  }
+  return 0
+}
+
 function valid_ignore_tok(tok,   grammar) {
   grammar = "^[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*(\\.[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*)*$"
   if (tok !~ grammar) return 0
@@ -359,7 +381,7 @@ BEGIN {
   in_findings = 0; nf = 0
   in_paths = 0
   incident_stage3 = 0
-  tier_seen = 0; tier = ""; tier_surface = 0
+  tier_seen = 0; tier = ""; tier_surface = 0; tier_xander_every = 0
   infile_conductor = 0; infile_findings = 0
   declared_ledger = 0; declared_conductor = 0
 
@@ -410,6 +432,7 @@ is_tier_line(raw) && !tier_seen {
   tier_seen = 1
   tier = tier_of(raw)
   tier_surface = tier_has_surface(raw)
+  tier_xander_every = tier_surface_wants_xander(raw)
 }
 
 # Stage progress ticks (any family): "- [x] N[a-z]. "
@@ -601,16 +624,21 @@ END {
       if (heavy_only && (tier == "TINY" || tier == "LIGHT" || tier == "STANDARD")) continue
       for (pk in ticked) {
         if (pk ~ /^P[0-9]+[a-z]?$/) {
-          linked = 0; lens_ok = 0; first_row = ""
+          linked = 0; lens_ok = 0; xander_ok = 0; first_row = ""
           for (id in cr_id_known) {
             if (cr_placeholder[id] || cr_links[id] != pk) continue
             linked = 1
             if (first_row == "" || id < first_row) first_row = id
-            if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) lens_ok = 1
+            if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) {
+              lens_ok = 1
+              if (xander_every_phase_ok(cr_claim[id])) xander_ok = 1
+            }
           }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
           else if (heavy_only && tier == "HEAVY" && tier_surface && !lens_ok)
             emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
+          else if (heavy_only && tier == "HEAVY" && tier_xander_every && !xander_ok)
+            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run, or on a phase that ran before the escalation, xander: no trigger — phase ran before escalation)")
         }
       }
       continue

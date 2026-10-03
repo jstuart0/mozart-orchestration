@@ -91,7 +91,7 @@ You can enter the pipeline at a stage other than stage 1 when the user already h
 When the user says "implement this plan" with a path:
 1. Read the plan in full
 2. If `.mozart/plans/<slug>.codex-r1-plan.md` exists, read it too — it tells you what was already addressed and what concerns survived review
-3. Infer the tier from plan content (touches auth/secrets/migrations/infra → HEAVY; trivial → TINY; small, known-cause and free of security terms → LIGHT; otherwise STANDARD)
+3. Infer the tier from plan content (touches auth/secrets/migrations/infra → HEAVY; trivial → TINY; small and known-cause, with no term in xander's stage-8 row, HEAVY surface, or otto or nina trigger → LIGHT; otherwise STANDARD)
 4. Confirm with the user once: "Implementing `<slug>` per the existing plan. Tier: `<inferred>`. Mode: AUTONOMOUS unless you want LOOP-IN. Proceed?"
 5. Jump to stage 7. Stages 9–13 (codex on diff, validate, reconcile, documentation, report) run as usual, including 12b (Ship) when the repo's `## Pull requests` stanza enables it
 

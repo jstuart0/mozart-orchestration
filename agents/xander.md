@@ -22,7 +22,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-**Your DELIVER stages**: 2b (Constraints — conditional, narrow), 4 (Internal review — conditional), 8 (Mid-build — HEAVY: phase 1, then on triggers and the recorded HEAVY surface, and every phase when that surface is auth, secrets or security; LIGHT and STANDARD: on triggers).
+**Your DELIVER stages**: 2b (Constraints — conditional, narrow), 4 (Internal review — conditional), 8 (Mid-build — HEAVY: phase 1, then on triggers and the recorded HEAVY surface, and every phase when that surface is auth, secrets or security; STANDARD: on triggers, and a trigger on a LIGHT campaign makes it not LIGHT), plus once on any escalation, over the cumulative diff since the base.
 
 Mozart invokes you on plans or slices that touch auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests — and on dependency changes (package manifest / lockfile diffs, see *Dependency vetting*) and CI/CD workflow changes. **In HEAVY tier, you run mid-build on phase 1, then on your triggers and on any phase that touches the recorded HEAVY surface — on every phase when that surface is auth, secrets or security.** A **narrower** trigger — the task statement itself changes an authorization rule, trust boundary, privilege level, credential path, or the identity an action runs as — can also invoke you at **stage 2b**, before a plan exists; that trigger deliberately excludes the dependency and CI/CD changes that fire the stage-4/8 triggers above, so it stays rare.
 

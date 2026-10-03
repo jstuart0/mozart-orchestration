@@ -1444,7 +1444,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-11-11-phase-lensrunning\tCR1')" \
     "$(printf 'conductor-row\t2099-11-12-phase-lenswsreason\tCR1')" \
     "$(printf 'conductor-row\t2099-11-15-phase-lenscell\tCR1')" \
-    "$(printf 'conductor-row\t2099-11-17-phase-heavyrepeat\tCR1')"
+    "$(printf 'conductor-row\t2099-11-17-phase-heavyrepeat\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-18-phase-xanderskip\tCR2')"
   do
     grep -qxF "$member" <<<"$ov_triples" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1490,7 +1491,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
     2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd 2099-11-16-phase-lensemdash \
-    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface; do
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-11-19-phase-xanderpre; do
     grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
@@ -1625,6 +1626,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-11-12-phase-lenswsreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-15-phase-lenscell.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-17-phase-heavyrepeat.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-11-18-phase-xanderskip.state.md" "CR2" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
@@ -2235,6 +2237,12 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # was 73; the clause on the attempts-cap line is 28 bytes over it). agents/otto.md (21691 of
 # 21700), agents/hank.md and agents/CONTEXT-BUDGET.md fit and are not raised.
 #
+# Phase 7 mid-build findings of the same campaign (F50-F56): the LIGHT re-check bullet at the
+# per-phase gate, the HEAVY-surface and otto/nina ineligibility sentence at the head of stage 4,
+# the surface-record wording in stage 8 and the codex r2 skip exclusion in stage 9 are reviewed
+# content, so agents/DELIVER.md 58775 -> 59522 (+747, headroom was 0), to the exact new size.
+# agents/mozart.md gained under 800 bytes and stays under its 55000 ceiling, which is NOT raised.
+#
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
 # with their own tooling — copilot via scripts/check_agents.py against the
 # table in its check.yml, local via the 30,000-char cap on MANIFEST.jsonc's
@@ -2262,7 +2270,7 @@ agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	58775
+agents/DELIVER.md	59522
 agents/hank.md	22300
 agents/dick.md	23751
 agents/otto.md	21700
@@ -3153,12 +3161,16 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-11-14-phase-boldlist 1 UNTIERED
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
   v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
+  v34_case 2099-11-18-phase-xanderskip 0 HEAVY 1
+  v34_case 2099-11-19-phase-xanderpre 0 HEAVY 0
   v34_loc=C
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
   v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
+  v34_case 2099-11-18-phase-xanderskip 0 HEAVY 1
+  v34_case 2099-11-19-phase-xanderpre 0 HEAVY 0
   v34_loc="$gate_utf8"
 fi
-[ "$v34_n" -ge 34 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 34]"
+[ "$v34_n" -ge 38 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 38]"
 
 # The helper can fail. A lint that crashes prints nothing and exits 3: without
 # the status check that reads as "fired 0 times", the answer a silent case wants.
@@ -3241,13 +3253,23 @@ BEGIN {
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: auth)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing, security)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: secrets; escalated from STANDARD, D4)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: authz)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing; maintainer says auth)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (escalated, auth later)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra,auth)")
+  printf "[%s]", tier_surface_wants_xander("**Shape**: DELIVER | **Tier**: HEAVY (surface: auth) | **Mode**: AUTONOMOUS")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: )")
   printf "{%d}", n
 }'
-v34_want="[0][1][1][0]{56}"
+v34_want="[0][1][1][0][1][1][1][0][0][0][0][1][1][0]{56}"
 for v34_l in "$gate_utf8" C; do
   v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
   [ "$v34_got" = "$v34_want" ] \
-    || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
+    || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface / tier_surface_wants_xander under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
 done
 
 # Neither script spells the Tier field itself: the rule lives in the library.
@@ -3259,7 +3281,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases, each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 10 tier_surface_wants_xander cases (auth, secrets and security by whole word, the list ends at a semicolon or paren), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)
@@ -3460,6 +3482,13 @@ authorization (ownership and tenant filters)	[Aa]uthorization [(]ownership and t
 outbound requests	[Oo]utbound requests
 V28_TERMS_EOF
 )
+v28_occ() { # $1 = text, $2 = ERE -> occurrences (not lines) of it, case-insensitive
+  printf '%s\n' "$1" | grep -oiE -- "$2" | grep -c . || true
+}
+v28_has() { # $1 = text, $2 = fixed phrase -> true when it occurs, case-insensitive
+  grep -qiF -- "$2" <<<"$1"
+}
+v28_hi_re='(take|choose|pick|go with|default to) the higher'
 v28_missing() { # $1 = text -> the union terms it lacks, one per line
   local name pat
   while IFS=$'\t' read -r name pat; do
@@ -3498,6 +3527,12 @@ v28_row_plant=$(printf '%s\n' '| **xander** | a |' '| xander | b |' '| ian | c |
   || v28_bad="$v28_bad [self-test: a row carrying all twelve terms was reported as missing some]"
 [ "$(v28_missing 'auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, authorization (ownership and tenant filters), outbound requests; dependency lockfile; CI/CD' | tr '\n' ' ')" = "CSP " ] \
   || v28_bad="$v28_bad [self-test: a row without CSP did not report exactly CSP missing]"
+[ "$(v28_occ 'a take the higher; b take the higher' 'take the higher')" = "2" ] || v28_bad="$v28_bad [self-test: two occurrences on one line were not counted as two]"
+[ "$(v28_occ 'nothing here' 'take the higher')" = "0" ] || v28_bad="$v28_bad [self-test: no occurrence was not counted as zero]"
+for v28_p in 'Where any two tiers both fit, take the higher.' 'we choose the higher tier' 'Pick the higher one' 'go with the higher' 'default to the higher'; do
+  grep -qiE -- "$v28_hi_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: the general higher-tier ban did not match: $v28_p]"
+done
+grep -qiE -- "$v28_hi_re" <<<'the highest tier wins' && v28_bad="$v28_bad [self-test: the general higher-tier ban matched an unrelated sentence]"
 v28_cell_plant=$(printf '%s\n' '| Stage | TINY | LIGHT | STANDARD |' '|---|---|---|---|' '| Codex r2 on diff (9) | skip | run | default-run |')
 [ "$(v28_cell "$v28_cell_plant" 'Codex r2' LIGHT)" = "run" ] || v28_bad="$v28_bad [self-test: the LIGHT cell of a planted table was not read as run]"
 [ "$(v28_cell "$v28_cell_plant" 'Codex r2' STANDARD)" = "default-run" ] || v28_bad="$v28_bad [self-test: the STANDARD cell of a planted table was not read as default-run]"
@@ -3565,11 +3600,19 @@ v28_once "$v28_mz" "any term in xander's stage-4 or stage-8 trigger row makes th
 v28_once "$v28_mz" 'lockfile lines never count toward the size bound' "mozart.md tier text"
 v28_once "$v28_mz" 'disqualifies LIGHT outright' "mozart.md tier text"
 v28_once "$v28_mz" 'a cause stated only in an untrusted ticket body counts as unknown' "mozart.md tier text"
-v28_once "$v28_mz" 'take the higher' "mozart.md tier text"
+[ "$(v28_occ "$v28_mz" "$v28_hi_re")" = "1" ] || v28_bad="$v28_bad [mozart.md tier text must say take-the-higher exactly once, counted per occurrence not per line (found $(v28_occ "$v28_mz" "$v28_hi_re"))]"
+[ "$(v28_occ "$v28_mz" 'take the higher')" = "1" ] || v28_bad="$v28_bad [mozart.md tier text: 'take the higher' occurs $(v28_occ "$v28_mz" 'take the higher') time(s), want exactly 1]"
+v28_once "$v28_mz" 'is not LIGHT when the work touches a HEAVY surface' "mozart.md tier text"
+printf '%s\n' "$v28_mz" | grep -iF 'is not LIGHT when the work touches a HEAVY surface' | grep -qiF 'otto or nina trigger' || v28_bad="$v28_bad [mozart.md tier text: the HEAVY-surface ineligibility sentence does not name the otto or nina trigger]"
+v28_once "$v28_mz" 'bob flags any trigger term he sees in a LIGHT plan' "mozart.md tier text"
+v28_once "$v28_mz" 'every listed word that applies' "mozart.md tier text"
+v28_once "$v28_mz" "any term in xander's stage-8 row maps to \`security\`" "mozart.md tier text"
+v28_once "$v28_mz" 'xander reviews the cumulative diff since the base once' "mozart.md tier text"
+v28_once "$v28_mz" 'when that surface includes `auth`, `secrets` or `security`, xander is spawned on every phase' "mozart.md tier text (F55)"
 v28_once "$v28_mz" 'the tier follows the surface' "mozart.md tier text"
 v28_once "$v28_mz" 'tiers only go up' "mozart.md tier text"
 v28_esc=$(printf '%s\n' "$v28_mz" | grep -i -F 'tiers only go up')
-for v28_p in 'update `**Tier**:` in place' 'log the decision' 'run the stages the higher tier requires that have not run' 'give each ticked phase its conductor row'; do
+for v28_p in 'update `**Tier**:` in place' 'log the decision' 'run the stages the higher tier requires that have not run' 'give each ticked phase its conductor row' 'xander reviews the cumulative diff since the base once'; do
   grep -qF -- "$v28_p" <<<"$v28_esc" || v28_bad="$v28_bad [the escalation rule does not say: $v28_p]"
 done
 v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`'
@@ -3579,6 +3622,14 @@ v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `securi
   || v28_bad="$v28_bad [control: agents/INCIDENT.md must keep its own SEV-level sentence exactly once]"
 v28_gen=$(grep -nEi 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md | grep -v '^agents/OPERATE\.md:' | grep -vF 'When unsure between SEV levels: choose the higher one')
 [ -z "$v28_gen" ] || v28_bad="$v28_bad [a general 'when unsure, the higher' sentence returned: $(printf '%s' "$v28_gen" | cut -c1-80 | head -2 | tr '\n' ';')]"
+# F57: the sentence is banned in any form, in every doc a reader meets, not only the literal 'unsure between'. Two
+# SEV-level sentences are about incident severity, not DELIVER tiers; each is asserted present so the exclusion is a fact.
+v28_sevline=$(grep -F 'When unsure, pick the higher.' agents/PIPELINE.md)
+{ [ "$(printf '%s\n' "$v28_sevline" | grep -c .)" = "1" ] && grep -qF 'SEV1' <<<"$v28_sevline"; } \
+  || v28_bad="$v28_bad [control: agents/PIPELINE.md must keep its SEV-tiers sentence 'When unsure, pick the higher.' on exactly one line, the one naming SEV1]"
+v28_hi=$(grep -nEi -- "$v28_hi_re" $v28_docs INTEGRATION.md | grep -v '^agents/OPERATE\.md:' | grep -v '^agents/INCIDENT\.md:[0-9]*:When unsure between SEV levels: choose the higher one' | grep -v '^agents/PIPELINE\.md:[0-9]*:.*When unsure, pick the higher\.' | grep -v '^agents/mozart\.md:[0-9]*:.*LIGHT and STANDARD, take the higher')
+[ -z "$v28_hi" ] || v28_bad="$v28_bad [a general take-the-higher-tier sentence outside the one in mozart.md's tier text: $(printf '%s' "$v28_hi" | cut -c1-80 | head -2 | tr '\n' ';')]"
+[ "$(grep -cF 'LIGHT and STANDARD, take the higher' agents/mozart.md)" = "1" ] || v28_bad="$v28_bad [control: the one legitimate take-the-higher sentence is not on exactly one line of agents/mozart.md]"
 for v28_f in agents/mozart.md agents/PIPELINE.md; do
   [ "$(grep -cF 'an unknown-cause bug is not LIGHT' "$v28_f")" = "1" ] || v28_bad="$v28_bad [$v28_f must say 'an unknown-cause bug is not LIGHT' on exactly one line]"
 done
@@ -3587,8 +3638,21 @@ for v28_f in agents/INTAKE.md README.md commands/mozart.md; do
 done
 
 # ---- 4. every-phase variants and the HEAVY mid-build rows ------------------
-v28_variant=$(grep -nE 'HEAVY: always|mandatory[^|.]{0,40}every phase|(run|runs) on every phase|on every phase regardless|mandatory;? others|HEAVY-tier always' agents/*.md README.md)
+v28_variant_re='HEAVY: always|mandatory[^|.]{0,40}every phase|(run|runs) on every phase|on every phase regardless|mandatory;? others|HEAVY-tier always'
+v28_variant=$(for v28_f in $v28_docs INTEGRATION.md; do
+  # the one legitimate sentence is cut out of the line before matching, so a variant written beside it on the same line still hits
+  sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' "$v28_f" | grep -nE "$v28_variant_re" | sed "s|^|$v28_f:|"
+done)
+for v28_p in 'HEAVY: always run xander' 'ian and xander run on every phase regardless'; do
+  printf '%s\n' "$v28_p; xander runs on every phase when that surface is auth" | sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' | grep -qE "$v28_variant_re" \
+    || v28_bad="$v28_bad [self-test: a variant beside the xander surface rule was masked: $v28_p]"
+done
+printf '%s\n' 'and xander runs on every phase when that surface is auth' | sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' | grep -qE "$v28_variant_re" \
+  && v28_bad="$v28_bad [self-test: the xander surface rule alone was read as an every-phase variant]"
 [ -z "$v28_variant" ] || v28_bad="$v28_bad [every-phase wording survives: $(printf '%s' "$v28_variant" | cut -c1-70 | tr '\n' ';')]"
+# The scan also covers commands/*.md, docs/*.md and INTEGRATION.md (W2's own population). INTEGRATION.md's one hit is the
+# xander-on-every-phase rule for an auth, secrets or security surface, not the old unconditional rule; it is subtracted by
+# fingerprint and pinned present in section 6 below, so the allow-list names real text.
 # The three W2 allow-list lines do not match the variant regex; each is asserted still present so the
 # allow-list names real, unedited text rather than a line that has since moved.
 for v28_a in 'agents/valerie.md|By the time you run, every phase has been committed' 'agents/OPERATE.md|mandatory xander at the pre-flight gate' 'agents/FLOWS.md|every phase gate returned a needs-revision test punch list'; do
@@ -3601,10 +3665,11 @@ v28_pipe_s4=$(v28_sec agents/PIPELINE.md '^### Reviewer triggers [(]stage 4' '^#
 v28_pipe_s8=$(v28_sec agents/PIPELINE.md '^### Mid-build specialist triggers [(]stage 8' '^### ')
 v28_del_s2b=$(v28_sec agents/DELIVER.md '^### 2b\. Constraints' '^### ')
 v28_del_s4=$(v28_sec agents/DELIVER.md '^### 4\. Internal review' '^### ')
+v28_del_s7=$(v28_sec agents/DELIVER.md '^### 7\. Implement' '^### ')
 v28_del_s8=$(v28_sec agents/DELIVER.md '^### 8\. Mid-build specialists' '^### ')
 v28_del_s9=$(v28_sec agents/DELIVER.md '^### 9\. External review' '^### ')
 for v28_pair in "PIPELINE adjustments:$v28_pipe_adj" "PIPELINE policy:$v28_pipe_pol" "PIPELINE 2b:$v28_pipe_s2b" "PIPELINE 4:$v28_pipe_s4" "PIPELINE 8:$v28_pipe_s8" \
-                "DELIVER 2b:$v28_del_s2b" "DELIVER 4:$v28_del_s4" "DELIVER 8:$v28_del_s8" "DELIVER 9:$v28_del_s9"; do
+                "DELIVER 2b:$v28_del_s2b" "DELIVER 4:$v28_del_s4" "DELIVER 7:$v28_del_s7" "DELIVER 8:$v28_del_s8" "DELIVER 9:$v28_del_s9"; do
   [ "$(printf '%s\n' "${v28_pair#*:}" | grep -c .)" -ge 3 ] || v28_bad="$v28_bad [section '${v28_pair%%:*}' is missing or under 3 lines: its heading was renamed]"
 done
 # Tables: LIGHT cells, by header and row.
@@ -3665,6 +3730,64 @@ grep -qi 'skip' <<<"$v28_light" && v28_bad="$v28_bad [DELIVER stage 9 LIGHT bull
 [ "$(printf '%s\n' "$v28_del_s9" | grep -c 'sub-50-LOC')" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must carry the sub-50-LOC clause exactly once]"
 printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:' | grep -qF 'sub-50-LOC' || v28_bad="$v28_bad [the sub-50-LOC clause is not on the STANDARD bullet]"
 
+# ---- 4b. review-round policy added after phase 7 (F50-F56, F58) -------------
+# Each policy sentence is pinned where it lives, by heading, so weakening one copy fails here instead of in review.
+# F58 (contract 7.5 control): the context-pressure prohibition still covers phase 1 and every triggered phase.
+[ "$(v28_occ "$(cat agents/mozart.md)" 'on phase 1 and on every triggered phase')" = "1" ] \
+  || v28_bad="$v28_bad [agents/mozart.md: the context-pressure prohibition 'on phase 1 and on every triggered phase' is not present exactly once]"
+# F50: LIGHT eligibility is re-checked against the diff at the per-phase gate, and bob flags trigger terms in the plan.
+v28_once "$v28_del_s7" 'LIGHT eligibility re-check' "DELIVER stage 7"
+v28_rc=$(printf '%s\n' "$v28_del_s7" | grep -iF 'LIGHT eligibility re-check')
+for v28_p in 'git diff --name-only' '.github/workflows/' 'dependency manifest or lockfile' 'twelve terms' 'escalation rule in `mozart.md`'; do
+  grep -qF -- "$v28_p" <<<"$v28_rc" || v28_bad="$v28_bad [DELIVER stage 7 LIGHT re-check does not say: $v28_p]"
+done
+v28_once "$v28_del_s4" 'bob flags any trigger term he sees in a LIGHT plan' "DELIVER stage 4"
+v28_once "$v28_pipe_adj" 'bob flags any trigger term he sees in a LIGHT plan' "PIPELINE tier adjustments"
+v28_bob=$(cat agents/bob.md)
+v28_once "$v28_bob" 'On a LIGHT plan you review alone' "agents/bob.md"
+printf '%s\n' "$v28_bob" | grep -iF 'On a LIGHT plan you review alone' | grep -qiF "flag any term in xander's stage-4 trigger row" \
+  || v28_bad="$v28_bad [agents/bob.md: the LIGHT duty does not name xander's stage-4 trigger row]"
+# F51: a HEAVY surface or an otto or nina trigger also makes the campaign not LIGHT, in both homes of the security sentence.
+v28_once "$v28_del_s4" 'is not LIGHT when the work touches a HEAVY surface' "DELIVER stage 4"
+printf '%s\n' "$v28_del_s4" | grep -iF 'is not LIGHT when the work touches a HEAVY surface' | grep -qiF 'otto or nina trigger' \
+  || v28_bad="$v28_bad [DELIVER stage 4: the HEAVY-surface ineligibility sentence does not name the otto or nina trigger]"
+v28_once "$v28_pipe_adj" 'a HEAVY surface' "PIPELINE tier adjustments"
+# F52: the surface record names every listed word that applies; any xander-row term is `security`.
+v28_once "$v28_del_s8" 'every listed word that applies' "DELIVER stage 8"
+v28_once "$v28_del_s8" "any term in xander's stage-8 row maps to \`security\`" "DELIVER stage 8"
+# F54: one xander pass over the cumulative diff on escalation, and the pre-escalation row form says so.
+v28_state=$(cat agents/STATE.md)
+v28_once "$v28_state" "xander's cumulative-diff pass on escalation covers it" "agents/STATE.md"
+v28_once "$v28_state" 'xander field must be `run`' "agents/STATE.md"
+v28_xan=$(cat agents/xander.md)
+v28_once "$v28_xan" 'cumulative diff since the base' "agents/xander.md"
+# F55: the xander-on-every-phase rule is pinned at every copy, not only in DELIVER stage 8.
+v28_once "$v28_pipe_s8" 'every phase when the surface is auth, secrets or security' "PIPELINE stage 8"
+grep -qF 'every phase when the surface is auth, secrets or security' <<<"$v28_x_pip8" \
+  || v28_bad="$v28_bad [PIPELINE stage-8 xander row does not carry 'every phase when the surface is auth, secrets or security']"
+printf '%s\n' "$v28_xan" | grep -F 'Your DELIVER stages' | grep -qF 'every phase when that surface is auth, secrets or security' \
+  || v28_bad="$v28_bad [agents/xander.md stages line does not carry 'every phase when that surface is auth, secrets or security']"
+printf '%s\n' "$v28_xan" | grep '^Mozart invokes you on plans or slices' | grep -qF 'every phase when that surface is auth, secrets or security' \
+  || v28_bad="$v28_bad [agents/xander.md trigger paragraph does not carry 'every phase when that surface is auth, secrets or security']"
+printf '%s\n' "$v28_xan" | grep -F 'Your DELIVER stages' | grep -qF 'makes it not LIGHT' \
+  || v28_bad="$v28_bad [agents/xander.md stages line does not say a xander trigger makes the campaign not LIGHT]"
+grep -qF 'LIGHT and STANDARD: on triggers' <<<"$v28_xan" && v28_bad="$v28_bad [agents/xander.md still says LIGHT runs xander on triggers]"
+# F55: stage 2b stays narrow term by term: every union term the narrow trigger does not name is absent from both 2b texts.
+v28_2b_missing=$( { v28_missing "$v28_x_pip2b"; v28_missing "$v28_del_s2b"; } | sort | uniq -c | awk '$1 == 2 { sub(/^ *2 /, ""); print }')
+for v28_t in 'auth' 'secrets' 'untrusted input' 'encryption' 'sessions' 'RBAC' 'security headers' 'CSP' 'authorization (ownership and tenant filters)' 'outbound requests'; do
+  grep -qxF -- "$v28_t" <<<"$v28_2b_missing" || v28_bad="$v28_bad [a stage-2b text (PIPELINE row or DELIVER section) names the stage-4/8 union term '$v28_t': 2b must stay narrower]"
+done
+# F56: a xander-row term removes the STANDARD codex r2 skip.
+v28_std9=$(printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:')
+v28_has "$v28_std9" "not available when any term in xander's stage-8 trigger row applies" \
+  || v28_bad="$v28_bad [DELIVER stage 9 STANDARD bullet does not remove the sub-50-LOC skip when a xander-row term applies]"
+# LIGHT-ineligibility, README and FLOWS: no undefined 'security terms'.
+v28_flows_impl=$(v28_sec agents/FLOWS.md '^### Implementing an existing plan' '^### ')
+[ "$(printf '%s\n' "$v28_flows_impl" | grep -c .)" -ge 5 ] || v28_bad="$v28_bad [agents/FLOWS.md 'Implementing an existing plan' section is missing or under 5 lines]"
+v28_once "$v28_flows_impl" "no term in xander's stage-8 row" "agents/FLOWS.md implement-an-existing-plan path"
+grep -qF 'free of security terms' agents/FLOWS.md && v28_bad="$v28_bad [agents/FLOWS.md infers LIGHT from undefined 'security terms']"
+grep -F 'A security-relevant change' README.md | grep -qF 'HEAVY surface' || v28_bad="$v28_bad [README.md does not say a HEAVY-surface change is never LIGHT]"
+
 # ---- 5. codex r2 wording (W3) ----------------------------------------------
 v28_opt=$(grep -niE 'codex r2|codex on diff|9 ·' agents/PIPELINE.md README.md | grep -E 'optional|opt /')
 [ -z "$v28_opt" ] || v28_bad="$v28_bad [codex r2 still reads optional: $(printf '%s' "$v28_opt" | cut -c1-70 | tr '\n' ';')]"
@@ -3686,6 +3809,9 @@ v28_ig=$(v28_sec INTEGRATION.md '^## 6\. Pipeline flags [(]stanza optional[)]' '
 grep -qF 'every_phase: true' <<<"$v28_ig" || v28_bad="$v28_bad [INTEGRATION.md section 6 does not show every_phase: true]"
 v28_ih=$(v28_sec INTEGRATION.md '^## How agents read these stanzas' '^---$')
 printf '%s\n' "$v28_ih" | grep -F 'every_phase' | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md How-agents-read paragraph does not say mozart reads every_phase and never writes it]"
+v28_once "$v28_ig" 'every listed word that applies' "INTEGRATION.md section 6"
+v28_once "$v28_ig" "any term in xander's stage-8 row maps to \`security\`" "INTEGRATION.md section 6"
+v28_once "$v28_ig" 'xander runs on every phase when that surface is `auth`, `secrets` or `security`' "INTEGRATION.md section 6 (F55)"
 grep -qE 'never writes' <<<"$v28_ig" || v28_bad="$v28_bad [INTEGRATION.md section 6 does not say mozart never writes the stanza]"
 
 # ---- 7. dead persona text (step 28a) ---------------------------------------
@@ -3718,7 +3844,9 @@ else
 fi
 # docs/EVAL.md's by-tier bullet and the library's tier comment name LIGHT, positionally.
 sed -n '/Catches\/campaign by tier/,/^$/p' docs/EVAL.md | grep -qF 'LIGHT' || v28_bad="$v28_bad [docs/EVAL.md's 'Catches/campaign by tier' bullet does not name LIGHT]"
-grep -q 'LIGHT' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh's tier comment does not name LIGHT]"
+v28_libc=$(awk '/^function tier_of[(]/ { for (i = n; i >= 1 && c[i] ~ /^#/; i--) print c[i]; exit } { c[++n] = $0 }' scripts/lib-campaign.sh)
+[ "$(printf '%s\n' "$v28_libc" | grep -c .)" -ge 5 ] || v28_bad="$v28_bad [scripts/lib-campaign.sh: the comment block directly above tier_of is missing or under 5 lines]"
+grep -q 'LIGHT' <<<"$v28_libc" || v28_bad="$v28_bad [scripts/lib-campaign.sh's tier comment (the block directly above tier_of) does not name LIGHT]"
 rm -rf "$v28_tmp"
 report "V28_tiers" "$([ -z "$v28_bad" ] && echo 0 || echo 1)" \
   "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum lines name TINY and STANDARD, all but agents/OPERATE.md and 2 asserted-present exclusions name LIGHT, $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
