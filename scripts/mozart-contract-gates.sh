@@ -1002,8 +1002,11 @@ report "V7_honest_limitation_stated" "$(ge "$v7_honest_limit" 1)" \
 v8_p1=$(awk '/^## DELIVER pipeline/{s=1;next} s&&/^## /{exit} s' agents/PIPELINE.md \
   | v3_fence_filter | grep -oE '^[0-9]+[a-z]?\.' | tr -d '.' | paste -sd' ' -)
 
-# P2 - mozart.md "## Stage progress" template
-v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/STATE.md \
+# P2 - the "## Stage progress" template. It lives in agents/TEMPLATE-STATE.md since
+# phase 3 of 2026-10-03-deliver-eval-efficiency-fixes; agents/STATE.md no longer
+# carries a skeleton, and reading it would yield an empty list that V8 reports as a
+# mismatch (an empty population is a FAIL here, never a pass).
+v8_p2=$(awk '/^## Stage progress/{s=1;next} s&&/^## /{exit} s' agents/TEMPLATE-STATE.md \
   | grep -oE '^- \[.\] [0-9]+[a-z]?\.' | grep -oE '[0-9]+[a-z]?' | paste -sd' ' -)
 
 # P3 - README.md mermaid. A DEDICATED extractor, not v3_fence_filter: this
@@ -2035,7 +2038,7 @@ agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
 agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
-agents/STATE.md	41000
+agents/STATE.md	50205
 agents/INTAKE.md	19900
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
@@ -2712,6 +2715,16 @@ if v33_build "$v33_raw"; then
     || v33_bad="$v33_bad [the template Tier pipe-list was classified as a tier: $(printf '%s' "$v33_m" | grep -m1 '^Campaigns:')]"
 else
   v33_bad="$v33_bad [the raw trio could not be built -- a template is missing or unreadable]"
+fi
+# The state template alone, no siblings beside it: its two Paths lines must be placeholders,
+# not declarations, or a campaign that never splits would be reported as missing its siblings.
+v33_alone="$v33_tmp/alone"
+if mkdir -p "$v33_alone/.mozart/plans/active" \
+   && cp "$gate_root/agents/TEMPLATE-STATE.md" "$v33_alone/.mozart/plans/active/$v33_slug.state.md"; then
+  [ "$(v33_count "$(v33_lint "$v33_alone")" '^LINT \[split-layout\]')" = "0" ] \
+    || v33_bad="$v33_bad [the state template alone emits split-layout: its Findings ledger or Conductor record line is a declaration, not a placeholder]"
+else
+  v33_bad="$v33_bad [the state-template-alone campaign could not be built]"
 fi
 # Control 1: drop the last column from the conductor header only.
 v33_mut="$v33_tmp/mut1"

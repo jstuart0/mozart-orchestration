@@ -80,7 +80,7 @@ Per the mozart persona, intake decides:
 - Plan slug and home
 - Ticketing resolution (read the active ticketing integration from the repo's `CLAUDE.md`; skip ticketing if none is declared)
 
-Create the state file (`<slug>.state.md`) AND the flow sketch (`<slug>.flow.md`) at intake. Both updated continuously through the run.
+Create the state file (`<slug>.state.md`), its ledger and conductor-record siblings (`<slug>.ledger.md`, `<slug>.conductor.md`) AND the flow sketch (`<slug>.flow.md`) at intake. All updated continuously through the run.
 
 ### 5. Spawn agents via Task as the pipeline calls for them
 
@@ -93,6 +93,7 @@ Parallel reviewer fan-out is a single message with multiple Task calls. Sequenti
 - **Plan file** (`.mozart/plans/<slug>.md`) — drafted by harry, you update phase checkboxes
 - **Decisions log** (`<slug>.decisions.md`) — created at the first judgment call, one entry per decision
 - **State file** (`<slug>.state.md`) — updated at every state transition, before invoking the next agent
+- **Findings ledger** (`<slug>.ledger.md`) and **conductor record** (`<slug>.conductor.md`) — beside the state file in a campaign created split; rows append as each finding gets a disposition and each derived claim is made
 - **Flow sketch** (`<slug>.flow.md`) — Mermaid diagram + chronological trace + participation summary; orientation flips LR → TD past 5 nodes
 - **Validation report** (`<slug>.validation.md`) — written by valerie at stage 10; you record its path in the state file's `Paths` block and cite it from the final report
 - **Ticket** (if ticketing is configured) — created at intake (or by dick for investigations); state transitions per the lifecycle table

@@ -50,6 +50,10 @@ jobs:
             agents/INTAKE.md agents/WORKTREES.md agents/FLOWS.md agents/OPERATE.md
             agents/INCIDENT.md agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md
             agents/AUDIT.md agents/CONTEXT-BUDGET.md
+            # The state-file templates (3 files): not manual members, so not in MANUAL,
+            # but the manual tells the conductor to copy them. check-manual-bundle.py's
+            # ON_DEMAND (V26_ondemand) compares this list against its own constant.
+            agents/TEMPLATE-STATE.md agents/TEMPLATE-LEDGER.md agents/TEMPLATE-CONDUCTOR.md
           )
           MISSING=0
           for f in "${REQUIRED[@]}"; do

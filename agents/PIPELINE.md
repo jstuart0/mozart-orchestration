@@ -66,7 +66,7 @@ Support agents (tool specialists, not personas):
 ## DELIVER pipeline
 
 ```
-1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file + flow sketch;
+1.  Intake          — mozart restates, classifies tier, context, and mode; confirms flow; creates state file (+ ledger and conductor siblings) + flow sketch;
                       cuts the campaign worktree (../<repo>-worktrees/<slug>, branch campaign/<slug>)
 2.  Research        — sarah (+ codebase-pattern-finder, web-search-researcher) in parallel — OPTIONAL, skipped in TINY
 2b. Constraints     — xander or ian, CONDITIONAL — narrow authorization/guarantee trigger only; skipped by default (see trigger table below)
@@ -256,6 +256,7 @@ For responding to a **live outage** — service is down or badly degraded *right
 - Plan: `.mozart/plans/<slug>.md`
 - **Decisions log**: `.mozart/plans/<slug>.decisions.md` (created at the first judgment call — why, not just what)
 - **State file**: `.mozart/plans/<slug>.state.md` (durable pipeline state — survives crashes, sessions, context resets)
+- **Findings ledger** and **conductor record**: `.mozart/plans/<slug>.ledger.md` and `.mozart/plans/<slug>.conductor.md` (beside the state file in campaigns created split; older campaigns keep them as sections of the state file)
 - **Flow sketch**: `.mozart/plans/<slug>.flow.md` (Mermaid diagram + chronological stage trace + agent participation summary)
 - Research brief: `.mozart/research/<slug>.md` (when substantial)
 - Codex round 1 (plan): `.mozart/plans/<slug>.codex-r1-plan.md`
@@ -433,7 +434,8 @@ That last sentence is load-bearing rather than decorative. Without it, a future 
 
 - The bundled `mozart.md` — the orchestrator persona, plus the bundled manual it routes to via `INDEX.md`
   (`DELIVER.md`, `STATE.md`, `TICKETS.md`, `INTAKE.md`, `WORKTREES.md`, `FLOWS.md`, `OPERATE.md`,
-  `INCIDENT.md`, `COUNTERPOINT.md`, `EVAL.md`, `DIAGNOSE.md`, `AUDIT.md`, `CONTEXT-BUDGET.md`).
+  `INCIDENT.md`, `COUNTERPOINT.md`, `EVAL.md`, `DIAGNOSE.md`, `AUDIT.md`, `CONTEXT-BUDGET.md`), and the
+  state-file skeletons it copies at intake (`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md`, `TEMPLATE-CONDUCTOR.md`).
   **Direction of authority is declared, not inferred: this file SUMMARIZES; the manual is AUTHORITATIVE.**
   Where the two disagree the manual wins, and a correction belongs in the manual first. Without a declared
   direction, future drift has no correct side and both documents get edited independently.

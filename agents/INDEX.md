@@ -23,6 +23,11 @@ the file it names, so the table never promises a file that does not exist.
 | `WORKTREES.md` | Worktree isolation and multi-campaign mode — cutting, naming, who runs where, parallel orchestration | before cutting a campaign worktree, and before running more than one campaign at once |
 | `STATE.md` | State persistence (crash-resume) and the pipeline flow sketch | before creating or updating any state file, and before narrating a stage transition |
 
+## On-demand files, not members
+
+`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md` and `TEMPLATE-CONDUCTOR.md` are state-file skeletons that
+`STATE.md` tells you to copy at intake. They are not manual members and not agents.
+
 ## Adjacent, not members
 
 `agents/PIPELINE.md` and `agents/LEARNINGS.md` sit alongside the manual and are **not

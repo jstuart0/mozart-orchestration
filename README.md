@@ -123,6 +123,7 @@ mozart-orchestration/
 │   ├── DELIVER.md STATE.md TICKETS.md INTAKE.md WORKTREES.md FLOWS.md
 │   ├── OPERATE.md INCIDENT.md COUNTERPOINT.md EVAL.md DIAGNOSE.md
 │   ├── AUDIT.md CONTEXT-BUDGET.md   # the bundled manual (13 files)
+│   ├── TEMPLATE-STATE.md TEMPLATE-LEDGER.md TEMPLATE-CONDUCTOR.md   # state-file skeletons the conductor copies at intake (not manual members, not agents)
 │   ├── nina.md
 │   ├── otto.md
 │   ├── percy.md
@@ -160,7 +161,7 @@ mozart-orchestration/
 └── SECURITY.md
 ```
 
-`.mozart/` — mozart's artifact root in **your** repo (not this one): per-campaign state files, plans, decisions logs (`<slug>.decisions.md`), flow sketches, validation reports, audits, investigations, research briefs, and incident timelines. Gitignore it unless you want campaign artifacts committed. Repos that ran mozart before this convention keep their artifacts at the legacy `thoughts/shared/` root — mozart reads both and never migrates.
+`.mozart/` — mozart's artifact root in **your** repo (not this one): per-campaign state files with their findings-ledger and conductor-record files (`<slug>.ledger.md`, `<slug>.conductor.md`), plans, decisions logs (`<slug>.decisions.md`), flow sketches, validation reports, audits, investigations, research briefs, and incident timelines. Gitignore it unless you want campaign artifacts committed. Repos that ran mozart before this convention keep their artifacts at the legacy `thoughts/shared/` root — mozart reads both and never migrates.
 
 Every code-changing campaign also gets its own git worktree at `../<repo>-worktrees/<slug>` on branch `campaign/<slug>`, cut at intake. `.mozart/` stays in the canonical checkout so `ls .mozart/plans/active/*.state.md` always answers "what's in flight?" regardless of worktree count.
 

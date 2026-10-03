@@ -4,6 +4,28 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — a new campaign's findings ledger and conductor record live in their own files; the state-file skeletons are template files
+
+A campaign created from now on is **split**: `## Findings ledger` is in `<slug>.ledger.md` and
+`## Conductor record` is in `<slug>.conductor.md`, both beside `<slug>.state.md` and created with
+it from `agents/TEMPLATE-STATE.md`, `agents/TEMPLATE-LEDGER.md` and `agents/TEMPLATE-CONDUCTOR.md`.
+The skeletons left `agents/STATE.md`, which the conductor reads on every run, and are copied once
+at intake instead. The templates are not manual members and not agents: no `name:` frontmatter,
+never named in `agents/mozart.md`, and listed in `CONTRIBUTING.md` and `validate-plugin.yml`.
+
+**Adoption.** A campaign that already exists is never split on resume. A state file with either
+section heading, or with neither and no declaration, stays single-file for life. A state file whose
+`## Paths` declares a sibling that does not exist (a crash between writing the files) gets it from
+its template when no row of that kind exists anywhere. `mozart-lint.sh` and `mozart-metrics.sh`
+read both layouts (sibling wins when a section is in both places), and lint gains a sixteenth
+category, `split-layout`, with six keys.
+
+**`state_md5` in the eval ledger** now covers the state file plus its sibling ledger and conductor
+files (concatenated in that order, existing files only); the field name is unchanged and a
+single-file campaign hashes as before. **One-time cost:** the first EVAL run with a reader that
+includes siblings re-examines every split campaign once; a reader that predates this change misses
+a change made only to a sibling.
+
 ### Changed — lint and metrics share `scripts/lib-campaign.sh`; metrics now reads CRLF state files
 
 `scripts/mozart-lint.sh` and `scripts/mozart-metrics.sh` each carried their own copy of the cell
