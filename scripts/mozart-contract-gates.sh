@@ -4231,14 +4231,17 @@ else
   v31_hasnt() { ! grep -qE "$2" <<<"$1" || v31_bad="$v31_bad [$3]"; }
   v31_c="codex=$v31_tmp/codex"; v31_p="copilot=$v31_tmp/copilot"; v31_l="local=$v31_tmp/local"
 
-  # 9.1 everything present, the full check: exit 0, four RUN lines, no SKIP,
-  #     and local counted by its S3 run. Argument roots beat the environment.
-  v31_arm "all present" 0 env MOZART_EDITION_ROOTS=/nonexistent-v31-a:/nonexistent-v31-b:/nonexistent-v31-c \
-    bash "$v31_script" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
+  # 9.1 everything present: four RUN lines, no SKIP, no FAIL, and local counted
+  #     by its S3 run. Argument roots beat the environment. --skip-behaviour
+  #     makes this a partial run, which exits 4 and never 0; the one arm that
+  #     runs the behaviour arm too is the environment arm below.
+  v31_arm "all present, partial" 4 env MOZART_EDITION_ROOTS=/nonexistent-v31-a:/nonexistent-v31-b:/nonexistent-v31-c \
+    bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
   [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [all present: not exactly four RUN lines]"
   for v31_e in orchestration codex copilot local; do v31_has "$v31_out" "^RUN $v31_e " "all present: no RUN line for $v31_e"; done
   v31_hasnt "$v31_out" '^SKIP ' "all present: a SKIP line"
   v31_hasnt "$v31_out" '^FAIL ' "all present: a FAIL line"
+  v31_has "$v31_out" '^PARTIAL' "partial run: no PARTIAL line"
 
   # 9.5/9.6 discovery from the environment, a relative path and a path with a
   #     space, in one full run: the relative codex root is absolutised, the
@@ -4250,11 +4253,6 @@ else
   v31_has "$v31_out" "^RUN copilot $v31_tmp/work dir/copilot with space" "spaced path not carried through"
   [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [environment roots: not exactly four RUN lines]"
   mv "$v31_tmp/work dir/copilot with space" "$v31_tmp/copilot"
-
-  # --skip-behaviour is a partial run: it passes through exit 4, never 0.
-  v31_arm "partial run" 4 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
-  v31_has "$v31_out" '^PARTIAL' "partial run: no PARTIAL line"
-  [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [partial run: not exactly four RUN lines]"
 
   # 9.2 each edition omitted in turn: exit 3 and one SKIP line naming it.
   for v31_omit in codex copilot local; do
@@ -4283,7 +4281,7 @@ else
   v31_has "$v31_out" '^FAIL copilot' "S3 twice: the output does not name copilot"
 
   # 9.4 failure outranks skip, and the skip is still reported.
-  v31_arm "mutated and omitted" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-s3" "$v31_p"
+  v31_arm "mutated and omitted" 1 bash "$v31_script" --skip-behaviour "codex=$v31_tmp/codex-s3" "$v31_p"
   v31_has "$v31_out" '^SKIP local: checkout not found' "mutated and omitted: the SKIP line is missing"
   v31_has "$v31_out" '^FAIL codex' "mutated and omitted: the output does not name codex"
 
@@ -4321,11 +4319,11 @@ fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -ge 18 ] || v31_bad="$v31_bad [only $v31_arms arms ran, want at least 18 -- the self-test shrank]"
+[ "$v31_arms" -ge 17 ] || v31_bad="$v31_bad [only $v31_arms arms ran, want at least 17 -- the self-test shrank]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
-  "${v31_bad:-check-editions.sh over $v31_arms arms: all present 0 with four RUN lines (arguments beat the environment), environment roots with a relative and a spaced path 0, a partial run 4 and never 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output}"
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

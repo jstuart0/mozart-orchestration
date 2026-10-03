@@ -4,6 +4,10 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — `scripts/check-editions.sh`, the cross-edition check
+
+`bash scripts/check-editions.sh <codex> <copilot> <local>` checks, per port, that the frozen S3 snippet occurs once in the file that port keeps it in, that `scripts/lib-campaign.sh` in `mozart-codex` and `mozart-copilot` is byte-identical to this repo's, and that their lint and metrics reproduce the fixture corpus. It prints one `RUN <edition>` line per edition checked and a `SKIP <edition>: checkout not found` per missing checkout; exit 1 means a check failed, 3 that one was skipped, 0 that all four editions ran. It is a pre-merge tool, not a gate, because the suite's `report()` has no SKIP state; `V31_editions_selftest` runs it against fake roots built from this tree. `scripts/check-field-note-parity.py behaviour` gains `--only` to run a subset of ports.
+
 ### Changed — the flow-sketch and final-report skeletons are template files
 
 `agents/TEMPLATE-FLOW.md` and `agents/TEMPLATE-REPORT.md` hold the skeletons that used to sit in

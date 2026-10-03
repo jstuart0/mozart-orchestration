@@ -536,7 +536,7 @@ def parse_lint_output(output):
     return triples, override_present
 
 
-def cmd_behaviour(corpus, scripts_roots):
+def cmd_behaviour(corpus, scripts_roots, only=None):
     if set(scripts_roots) != set(REQUIRED_PORTS):
         print(f"FAIL  behaviour: scripts-roots given {sorted(scripts_roots)}, need "
               f"exactly {sorted(REQUIRED_PORTS)}")
@@ -592,6 +592,8 @@ def cmd_behaviour(corpus, scripts_roots):
 
     overall_fail = 0
     for port in REQUIRED_PORTS:
+        if only is not None and port not in only:
+            continue
         root = pathlib.Path(scripts_roots[port])
         if port == "local":
             print("local: N/A — ships no campaign scripts")
@@ -776,10 +778,18 @@ def main():
     pb.add_argument("--scripts-root", dest="scripts_root", action="append",
                      required=True, type=kv, metavar="PORT=PATH",
                      help="repo root for each of: " + ", ".join(REQUIRED_PORTS))
+    pb.add_argument("--only", help="comma-separated ports to run (default: all). The four "
+                    "--scripts-root values are still required; a port left out is not read.")
 
     n = ap.parse_args()
     if n.cmd == "behaviour":
-        return cmd_behaviour(n.corpus, dict(n.scripts_root))
+        only = None
+        if n.only is not None:
+            only = [x for x in n.only.split(",") if x]
+            unknown = [x for x in only if x not in REQUIRED_PORTS]
+            if unknown or not only:
+                ap.error(f"--only takes ports from {', '.join(REQUIRED_PORTS)}, got {n.only!r}")
+        return cmd_behaviour(n.corpus, dict(n.scripts_root), only)
     roots = dict(n.root)
     if n.cmd == "parity":
         return cmd_parity(n.persona, n.paths, n.canonical, roots)
