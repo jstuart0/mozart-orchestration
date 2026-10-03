@@ -3717,6 +3717,154 @@ report "V28_tiers" "$([ -z "$v28_bad" ] && echo 0 || echo 1)" \
   "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum lines name TINY and STANDARD, all but agents/OPERATE.md and 2 asserted-present exclusions name LIGHT, $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
 
 # ---------------------------------------------------------------------------
+# V29_noprogress - the no-progress stop (P4, phase 8)
+#
+# One frozen bullet (tests/policy/no-progress.txt), the fourth item of the
+# cadence list in `## Communicate as you work` of each specialist. Population:
+# V4's roster, unmodified, minus mozart (mozart's own section was deleted in
+# phase 7 and the conductor rule lives in its Orchestration discipline). The
+# four support agents (named personas outside the roster) carry no bullet: the
+# control for the decision to leave them out. A gate cannot make a specialist
+# obey the bullet; this proves the text exists once, in the right list, byte for
+# byte, and that the conductor side and the thresholds it sits beside still say
+# what the plan's table says.
+# ---------------------------------------------------------------------------
+v29_policy_file="$gate_root/tests/policy/no-progress.txt"
+v29_bad=""
+v29_text=""
+v29_bytes=0
+if [ -s "$v29_policy_file" ] && [ "$(grep -c . "$v29_policy_file")" = "1" ] && [ "$(wc -l < "$v29_policy_file" | tr -d ' ')" = "1" ]; then
+  v29_text=$(cat "$v29_policy_file")
+  v29_bytes=$(wc -c < "$v29_policy_file" | tr -d ' ')
+else
+  v29_bad="$v29_bad [tests/policy/no-progress.txt is missing, empty or not a single line]"
+fi
+
+# Content pins on the frozen text itself.
+if [ -n "$v29_text" ]; then
+  [ "$v29_bytes" -le 330 ] || v29_bad="$v29_bad [policy text is $v29_bytes bytes, ceiling 330: the V16 arithmetic for nina, dick and otto depends on it]"
+  case "$v29_text" in '- **No progress**: '*) : ;; *) v29_bad="$v29_bad [policy text is not a bullet opening '- **No progress**: ']" ;; esac
+  for v29_pin in 'the same command three times with the same result and nothing changed between' \
+                 'three turns that do nothing' 'a bounded wait expires twice' \
+                 'what you attempted, the command, its last output, the likely blocker, and the next step' \
+                 'Stuck is a result.'; do
+    case "$v29_text" in *"$v29_pin"*) : ;; *) v29_bad="$v29_bad [policy text lacks: $v29_pin]" ;; esac
+  done
+fi
+
+# One persona file against the policy text; prints the problems, nothing when clean.
+v29_check_file() { # $1 = file, $2 = policy text
+  local f="$1" text="$2" sec n_all n_sec n_items before after
+  sec=$(awk '/^## Communicate as you work[ \t]*$/ { on = 1; next } on && /^## / { exit } on { print }' "$f")
+  [ -n "$sec" ] || { printf '[no Communicate section]'; return; }
+  n_all=$(grep -cxF -- "$text" "$f" || true)
+  n_sec=$(grep -cxF -- "$text" <<<"$sec" || true)
+  [ "$n_all" = "1" ] || printf '[bullet occurs %s time(s) in the file, want 1]' "$n_all"
+  [ "$n_sec" = "1" ] || printf '[bullet occurs %s time(s) inside the section, want 1]' "$n_sec"
+  n_items=$(grep -c '^- \*\*' <<<"$sec" || true)
+  [ "$n_items" = "4" ] || printf '[cadence list has %s item(s), want 4]' "$n_items"
+  before=$(grep -xF -B1 -- "$text" <<<"$sec" | head -1)
+  case "$before" in '- **On return**'*) : ;; *) printf '[bullet does not follow the On return bullet]' ;; esac
+  after=$(grep -xF -A1 -- "$text" <<<"$sec" | sed -n 2p)
+  [ -z "$after" ] || printf '[bullet is not the last item of the list]'
+}
+
+# The checker can fail: planted personas it must reject, one clean one it must pass.
+v29_tmp=$(mktemp -d) || { v29_bad="$v29_bad [mktemp failed]"; v29_tmp=/nonexistent-v29; }
+v29_probe="- **Probe**: a planted fourth item"
+v29_head=$'## Communicate as you work\n\n- **Before your first tool call**: x\n- **At meaningful checkpoints**: y\n- **On return**: z'
+printf '%s\n%s\n\n## Field notes\n' "$v29_head" "$v29_probe" > "$v29_tmp/good.md"
+printf '%s\n\n## Field notes\n' "$v29_head" > "$v29_tmp/zero.md"
+printf '%s\n%s\n%s\n\n## Field notes\n' "$v29_head" "$v29_probe" "$v29_probe" > "$v29_tmp/twice.md"
+printf '%s\n\n## Field notes\n\n%s\n' "$v29_head" "$v29_probe" > "$v29_tmp/outside.md"
+printf '## Communicate as you work\n\n- **Before your first tool call**: x\n- **At meaningful checkpoints**: y\n%s\n- **On return**: z\n\n## Field notes\n' "$v29_probe" > "$v29_tmp/misplaced.md"
+[ -z "$(v29_check_file "$v29_tmp/good.md" "$v29_probe")" ] || v29_bad="$v29_bad [self-test: a clean planted persona was rejected: $(v29_check_file "$v29_tmp/good.md" "$v29_probe")]"
+for v29_planted in zero twice outside misplaced; do
+  [ -n "$(v29_check_file "$v29_tmp/$v29_planted.md" "$v29_probe")" ] || v29_bad="$v29_bad [self-test: planted persona '$v29_planted' was not rejected]"
+done
+rm -rf "$v29_tmp"
+
+# Population: V4's roster minus mozart, equal to the files that carry the section.
+v29_n=0
+v29_listed=""
+if [ -n "$v29_text" ]; then
+  while IFS="$(printf '\t')" read -r v29_ag _; do
+    [ -n "$v29_ag" ] && [ "$v29_ag" != "mozart" ] || continue
+    v29_f="$gate_root/agents/$v29_ag.md"
+    v29_n=$((v29_n + 1)); v29_listed="$v29_listed $v29_ag"
+    [ -f "$v29_f" ] || { v29_bad="$v29_bad [$v29_ag: no file agents/$v29_ag.md]"; continue; }
+    v29_res=$(v29_check_file "$v29_f" "$v29_text")
+    [ -z "$v29_res" ] || v29_bad="$v29_bad [$v29_ag: $v29_res]"
+  done < <(printf '%s\n' "$v4_roster")
+fi
+[ "$v29_n" -ge 17 ] || v29_bad="$v29_bad [only $v29_n specialist(s) checked, floor 17]"
+v29_carriers=$(grep -lE '^## Communicate as you work' "$gate_root"/agents/*.md | sed 's#.*/##; s#\.md$##' | grep -vx mozart | sort | paste -sd' ' -)
+v29_expected=$(printf '%s\n' $v29_listed | sort | paste -sd' ' -)
+[ "$v29_carriers" = "$v29_expected" ] || v29_bad="$v29_bad [files carrying a Communicate section ($v29_carriers) differ from the roster minus mozart ($v29_expected)]"
+case " $v29_listed " in *" jackson "*) : ;; *) v29_bad="$v29_bad [named member jackson absent from the checked population]" ;; esac
+
+# Named member: jackson's three original items are unmodified and still first.
+v29_jack=$(awk '/^## Communicate as you work[ \t]*$/ { on = 1; next } on && /^## / { exit } on && /^- \*\*/ { print }' "$gate_root/agents/jackson.md" | head -3)
+v29_jack_want=$(printf '%s\n' \
+  '- **Before your first tool call**: one sentence stating what you'"'"'re about to do.' \
+  '- **At meaningful checkpoints**: when you find something significant, change direction, or hit a blocker — one sentence each.' \
+  '- **On return**: a structured, scannable summary of what you did, what you found, and (if applicable) what you recommend.')
+[ "$v29_jack" = "$v29_jack_want" ] || v29_bad="$v29_bad [jackson's three original cadence items changed or moved]"
+
+# Controls: mozart and the support agents carry no bullet.
+v29_sup=0
+if [ -n "$v29_text" ]; then
+  v29_moz=$(grep -cxF -- "$v29_text" "$gate_root/agents/mozart.md" || true)
+  [ "$v29_moz" = "0" ] || v29_bad="$v29_bad [agents/mozart.md carries the bullet $v29_moz time(s), want 0]"
+  for v29_sf in "$gate_root"/agents/*.md; do
+    head -6 "$v29_sf" | grep -q '^name:' || continue
+    v29_sn=$(basename "$v29_sf" .md)
+    case " $v29_listed mozart " in *" $v29_sn "*) continue ;; esac
+    v29_sup=$((v29_sup + 1))
+    v29_sc=$(grep -cxF -- "$v29_text" "$v29_sf" || true)
+    [ "$v29_sc" = "0" ] || v29_bad="$v29_bad [support agent $v29_sn carries the bullet $v29_sc time(s), want 0]"
+  done
+  [ "$v29_sup" -ge 4 ] || v29_bad="$v29_bad [only $v29_sup support agent(s) found, floor 4]"
+  [ -f "$gate_root/agents/codebase-analyzer.md" ] || v29_bad="$v29_bad [named support agent codebase-analyzer absent]"
+fi
+
+# Conductor side. Each phrase is counted inside its own section or on its own
+# anchored line, so a copy elsewhere in the file cannot satisfy it.
+v29_section() { # $1 = file, $2 = exact heading line
+  awk -v h="$2" '$0 == h { on = 1; next } on && /^## / { exit } on { print }' "$1"
+}
+v29_od=$(v29_section "$gate_root/agents/mozart.md" '## Orchestration discipline')
+v29_rule=$(grep -F '**A no-progress return is information' <<<"$v29_od" || true)
+v29_rule_n=$(grep -c . <<<"$v29_rule" || true)
+[ "$v29_rule_n" = "1" ] || v29_bad="$v29_bad [Orchestration discipline holds the no-progress rule $v29_rule_n time(s), want exactly 1]"
+for v29_pin in 'supply the missing fact' 'continue the live agent' 'same specialist on the same work' 'CONTEXT-BUDGET.md' 'escalate' 'Never a third silent continue'; do
+  case "$v29_rule" in *"$v29_pin"*) : ;; *) v29_bad="$v29_bad [the conductor rule lacks: $v29_pin]" ;; esac
+done
+v29_cap=$(grep -F 'Cap: 3 attempts per phase' "$gate_root/agents/DELIVER.md" || true)
+v29_cap_n=$(grep -c . <<<"$v29_cap" || true)
+[ "$v29_cap_n" = "1" ] || v29_bad="$v29_bad [DELIVER.md holds the per-phase attempts cap on $v29_cap_n line(s), want 1 (and the number must stay 3)]"
+case "$v29_cap" in *'A no-progress return is not an attempt'*) : ;; *) v29_bad="$v29_bad [the DELIVER.md attempts-cap line does not say a no-progress return is not an attempt]" ;; esac
+v29_fs=$(grep -F 'After two failed spawns of the same specialist' "$gate_root/agents/CONTEXT-BUDGET.md" || true)
+v29_fs_n=$(grep -c . <<<"$v29_fs" || true)
+[ "$v29_fs_n" = "1" ] || v29_bad="$v29_bad [CONTEXT-BUDGET.md holds the failed-spawns line $v29_fs_n time(s), want 1 (and the number must stay two)]"
+case "$v29_fs" in *'A no-progress return counts as one failed spawn'*) : ;; *) v29_bad="$v29_bad [the CONTEXT-BUDGET.md failed-spawns line does not count a no-progress return as one]" ;; esac
+grep -qF 'two polls with no output-file or CPU-time growth' "$gate_root/agents/COUNTERPOINT.md" \
+  || v29_bad="$v29_bad [CONTROL: COUNTERPOINT.md's two-poll stall threshold changed]"
+
+# CONTRIBUTING.md item 8 names the bullet once; V15's registry is untouched.
+v29_item8=$(grep -E '^8\. \*\*`## Communicate as you work`\*\*' "$gate_root/CONTRIBUTING.md" || true)
+v29_item8_n=$(grep -c . <<<"$v29_item8" || true)
+[ "$v29_item8_n" = "1" ] || v29_bad="$v29_bad [CONTRIBUTING.md item 8 found $v29_item8_n time(s), want 1]"
+v29_item8_np=$(grep -o 'tests/policy/no-progress.txt' <<<"$v29_item8" | grep -c . || true)
+[ "$v29_item8_np" = "1" ] || v29_bad="$v29_bad [CONTRIBUTING.md item 8 names tests/policy/no-progress.txt $v29_item8_np time(s), want exactly 1]"
+[ ! -e "$gate_root/tests/parity/snippets/NP.txt" ] || v29_bad="$v29_bad [CONTROL: tests/parity/snippets/NP.txt exists: the no-progress text is not a V15 snippet]"
+v29_np_rows=$(grep -cE '^NP[[:space:]]' <<<"$v15_registry" || true)
+[ "$v29_np_rows" = "0" ] || v29_bad="$v29_bad [CONTROL: the V15 registry has $v29_np_rows NP row(s)]"
+
+report "V29_noprogress" "$([ -z "$v29_bad" ] && echo 0 || echo 1)" \
+  "${v29_bad:-the frozen no-progress bullet ($v29_bytes bytes) is the fourth item of the cadence list of $v29_n specialists (the V4 roster minus mozart, equal to the files carrying the section), once each, named member jackson with its three original items intact; 0 in mozart.md and in $v29_sup support agents; the conductor rule once in Orchestration discipline, one clause each in DELIVER.md and CONTEXT-BUDGET.md with their numbers unchanged; 5 planted personas judged correctly}"
+
+# ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
 # EXISTS; these prove the pointers into it still RESOLVE, which conservation is
 # structurally blind to. python3 missing is a FAIL, never a skip.
