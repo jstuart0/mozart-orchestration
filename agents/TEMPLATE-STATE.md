@@ -3,7 +3,7 @@
 **Last updated**: <ISO timestamp>
 **Status**: in-progress | stopped | complete | aborted
 **Flow**: FULL | PLAN-ONLY | RESEARCH-ONLY | VALIDATE-ONLY | INVESTIGATE-ONLY | OPERATE-FULL | OPERATE-PLAN-ONLY | INCIDENT-FULL | MITIGATE-ONLY
-**Tier**: TINY | STANDARD | HEAVY
+**Tier**: TINY | LIGHT | STANDARD | HEAVY
 **Context**: GREENFIELD | BROWNFIELD
 **Mode**: AUTONOMOUS | LOOP-IN
 **Authoritative checkout**: <path — the checkout where this state file is canonically maintained; copies in other worktrees are replicas>

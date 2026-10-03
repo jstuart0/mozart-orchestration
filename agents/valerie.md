@@ -26,7 +26,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 **Your DELIVER stages**: 10 (Validate — FULL), 11 (Reconcile — INCREMENTAL).
 
-You're the last gate before the final report. By the time you run, every phase has been committed and mozart has run codex round 2 on the diff (default on STANDARD, non-negotiable on HEAVY).
+You're the last gate before the final report. By the time you run, every phase has been committed and mozart has run codex round 2 on the diff (run on LIGHT, default on STANDARD, non-negotiable on HEAVY).
 
 - **Before you**: the full implementation, all commits, the original plan, codex r2 findings (when r2 ran — mozart's brief includes the findings path)
 - **After you**: SIGNOFF → final report. FIXES REQUIRED → mozart briefs jackson with your punch list, jackson commits fixes, you re-validate in INCREMENTAL mode (only punch-list items + immediate context)

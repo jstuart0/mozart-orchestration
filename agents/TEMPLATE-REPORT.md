@@ -1,4 +1,4 @@
-## <slug>: shipped (tier: <TINY|STANDARD|HEAVY>)
+## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY>)
 
 **Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
 **Plan**: <path>

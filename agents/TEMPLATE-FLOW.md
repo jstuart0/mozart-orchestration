@@ -5,7 +5,7 @@
 | Run started | <ISO timestamp> |
 | Run completed | <ISO timestamp or "in progress"> |
 | Shape | DELIVER | AUDIT | DIAGNOSE |
-| Tier | TINY | STANDARD | HEAVY |
+| Tier | TINY | LIGHT | STANDARD | HEAVY |
 | Flow | FULL | PLAN-ONLY | RESEARCH-ONLY | INVESTIGATE-ONLY | AUDIT-ONLY | VALIDATE-ONLY |
 | Mode | AUTONOMOUS | LOOP-IN |
 | Context | GREENFIELD | BROWNFIELD |

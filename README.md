@@ -10,7 +10,7 @@
 
 One-shot Claude Code requests either over-fire (one giant context doing everything) or under-deliver (no review, no plan, no validation). Mozart threads the needle: you describe what you want, and he routes it through a real delivery pipeline — research, plan, specialist review, implement, verify, document — using named subagents running in their own contexts. Each stage has a defined scope and a clear handoff. You see every move as it happens.
 
-Mozart handles six shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), **DIAGNOSE** (investigate a failure), **INCIDENT** (respond to a live outage — mitigate first to restore service, race hypotheses in parallel, then durable-fix, with a running timeline and a blameless post-mortem; mozart is the incident commander), **OPERATE** (change or debug a live system — installs, config changes, infra mutations, applied straight to the running cluster/host rather than through a git pipeline), and **EVAL** (evaluate mozart's own field performance from past campaign artifacts and improve the configuration — see `/mozart-eval`). He tiers tasks — TINY / STANDARD / HEAVY (SEV1/2/3 for incidents) — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
+Mozart handles six shapes of work: **DELIVER** (build or change something), **AUDIT** (review against a goal), **DIAGNOSE** (investigate a failure), **INCIDENT** (respond to a live outage — mitigate first to restore service, race hypotheses in parallel, then durable-fix, with a running timeline and a blameless post-mortem; mozart is the incident commander), **OPERATE** (change or debug a live system — installs, config changes, infra mutations, applied straight to the running cluster/host rather than through a git pipeline), and **EVAL** (evaluate mozart's own field performance from past campaign artifacts and improve the configuration — see `/mozart-eval`). He tiers tasks — TINY / LIGHT / STANDARD / HEAVY (SEV1/2/3 for incidents) — to right-size the gates, classifies project context (GREENFIELD / BROWNFIELD) to decide when duplicate-check agents run, and narrates every Task spawn so you always know who is working and why.
 
 ## Quickstart
 
@@ -45,13 +45,13 @@ flowchart LR
     B -.-> C[3 · Plan<br/>harry]
     N -.-> C
     A --> C
-    C -.-> D[4 · Plan review<br/><i>STANDARD/HEAVY</i>]
+    C -.-> D[4 · Plan review<br/><i>STANDARD/HEAVY,<br/>bob only on LIGHT</i>]
     D -.-> E[5 · Codex r1]
     C --> E
     E --> F[6 · Iterate]
     F --> G[7 · Implement<br/>jackson]
     G -.-> H[8 · Mid-build<br/><i>conditional</i>]
-    H -.-> I[9 · Codex r2<br/><i>STANDARD opt /<br/>HEAVY req</i>]
+    H -.-> I[9 · Codex r2<br/><i>LIGHT run /<br/>STANDARD default /<br/>HEAVY req</i>]
     G -.-> I
     I -.-> J[10 · Validate<br/>valerie]
     G --> J
@@ -62,7 +62,7 @@ flowchart LR
     L --> M
 ```
 
-Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier, on repo configuration, or on the task statement itself: Research runs on STANDARD/HEAVY; Constraints (2b) is skipped outright on TINY and, on STANDARD/HEAVY, runs only when the task statement trips a narrow authorization or published-guarantee trigger — most campaigns on any tier never see it; Plan review fan-out runs on STANDARD/HEAVY; Mid-build specialists trigger per-phase when conditions match; Codex r2 is optional on STANDARD and mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
+Solid edges (`-->`) run on every tier. Dashed edges (`-.->`) mark conditional stages — conditional either on tier, on repo configuration, or on the task statement itself: Research runs on STANDARD/HEAVY; Constraints (2b) is skipped outright on TINY and LIGHT and, on STANDARD/HEAVY, runs only when the task statement trips a narrow authorization or published-guarantee trigger — most campaigns on any tier never see it; Plan review fan-out runs on STANDARD/HEAVY (bob alone reviews a LIGHT plan); Mid-build specialists trigger per-phase when conditions match; Codex r2 runs on LIGHT, by default on STANDARD, and is mandatory on HEAVY; Ship runs on every tier but only when the repo declares a `## Pull requests` stanza, so it is off by default.
 
 *AUDIT and DIAGNOSE flows are shorter — see [PIPELINE.md](agents/PIPELINE.md) for the full reference.*
 
@@ -83,10 +83,11 @@ Bug-shaped DELIVER on STANDARD/HEAVY auto-promotes to DIAGNOSE first. A DIAGNOSE
 | Tier | What it adjusts |
 |---|---|
 | **TINY** | Skip research, plan-review fan-out, mid-build specialists. Brief jackson directly → verify → commit |
+| **LIGHT** | Small change, known cause, no security surface: skip research, constraints and codex r1; short plan reviewed by bob alone; mid-build specialists on triggers; codex r2 runs |
 | **STANDARD** | Default — full DELIVER pipeline |
-| **HEAVY** | STANDARD + mandatory ian on every phase + mandatory xander mid-build + mandatory codex r2 on the final diff |
+| **HEAVY** | STANDARD + ian and xander mid-build (both on phase 1, then on triggers and the recorded HEAVY surface) + mandatory codex r2 on the final diff |
 
-Mozart classifies tier at intake based on surface area (auth, schema, migrations, infra, security-critical → HEAVY).
+Mozart classifies tier at intake based on surface area (auth, schema, migrations, infra, security-critical → HEAVY). A security-relevant change is never LIGHT, and a tier only ever goes up.
 
 ## Project context
 
@@ -178,6 +179,7 @@ Mozart is pluggable for the surfaces that vary by team:
 3. **Code retrieval** — an LSP, IDE symbol index, or AST-backed MCP server, if you have one.
 4. **Worktrees** — where campaign worktrees live, what they branch from, and how they're named.
 5. **Pull requests** — whether mozart pushes the campaign branch and opens the PR at all, and whether it opens as draft or ready.
+6. **Pipeline flags** — `every_phase: true` (the `EVERY-PHASE` flag) spawns ian and xander at every phase of a HEAVY campaign.
 
 Configure them by adding stanzas to your repo's `CLAUDE.md`. See [`INTEGRATION.md`](./INTEGRATION.md) for templates and the contract mozart follows.
 
@@ -187,7 +189,7 @@ Every stanza is optional. Without ticketing, mozart skips ticket steps entirely 
 
 Mozart's pipeline calls an external `codex` CLI at stages 5 (codex-r1-plan, plan review) and 9 (codex-r2-diff, diff review) for fresh-context, second-opinion review. The value is that codex runs with no plan-iteration history, which surfaces issues that in-context agents sometimes miss. The plugin works without codex — those stages skip with a logged note and the pipeline continues.
 
-If you want codex's input, install it from <https://github.com/openai/codex>. On HEAVY tier, codex r2 is mandatory; on STANDARD it's optional; TINY skips both rounds entirely.
+If you want codex's input, install it from <https://github.com/openai/codex>. Codex r2 is mandatory on HEAVY, default-run on STANDARD and run on LIGHT; round 1 runs on STANDARD and HEAVY only (LIGHT skips it); TINY skips both rounds entirely.
 
 ## Authority
 

@@ -11,7 +11,7 @@ You don't trade rigor for speed; you *sequence* them.
 ### The parallelism discipline (read this — it's the part that goes wrong)
 **Read-only investigation parallelizes freely; live mutation serializes.** Investigators racing independent hypotheses can't hurt each other — fan them out. But *mutations* to a system that's already broken go through **one hand at a time** (hank), coordinated by the IC. Two responders applying conflicting live changes to a broken cluster is how a SEV2 becomes a SEV1. Fan out the readers; single-thread the writers. (Same "ops state lives in the cluster, not a state file" constraint as OPERATE — amplified, because the system is on fire.)
 
-### SEV tiers (INCIDENT's tier axis — replaces TINY/STANDARD/HEAVY)
+### SEV tiers (INCIDENT's tier axis — replaces TINY/LIGHT/STANDARD/HEAVY)
 | SEV | When | Response |
 |---|---|---|
 | **SEV1** | Total outage, data-loss risk, security breach in progress, or broad customer impact | All hands. Mitigate immediately; every safe lever on the table. Mandatory post-mortem. Durable fix is HEAVY-tier by default |

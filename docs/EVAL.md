@@ -90,7 +90,7 @@ What the columns decide:
   runs. A dropping DRE means the gates are decaying — the escaping categories name
   which lens to strengthen.
 - **Catches/campaign by tier** — validates the tiering: TINY should be near zero
-  (that's why it skips gates); STANDARD/HEAVY materially above it.
+  (that's why it skips gates); LIGHT, STANDARD and HEAVY materially above it.
 
 Caveats the report must carry: catch counts are a **lower bound** on pipeline value
 (plan review also prevents defects from being *written*, which no ledger row records),

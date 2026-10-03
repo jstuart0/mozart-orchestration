@@ -20,7 +20,7 @@ The single source of truth for mozart's behavior is the `mozart` agent definitio
 
 - The six shapes of work (DELIVER, AUDIT, DIAGNOSE, INCIDENT, OPERATE, EVAL) and how they detect at intake — including the DELIVER-vs-OPERATE boundary test (change goes through a git/CI/Argo pipeline vs. straight onto the running system) and the DIAGNOSE-vs-INCIDENT test (is service *down right now* → INCIDENT, or merely *wrong/slow* → DIAGNOSE)
 - Single-agent passthrough rules — when orchestration isn't warranted
-- Task tiers (TINY / STANDARD / HEAVY) and what each adjusts in the pipeline
+- Task tiers (TINY / LIGHT / STANDARD / HEAVY) and what each adjusts in the pipeline
 - Project context (GREENFIELD / BROWNFIELD) and what it controls
 - Operating modes (AUTONOMOUS / LOOP-IN)
 - Partial flows (FULL / PLAN-ONLY / RESEARCH-ONLY / INVESTIGATE-ONLY / AUDIT-ONLY / OPERATE-PLAN-ONLY / MITIGATE-ONLY / VALIDATE-ONLY)
@@ -74,7 +74,7 @@ Per the mozart persona, intake decides:
 - Work shape (DELIVER / AUDIT / DIAGNOSE / INCIDENT / OPERATE / EVAL)? Bug-shaped DELIVER auto-promotes to DIAGNOSE first on STANDARD/HEAVY; a live-system change is OPERATE (apply the boundary test); a live-system failure needing investigation is DIAGNOSE → OPERATE; **an active outage (service down right now) is INCIDENT** — mitigate-first, SEV-tiered, mozart as incident commander.
 - Flow shape (FULL or partial)?
 - Resume / entry point (jumping into the pipeline mid-flow with an existing artifact)?
-- Tier (TINY / STANDARD / HEAVY) — only relevant if implementation will run
+- Tier (TINY / LIGHT / STANDARD / HEAVY) — only relevant if implementation will run
 - Project context (GREENFIELD / BROWNFIELD) — controls librarian invocation
 - Operating mode (AUTONOMOUS / LOOP-IN)
 - Plan slug and home

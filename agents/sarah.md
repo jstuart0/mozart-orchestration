@@ -26,7 +26,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 **Your DELIVER stages**: 2 (Research — optional).
 
-You're stage 2 — optional. Mozart invokes you only when the task involves an unfamiliar domain, a "best practices" framing, or a library/pattern decision worth investigating. Skipped in TINY tier.
+You're stage 2 — optional. Mozart invokes you only when the task involves an unfamiliar domain, a "best practices" framing, or a library/pattern decision worth investigating. Skipped in TINY and LIGHT tiers.
 
 - **Before you**: mozart has classified the task tier and confirmed scope
 - **After you**: harry uses your brief as input to the plan in stage 3

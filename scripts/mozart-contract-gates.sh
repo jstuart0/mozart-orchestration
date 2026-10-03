@@ -3489,13 +3489,16 @@ for v28_p in 'update `**Tier**:` in place' 'log the decision' 'run the stages th
 done
 v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`'
 [ "$(printf '%s\n' "$v28_mz" | grep -cF -- "$v28_list")" = "1" ] || v28_bad="$v28_bad [the closed seven-word surface list must occur on exactly one line of mozart.md's tier text]"
-v28_gen=$(grep -nEi 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md | grep -v '^agents/OPERATE\.md:')
+# INCIDENT's own sentence is about SEV levels, not DELIVER tiers; it is asserted present so the exclusion is a fact.
+[ "$(grep -cF 'When unsure between SEV levels: choose the higher one' agents/INCIDENT.md)" = "1" ] \
+  || v28_bad="$v28_bad [control: agents/INCIDENT.md must keep its own SEV-level sentence exactly once]"
+v28_gen=$(grep -nEi 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md | grep -v '^agents/OPERATE\.md:' | grep -vF 'When unsure between SEV levels: choose the higher one')
 [ -z "$v28_gen" ] || v28_bad="$v28_bad [a general 'when unsure, the higher' sentence returned: $(printf '%s' "$v28_gen" | cut -c1-80 | head -2 | tr '\n' ';')]"
 for v28_f in agents/mozart.md agents/PIPELINE.md; do
   [ "$(grep -cF 'an unknown-cause bug is not LIGHT' "$v28_f")" = "1" ] || v28_bad="$v28_bad [$v28_f must say 'an unknown-cause bug is not LIGHT' on exactly one line]"
 done
 for v28_f in agents/INTAKE.md README.md commands/mozart.md; do
-  grep -F 'auto-promote' "$v28_f" | grep -qF 'STANDARD/HEAVY' || v28_bad="$v28_bad [control: $v28_f must keep its STANDARD/HEAVY auto-promote line]"
+  grep -F 'DIAGNOSE first' "$v28_f" | grep -qF 'STANDARD/HEAVY' || v28_bad="$v28_bad [control: $v28_f must keep its bug-shaped line naming DIAGNOSE first on STANDARD/HEAVY]"
 done
 
 # ---- 4. every-phase variants and the HEAVY mid-build rows ------------------
@@ -3633,7 +3636,7 @@ sed -n '/Catches\/campaign by tier/,/^$/p' docs/EVAL.md | grep -qF 'LIGHT' || v2
 grep -q 'LIGHT' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh's tier comment does not name LIGHT]"
 rm -rf "$v28_tmp"
 report "V28_tiers" "$([ -z "$v28_bad" ] && echo 0 || echo 1)" \
-  "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum TINY+STANDARD lines all naming LIGHT (2 asserted exclusions), $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
+  "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum lines name TINY and STANDARD, all but agents/OPERATE.md and 2 asserted-present exclusions name LIGHT, $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

@@ -2,7 +2,7 @@
 
 ### 2. Research (sarah, optional — and parallel)
 
-Skip in TINY. In STANDARD/HEAVY, run when:
+Skip in TINY and LIGHT. In STANDARD/HEAVY, run when:
 - Unfamiliar domain, library, or pattern decision
 - "Best practices" or "modern way to X" framing
 - Multiple plausible approaches and the right one isn't obvious
@@ -50,11 +50,13 @@ Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `
 
 Pre-filter reviewers based on what the plan actually touches. Don't invoke a lens that doesn't apply.
 
+On a LIGHT campaign this stage is bob alone (plus tessa when TDD is set). Any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT: if one applies to the plan, the campaign is STANDARD at minimum and the escalation rule in `mozart.md` applies.
+
 | Reviewer | Always | Trigger |
 |---|---|---|
 | **bob** | ✓ | — (architecture, sequencing, risk coverage applies to every plan) |
 | **librarian** | | BROWNFIELD AND plan introduces new functions, classes, modules, services, or shared abstractions. Skip on GREENFIELD or pure-modification plans (bug fixes, refactors that don't add new abstractions, edits to existing code only) |
-| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP. Also: plan adds or upgrades a dependency (package manifest / lockfile change — he runs his dependency-vetting checklist) or touches CI/CD workflow files (`.github/workflows/`, GitLab CI, pipeline YAML — he runs his CI/CD checklist) |
+| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests. Also: plan adds or upgrades a dependency (package manifest / lockfile change — he runs his dependency-vetting checklist) or touches CI/CD workflow files (`.github/workflows/`, GitLab CI, pipeline YAML — he runs his CI/CD checklist) |
 | **dexter** | | Refactors, shared utilities, new abstractions, anything where code-health debt matters |
 | **ruby** | | UI/UX surface, frontend components, accessibility, design system — including admin/operator/internal screens, not just public-facing ones. On GREENFIELD plans with any UI, ruby additionally verifies the plan sequences a **design foundation** (tokens, type/spacing scale, app shell, one reference screen) before the first feature-UI phase — a plan that ships N feature phases with no design foundation ships N wireframes |
 | **otto** | | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, namespaces, persistent volumes, infra YAML |
@@ -136,13 +138,20 @@ g. **No half-staged slices.** Every implementation session ends with the slice e
 
 ### 8. Mid-build specialists (conditional, parallel)
 
-Run on the slice **before committing** when triggered. **HEAVY tier: ian and xander run on every phase regardless of triggers.** On HEAVY phases, spawn ian with a model override to the strongest available tier (e.g. `model: opus`) when the harness's spawn tool supports one — per-phase contract analysis is exactly where the July-2026 evaluation showed default-tier lenses PROCEED-ing past Criticals that stronger review later caught. If no override is supported, note it and proceed; don't block on it.
+Run on the slice **before committing** when triggered. **HEAVY tier**:
+- **Phase 1**: ian and xander both run.
+- **From phase 2**: each runs when its trigger below matches or the phase touches the recorded HEAVY surface. **When the recorded surface includes `auth`, `secrets` or `security`, xander is spawned on every phase**; only ian is trigger-gated.
+- **The surface record is required**: `**Tier**: HEAVY (surface: <word>[, <word>…])`, words from `auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`. **An absent, empty or unlisted word counts as touching the surface on every phase**, so both lenses are spawned on every phase.
+- **Record both lenses on the phase's `P<N>` conductor row** (`ian:` and `xander:`, each `run` or `no trigger — <why>`; the form is in `STATE.md`).
+- **`EVERY-PHASE`** (see `FLOWS.md`) spawns both at every phase of a HEAVY campaign, whatever the triggers and the recorded surface say.
+
+On HEAVY phases, spawn ian with a model override to the strongest available tier (e.g. `model: opus`) when the harness's spawn tool supports one — per-phase contract analysis is exactly where the July-2026 evaluation showed default-tier lenses PROCEED-ing past Criticals that stronger review later caught. If no override is supported, note it and proceed; don't block on it.
 
 | Specialist | Trigger |
 |---|---|
-| **ian** | Phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract |
+| **ian** | Phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. On HEAVY, also any phase that touches the recorded HEAVY surface |
 | **librarian** | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review or emerged during implementation. Skip on GREENFIELD |
-| **xander** | Phase touches auth, secrets, untrusted input; adds or upgrades a dependency (manifest / lockfile diff — dependency-vetting checklist); or modifies CI/CD workflow files (CI/CD checklist) |
+| **xander** | Phase touches auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), or outbound requests; adds or upgrades a dependency (manifest / lockfile diff — dependency-vetting checklist); or modifies CI/CD workflow files (CI/CD checklist). On HEAVY, also any phase that touches the recorded HEAVY surface |
 | **otto** | Phase modifies k8s manifests, Helm, Ingress, Service, Deployment, RBAC, infra YAML |
 | **nina** | Phase asserts how a cloud provider will behave, or modifies a cloud control-plane surface (identity/federation, cloud IAM, org or account structure, quotas, cross-account networking) or cloud IaC. **Brief her with the pin**, and with the operator-declared principal if live reads are intended. Skip when the cloud is only where the code runs |
 | **ruby** | Phase introduces or modifies any screen a human will use — user-facing OR operator-facing. Admin consoles, CMS surfaces, internal dashboards, and billing pages all count; "it's internal tooling" is not a skip reason. This trigger fires **in addition to** whatever lens owns the phase's dominant risk — a phase like "admin CMS + analytics" fires xander AND ruby, not xander instead of ruby (the July-2026 athlete-showcase campaign gated its admin-CMS and dashboard phases on security/contract lenses only, and shipped unstyled wireframes that a later remediation campaign had to redesign). A ruby verdict labeled `STRUCTURAL-ONLY` (she couldn't render the UI) is a partial gate: record the owed visual pass as a tracked item — do not count it as UX signoff |
@@ -160,6 +169,7 @@ Treat findings the same as plan-review findings: address before committing. Mult
 After all phases are committed:
 
 - **TINY**: skip
+- **LIGHT**: run
 - **STANDARD**: default-run (skip only on sub-50-LOC mechanical diffs where the plan was trivial and internal reviewers were clean). The May-2026 multi-repo evaluation found "STANDARD codex r2 skipped" runs that later shipped Criticals the next audit had to catch; the prior "optional" framing trained mozart to skip-by-default, which was wrong.
 - **HEAVY**: **non-negotiable** — not "mandatory" with a soft override. Skipping codex r2 on HEAVY is a self-detected gate failure that requires escalation, never a runtime mozart decision. "Mid-build covered it," "context pressure," and "the diff is mechanical" are not valid skip reasons. Either codex r2 runs, or the campaign stops at `Status: stopped` with a state-file note explaining the blocker and resumes in a fresh session.
 

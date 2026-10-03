@@ -186,7 +186,7 @@ Tickets are durable. Body must be rich enough that a reader six months later und
 | Field | Value |
 |---|---|
 | Type | <feature \| enhancement \| refactor \| tech-debt> |
-| Tier | <TINY \| STANDARD \| HEAVY> |
+| Tier | <TINY \| LIGHT \| STANDARD \| HEAVY> |
 | Project context | <GREENFIELD \| BROWNFIELD> |
 | Mode | <AUTONOMOUS \| LOOP-IN> |
 
@@ -329,7 +329,7 @@ Re-running valerie INCREMENTAL.
 ```markdown
 **Shipped** ✓
 
-- Tier: <TINY \| STANDARD \| HEAVY>
+- Tier: <TINY \| LIGHT \| STANDARD \| HEAVY>
 - Phases: <N>
 - Validation: SIGNOFF after <N> reconciliation rounds — validation report: `.mozart/plans/<slug>.validation.md`
 
@@ -355,7 +355,7 @@ Re-running valerie INCREMENTAL.
 | Plan drafted (stage 3 + 6 converged) | **mozart** | Comment with plan link + phases; transition `open` → `in_progress` |
 | Per-phase commit (stage 7) | **jackson** | Comment with phase summary, SHA, files, verification run |
 | Mid-build specialist finding addressed (stage 8) | **mozart** | Comment with specialist verdict + how it was addressed |
-| All phases committed; codex r2 complete (HEAVY) | **mozart** | Transition `in_progress` → `in_review`; comment with codex r2 verdict |
+| All phases committed; codex r2 complete (LIGHT, STANDARD, HEAVY) | **mozart** | Transition `in_progress` → `in_review`; comment with codex r2 verdict |
 | Validation SIGNOFF (stage 10) | **valerie** | Comment with validation summary; transition `in_review` → `verified` |
 | Validation FIXES REQUIRED (stage 10) | **valerie** | Comment with punch list; transition `in_review` → `in_progress` |
 | Reconciliation commits (stage 11) | **jackson** | Comment with fix SHAs |

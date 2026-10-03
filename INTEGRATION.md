@@ -1,6 +1,6 @@
 # INTEGRATION.md
 
-Mozart is pluggable for five surfaces: **ticketing**, **documentation**, **code retrieval**, **worktrees**, and **pull requests**. You configure them by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default.
+Mozart is pluggable for five surfaces: **ticketing**, **documentation**, **code retrieval**, **worktrees**, and **pull requests**. You configure them by adding stanzas to your repo's `CLAUDE.md`. Mozart and his specialists read those stanzas at intake; if a stanza is missing, the corresponding behavior is skipped or falls back to a sensible default. A sixth, optional stanza, **pipeline flags** (section 6), adds review rather than routing output.
 
 This file is the contract. Copy the appropriate stanza into your repo's `CLAUDE.md`, fill in the values, and the plugin adapts.
 
@@ -332,6 +332,22 @@ If neither is installed, mozart falls back to a fixed high-signal pattern set �
 
 ---
 
+## 6. Pipeline flags (stanza optional)
+
+On a HEAVY campaign, ian and xander both run on phase 1. From phase 2 each runs when its trigger matches the phase or the phase touches the surface that made the campaign HEAVY, and xander runs on every phase when that surface is `auth`, `secrets` or `security`. **If you declare nothing, that is the behaviour.**
+
+Declare a `## Pipeline flags` stanza when you want the stricter reading, ian and xander at every phase of every HEAVY campaign in this repo:
+
+```markdown
+## Pipeline flags
+
+- every_phase: true        # default false — the EVERY-PHASE flag
+```
+
+The stanza is advisory, like ticketing, docs, code retrieval and worktrees, so it is read from the working tree; the worst a changed value does is add review. It can only add review, never remove it. **Mozart reads this stanza and never writes it.** The same flag can be set for one campaign by asking for it in the request.
+
+---
+
 ## How agents read these stanzas
 
 Mozart resolves the stanzas at intake (DELIVER stage 1, AUDIT stage 1, DIAGNOSE stage 1) and writes the resolved values into the state file:
@@ -363,6 +379,8 @@ Specialists read the state file rather than re-resolving:
 - **jackson** posts comments after each phase commit
 - **valerie** transitions the ticket to `verified` (or back to `in_progress` on FIXES REQUIRED)
 - **scott** publishes to the configured docs surfaces using the configured categories, and — at stage 12b, when `pull_requests.enabled` is true — pushes the campaign branch and opens the PR at the resolved `default_state`. Scott is the one specialist that re-fetches and re-reads its stanza from the remote's default branch immediately before acting, because the action it authorizes cannot be taken back
+
+`## Pipeline flags` resolves to a flag, not a block: mozart reads `every_phase` at intake and records `Build-time flags: EVERY-PHASE` in the state file when it is true. Mozart reads the stanza and never writes it.
 
 If the state file lacks ticketing or docs config, agents skip the corresponding step gracefully and surface that to mozart.
 

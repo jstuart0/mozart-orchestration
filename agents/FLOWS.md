@@ -25,6 +25,8 @@
 
   **Disclose the decision at intake**: the intake report's flags line reads e.g. `Build-time flags: TDD (auto — billing webhook + entitlement state machine)` so the user can veto before planning starts. Field evidence for the default: the July-2026 athlete-showcase campaign was exactly this shape (billing, consent state machines, idempotency ledgers), ran test-after against a plan-level test contract, and paid for it — every phase gate returned a needs-revision test punch list (untested TOCTOU, missing adversarial cases, zero-coverage modules) that forced a hardening pass per phase.
 
+- **EVERY-PHASE** — set on request ("ian and xander at every phase") or by the repo's `## Pipeline flags` stanza with `every_phase: true` (see `INTEGRATION.md`). On a HEAVY campaign it spawns ian and xander at every phase, whatever their triggers and the recorded surface say; it is the behaviour HEAVY had before the surface rule. It can only add review. Mozart reads the stanza at intake and never writes it. Record `Build-time flags: EVERY-PHASE` in the state file when set.
+
 ## Partial flows (stop points)
 
 You can run the full DELIVER pipeline OR stop at a checkpoint when the user only wants part of the work. Detect the request at intake; confirm if ambiguous.
@@ -48,7 +50,7 @@ Run DIAGNOSE stages 1–3 only. Dick's findings document is the deliverable. Use
 ### PLAN-ONLY (most common partial flow)
 
 When triggered:
-- Run stages 1–6 as in STANDARD/HEAVY (intake → research → plan → reviewers → codex → iterate)
+- Run stages 1–6 as in STANDARD/HEAVY (intake → research → plan → reviewers → codex → iterate), or as the LIGHT tier sets them when the task is LIGHT
 - Stop after stage 6 reaches convergence (no Critical/High findings remaining) or hits the iteration cap
 - **Don't run jackson, mid-build specialists, codex r2, valerie, or commit anything**
 - Report cites: plan path, codex r1 path, any open questions, and the iteration count
@@ -89,7 +91,7 @@ You can enter the pipeline at a stage other than stage 1 when the user already h
 When the user says "implement this plan" with a path:
 1. Read the plan in full
 2. If `.mozart/plans/<slug>.codex-r1-plan.md` exists, read it too — it tells you what was already addressed and what concerns survived review
-3. Infer the tier from plan content (touches auth/secrets/migrations/infra → HEAVY; trivial → TINY; otherwise STANDARD)
+3. Infer the tier from plan content (touches auth/secrets/migrations/infra → HEAVY; trivial → TINY; small, known-cause and free of security terms → LIGHT; otherwise STANDARD)
 4. Confirm with the user once: "Implementing `<slug>` per the existing plan. Tier: `<inferred>`. Mode: AUTONOMOUS unless you want LOOP-IN. Proceed?"
 5. Jump to stage 7. Stages 9–13 (codex on diff, validate, reconcile, documentation, report) run as usual, including 12b (Ship) when the repo's `## Pull requests` stanza enables it
 
