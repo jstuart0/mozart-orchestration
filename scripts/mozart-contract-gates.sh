@@ -1453,7 +1453,7 @@ v11_st=$(mktemp -d) && {
   read -r v11_st_disk v11_st_tracked <<<"$(v11_tracked_vs_disk "$v11_st" "$v11_st/c")"
   [ "$v11_st_disk" -ne "$v11_st_tracked" ] || v11_bad="$v11_bad [tracked-vs-disk self-test: a planted ignored file did not make the counts differ ($v11_st_disk vs $v11_st_tracked)]"
   rm -rf "$v11_st"
-}
+} || v11_bad="$v11_bad [mktemp failed -- the tracked-vs-disk self-test could not run]"
 v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
   | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
 if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
@@ -1939,8 +1939,17 @@ v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
 [ "$v16_rows" -ge 19 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 19 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina]"
 printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
-printf '%s\n' "$v16_budgets" | grep -qF "$(printf 'agents/DELIVER.md\t')" \
+v16_has_row() { # $1 = table, $2 = path: true when the FIRST field equals the path exactly
+  printf '%s\n' "$1" | awk -F'\t' -v f="$2" '$1 == f { found = 1 } END { exit !found }'
+}
+v16_has_row "$v16_budgets" agents/DELIVER.md \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/DELIVER.md]"
+v16_without=$(printf '%s\n' "$v16_budgets" | grep -vE '^agents/DELIVER\.md')
+v16_has_row "$v16_without" agents/DELIVER.md \
+  && v16_bad="$v16_bad [self-test: the DELIVER.md row was deleted from a copy of the table and the member check still passed]"
+v16_lookalike=$(printf 'docs/agents/DELIVER.md\t62400\n')
+v16_has_row "$v16_lookalike" agents/DELIVER.md \
+  && v16_bad="$v16_bad [self-test: docs/agents/DELIVER.md satisfied the exact-field member check]"
 
 v16_checked=0
 v16_sizes=""
@@ -2179,7 +2188,8 @@ fi
 # ---------------------------------------------------------------------------
 v27_bs=$(printf '\\')
 v27_esc="${v27_bs}${v27_bs}[tnrdswb]"
-v27_re="[ef]?grep( +(-[A-Za-z]+|--))* +['\"][^'\"]*${v27_esc}"
+v27_flags="( +(-[A-Za-z0-9]+( +[0-9]+)?|--[a-z-]*(=[^ ]+)?))*"
+v27_re="[ef]?grep${v27_flags} +('[^']*${v27_esc}|\"[^\"\$]*${v27_esc})"
 v27_bad=""
 v27_files=("$gate_root"/scripts/*.sh)
 v27_scanned=${#v27_files[@]}
@@ -2191,17 +2201,33 @@ v27_hits=$(grep -nE "$v27_re" "${v27_files[@]}" 2>/dev/null || true)
 [ -z "$v27_hits" ] || v27_bad="$v27_bad [raw escape in a grep pattern -- GNU and BSD read it differently, build it with printf: $(printf '%s' "$v27_hits" | head -3 | tr '\n' ' ')]"
 v27_self=$(grep -cE "$v27_re" "$gatefile" || true)
 [ "$v27_self" -eq 0 ] || v27_bad="$v27_bad [the gate file trips its own scan: $v27_self line(s)]"
-v27_tmp=$(mktemp -d)
-printf "grep -q '^a%st'\n" "$v27_bs" > "$v27_tmp/single.sh"
-printf 'grep -qE "^a%sd+"\n' "$v27_bs" > "$v27_tmp/double.sh"
-printf "grep -q '^a'\n" > "$v27_tmp/clean.sh"
-grep -qE "$v27_re" "$v27_tmp/single.sh" || v27_bad="$v27_bad [self-test: a single-quoted raw escape was not caught]"
-grep -qE "$v27_re" "$v27_tmp/double.sh" || v27_bad="$v27_bad [self-test: a double-quoted raw escape was not caught]"
-grep -qE "$v27_re" "$v27_tmp/clean.sh" && v27_bad="$v27_bad [self-test: a clean pattern was flagged]"
-rm -rf "$v27_tmp"
+if v27_tmp=$(mktemp -d); then
+  printf "grep -q '^a%st'\n" "$v27_bs" > "$v27_tmp/single.sh"
+  printf 'grep -qE "^a%sd+"\n' "$v27_bs" > "$v27_tmp/double.sh"
+  printf "grep -m1 -E 'a%st'\n" "$v27_bs" > "$v27_tmp/digitflag.sh"
+  printf "grep -A2 -E 'a%sd'\n" "$v27_bs" > "$v27_tmp/context.sh"
+  printf "grep -m 1 -E 'a%st'\n" "$v27_bs" > "$v27_tmp/spacedarg.sh"
+  printf "grep --color=never 'a%st'\n" "$v27_bs" > "$v27_tmp/longflag.sh"
+  printf 'grep -E "it%ss %st"\n' "'" "$v27_bs" > "$v27_tmp/otherquote.sh"
+  printf "grep -q '^a'\n" > "$v27_tmp/clean.sh"
+  printf 'grep -E "it%ss a"\n' "'" > "$v27_tmp/cleanquote.sh"
+  for v27_plant in single double digitflag context spacedarg longflag otherquote; do
+    grep -qE "$v27_re" "$v27_tmp/$v27_plant.sh" || v27_bad="$v27_bad [self-test: planted $v27_plant raw escape was not caught]"
+  done
+  for v27_plant in clean cleanquote; do
+    grep -qE "$v27_re" "$v27_tmp/$v27_plant.sh" && v27_bad="$v27_bad [self-test: a clean $v27_plant pattern was flagged]"
+  done
+  rm -rf "$v27_tmp"
+else
+  v27_bad="$v27_bad [mktemp failed -- the self-tests could not run]"
+fi
 report "V27_portable_grep" "$([ -z "$v27_bad" ] && echo 0 || echo 1)" \
-  "${v27_bad:-no raw escape in a grep pattern across $v27_scanned script(s), gate file clean, single- and double-quoted self-tests caught}"
+  "${v27_bad:-no raw escape in a grep pattern across $v27_scanned script(s), gate file clean, seven planted shapes caught}"
 
+# V27b scans awk programs inside single quotes after `awk ` and the bodies of
+# heredocs whose delimiter contains AWK. A heredoc under any other delimiter is
+# NOT scanned (a self-test below pins that); the floor on lint and the library
+# turns a renamed delimiter into a failure instead of a silent skip.
 # V27b - gawk-only constructs. CI's awk is mawk and the author's is
 # one-true-awk; both lack these. Names are checked across the whole script;
 # the regex-interval and three-argument match() checks apply to the extracted
@@ -2242,19 +2268,27 @@ for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozar
   v27b_n=$({ v27b_programs "$v27b_script"; v27b_heredocs "$v27b_script"; } | grep -c . || true)
   [ "$v27b_n" -ge 1 ] || v27b_bad="$v27b_bad [no awk program extracted from $(basename "$v27b_script") -- the extractor is blind]"
   v27b_progs=$((v27b_progs + v27b_n))
+  case "$v27b_script" in
+    */mozart-lint.sh|*/lib-campaign.sh)
+      [ "$(v27b_heredocs "$v27b_script" | grep -c . || true)" -ge 1 ] \
+        || v27b_bad="$v27b_bad [no awk heredoc body read from $(basename "$v27b_script") -- its delimiter must contain AWK or the program is unscanned]" ;;
+  esac
   v27b_hit=$(v27b_check "$v27b_script")
   [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $(basename "$v27b_script"): $(printf '%s' "$v27b_hit" | head -2 | tr '\n' ' ')]"
 done
-v27b_tmp=$(mktemp -d)
+v27b_tmp=$(mktemp -d) || { v27b_bad="$v27b_bad [mktemp failed -- the self-tests could not run]"; v27b_tmp=/nonexistent-v27b; }
 printf "awk 'BEGIN { print gensub(/a/, \"b\", \"g\") }'\n" > "$v27b_tmp/name.sh"
 printf "awk '/a{2}/ { print }'\n" > "$v27b_tmp/interval.sh"
 printf "awk '{ match(\$0, /x/, m) }'\n" > "$v27b_tmp/match3.sh"
 printf "X=\$(cat <<'X_AWK_EOF'\n/a{2}/ { print }\nX_AWK_EOF\n)\n" > "$v27b_tmp/heredoc.sh"
 printf "awk '{ print }'\n" > "$v27b_tmp/clean.sh"
-for v27b_plant in name interval match3 heredoc; do
+printf "X=\$(cat <<'X_AWK_EOF'\nfunction f(s, m) { return match(s, /x/, m) }\nX_AWK_EOF\n)\n" > "$v27b_tmp/heredoc3.sh"
+printf "X=\$(cat <<'X_PROG_EOF'\n/a{2}/ { print }\nX_PROG_EOF\n)\n" > "$v27b_tmp/heredoc-unnamed.sh"
+for v27b_plant in name interval match3 heredoc heredoc3; do
   [ -n "$(v27b_check "$v27b_tmp/$v27b_plant.sh")" ] || v27b_bad="$v27b_bad [self-test: planted $v27b_plant construct was not caught]"
 done
 [ -z "$(v27b_check "$v27b_tmp/clean.sh")" ] || v27b_bad="$v27b_bad [self-test: a clean awk line was flagged]"
+[ -z "$(v27b_check "$v27b_tmp/heredoc-unnamed.sh")" ] || v27b_bad="$v27b_bad [self-test: the documented limit changed -- a heredoc whose delimiter lacks AWK is now scanned; update the V27b comment]"
 rm -rf "$v27b_tmp"
 report "V27b_portable_awk" "$([ -z "$v27b_bad" ] && echo 0 || echo 1)" \
   "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across lint, metrics and the library, planted self-tests caught}"

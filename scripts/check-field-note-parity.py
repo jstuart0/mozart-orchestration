@@ -347,6 +347,7 @@ def cmd_behaviour(corpus, scripts_roots):
     fresh_files = sum(1 for p in fresh_lint.rglob("*") if p.is_file())
     if source_files != fresh_files:
         print(f"FAIL  behaviour: fresh copy holds {fresh_files} file(s), corpus holds {source_files}")
+        shutil.rmtree(fresh_tmp, ignore_errors=True)
         return 1
 
     spaced_tmp = tempfile.mkdtemp()
