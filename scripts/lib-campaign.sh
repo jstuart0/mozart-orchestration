@@ -15,7 +15,9 @@
 #   awk    campaign_sibling_awk(statefile, kind), in CAMPAIGN_AWK_LIB
 # The awk side also holds load_sibling(file, heading, lines), the one reader for
 # a sibling's content (getline, never an ARGV file), so lint and metrics classify
-# a sibling as missing, empty, headingless, stray or ok in the same way.
+# a sibling as missing, empty, headingless, stray or ok in the same way. The
+# Tier field has one parse too (is_tier_line, tier_of, tier_has_surface), so the
+# two scripts cannot disagree on a campaign's tier.
 # The sibling of state file F is F with `.state.md` replaced by `.ledger.md` or
 # `.conductor.md`, beside F. Neither script may spell that rule itself; gate
 # V30_lib counts the code lines that do.
@@ -56,6 +58,35 @@ function split_cells(line, arr,   t, i, n) {
   n = split(t, arr, "|")
   for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
   return n
+}
+# The Tier field, one parse for both scripts. A line carries it when
+# **Tier**: appears anywhere on it (a combined header puts it after other
+# fields) and it is not a table row, which can only quote it. The caller keeps
+# the FIRST such line in the state file; a later one is never a second vote.
+function is_tier_line(line) { return (index(line, "**Tier**:") > 0 && line !~ /^[ \t]*\|/) }
+# The tier that line names: its leading upper-case token ("HEAVY (surface: ...)"
+# is HEAVY), or "" when the line holds no value. "" covers the unfilled template
+# (a pipe-list not followed by another bold field, or an unfilled <tier>) and
+# anything not upper case ("heavy", "Standard", "HEAVYish"); callers read ""
+# as untiered.
+function tier_of(line,   t, rest, tok) {
+  t = substr(line, index(line, "**Tier**:") + 9)
+  if (t ~ /\|/) {
+    rest = t; sub(/^[^|]*\|[ \t]*/, "", rest)
+    if (rest !~ /^\*\*[A-Za-z]/) return ""
+    sub(/[ \t]*\|.*$/, "", t)
+  }
+  t = trim(t)
+  if (!match(t, /^[A-Z]+/)) return ""
+  tok = substr(t, 1, RLENGTH)
+  if (substr(t, RLENGTH + 1, 1) ~ /[A-Za-z]/) return ""
+  return tok
+}
+# True when the Tier value carries a "(surface:" record. Keyed on the literal
+# prefix only: the closed word list is a writer rule, not something to validate.
+function tier_has_surface(line,   t) {
+  t = substr(line, index(line, "**Tier**:") + 9)
+  return (index(t, "(surface:") > 0)
 }
 # Same rule as campaign_sibling above; "" when not derivable.
 function campaign_sibling_awk(statefile, kind,   base) {

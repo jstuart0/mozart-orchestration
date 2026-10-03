@@ -1413,6 +1413,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-unlinked\t2099-10-12-phase-lower\tP2')" \
     "$(printf 'conductor-unlinked\t2099-10-13-phase-title\tP2')" \
     "$(printf 'conductor-unlinked\t2099-10-14-phase-heavyfirst\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-27-phase-quoted\tP2')" \
     "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
     "$(printf 'conductor-row\t2099-10-16-phase-stdmalformed\tCR1')" \
     "$(printf 'conductor-row\t2099-10-19-phase-lensbad\tCR2')" \
@@ -1464,7 +1465,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   # unlinked or lens-free Phase line and must stay silent for its own reason.
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-11-phase-stdfmt 2099-10-15-phase-stdfirst \
-    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated; do
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface; do
     printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
@@ -1570,7 +1571,7 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 103 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 103]"
+[ "$v11_floor" -ge 105 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 105]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
 [ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
@@ -2911,8 +2912,9 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-10-14-phase-heavyfirst 1 HEAVY
   v34_case 2099-10-15-phase-stdfirst 0 STANDARD
   v34_case 2099-10-16-phase-stdmalformed 0 STANDARD
+  v34_case 2099-10-27-phase-quoted 1 UNTIERED
 fi
-[ "$v34_n" -ge 16 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 16]"
+[ "$v34_n" -ge 17 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 17]"
 
 # The library function on its own: the cases that matter, including the two
 # that a naive parse gets wrong (the unfilled template and a lower-case value).
@@ -2922,7 +2924,7 @@ v34_prog='BEGIN {
   printf "[%s]", tier_of("**Tier**: <tier>")
   printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS")
   printf "[%s]", tier_of("**Tier**: heavy")
-  printf "[%s]", tier_of("**Tier**: HEAVYWEIGHT")
+  printf "[%s]", tier_of("**Tier**: HEAVYish")
   printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")

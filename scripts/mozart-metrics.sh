@@ -173,26 +173,13 @@ FNR == 1 {
   }
 }
 
-# F40: the Tier field is not always the whole line -- a combined header
-# ("**Shape**: ... | **Tier**: HEAVY | **Mode**: ... | **Flow**: ...") puts
-# it after other fields on the same line, and a real tier value there is
-# ALSO followed by more fields on the same line -- the same shape as the
-# templates own "TINY | STANDARD | HEAVY" placeholder list this rule has
-# always had to reject. Distinguish them by what follows the first pipe:
-# another bold field name means a combined header (take the value before
-# it); anything else means the templates pipe-listed options (skip, stays
-# UNTIERED, as before).
-/\*\*Tier\*\*:/ {
-  t = $0; sub(/^.*\*\*Tier\*\*:[ \t]*/, "", t)
-  if (t ~ /\|/) {
-    rest = t; sub(/^[^|]*\|[ \t]*/, "", rest)
-    if (rest ~ /^\*\*[A-Za-z]/) {
-      sub(/[ \t]*\|.*$/, "", t)
-      tier[FILENAME] = trim(t)
-    }
-  } else {
-    tier[FILENAME] = trim(t)
-  }
+# The first Tier line in the state file names the tier of the campaign; the parse is
+# in the library, shared with the linter. A placeholder or unparseable value
+# leaves the campaign UNTIERED, and a later Tier line never overrides it.
+is_tier_line($0) && !(FILENAME in tier_seen) {
+  tier_seen[FILENAME] = 1
+  t = tier_of($0)
+  tier[FILENAME] = (t == "" ? "UNTIERED" : t)
 }
 
 /^## /      { section = trim($0) }

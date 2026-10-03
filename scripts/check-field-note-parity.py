@@ -199,7 +199,7 @@ LINT_CATEGORIES = frozenset({
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 78
+LINT_FIXTURE_FLOOR = 105
 # Sibling files get their own floors: a state-file floor cannot notice a split
 # fixture losing its ledger or conductor half.
 LINT_LEDGER_FLOOR = 16
@@ -283,6 +283,26 @@ NAMED_PRESENT = (
     # a headingless sibling is not usable: the in-file section is still read
     ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-noheading"),
     ("conductor-unlinked", "2099-09-25-deliver-split-noheadinfile", "F2"),
+    # a sibling with its heading AND text ahead of it is still reported
+    ("split-layout", "2099-09-26-deliver-split-conductorstray", "conductor-record-noheading"),
+    # Phase rows are required on HEAVY and on a tier that is absent, a
+    # placeholder or unparseable; the lens record only where (surface: is written
+    ("conductor-unlinked", "2099-07-16-deliver-kP", "P2"),
+    ("conductor-unlinked", "2099-10-05-phase-notier", "P2"),
+    ("conductor-unlinked", "2099-10-06-phase-placeholder", "P2"),
+    ("conductor-unlinked", "2099-10-07-phase-unfilled", "P2"),
+    ("conductor-unlinked", "2099-10-08-phase-combinedheavy", "P2"),
+    ("conductor-unlinked", "2099-10-10-phase-heavyfmt", "P2"),
+    ("conductor-unlinked", "2099-10-12-phase-lower", "P2"),
+    ("conductor-unlinked", "2099-10-13-phase-title", "P2"),
+    ("conductor-unlinked", "2099-10-14-phase-heavyfirst", "P2"),
+    ("conductor-unlinked", "2099-10-27-phase-quoted", "P2"),
+    ("conductor-row", "2099-10-16-phase-stdmalformed", "CR1"),
+    ("conductor-row", "2099-10-19-phase-lensbad", "CR2"),
+    ("conductor-row", "2099-10-21-phase-lensian", "CR1"),
+    ("conductor-row", "2099-10-22-phase-lensreason", "CR1"),
+    ("conductor-row", "2099-10-23-phase-lenstoken", "CR1"),
+    ("conductor-row", "2099-10-26-phase-widgets", "CR1"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -319,6 +339,14 @@ NAMED_MESSAGES = (
      "sibling conductor file has content outside a ## Conductor record section"),
     ("2099-09-18-deliver-split-crlf", "CR2", "row has 8 cells, header has 7"),
     ("2099-09-18-deliver-split-crlf", "CR3", "empty or placeholder control"),
+    ("2099-09-26-deliver-split-conductorstray", "conductor-record-noheading",
+     "sibling conductor file has content outside a ## Conductor record section"),
+    ("2099-07-16-deliver-kP", "P2", "ticked Phase line has no linked conductor row"),
+    ("2099-10-19-phase-lensbad", "CR2", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-21-phase-lensian", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-22-phase-lensreason", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-23-phase-lenstoken", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-26-phase-widgets", "CR1", "HEAVY phase row does not record ian and xander"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -330,6 +358,11 @@ NAMED_ABSENT_SLUGS = (
     "2099-09-15-deliver-split-placeholders", "active-2099-09-17-deliver-split-aprefix",
     "2099-09-22-deliver-split-flat", "2099-09-24-deliver-split-finishedclean",
     "2099-09-09-deliver-split-emptyledger", "2099-05-22-deliver-split-emptypre",
+    # STANDARD, LIGHT, TINY and the lens-exempt shapes: nothing may fire
+    "2099-10-02-phase-standard", "2099-10-03-phase-light", "2099-10-04-phase-tiny",
+    "2099-10-09-phase-combinedstd", "2099-10-11-phase-stdfmt", "2099-10-15-phase-stdfirst",
+    "2099-10-18-phase-lensok", "2099-10-20-phase-lenspre", "2099-10-24-phase-stdsurface",
+    "2099-10-25-phase-escalated", "2099-10-28-phase-lowersurface",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing

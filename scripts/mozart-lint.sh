@@ -81,7 +81,7 @@ STALE_DAYS=7
 # PD1/PD3/PD24. CONDUCTOR_SINCE defaults to the merge date (log D2); the
 # fixture-hook override is documented above and asserted by gate V11.
 CONDUCTOR_SINCE="${MOZART_LINT_CONDUCTOR_SINCE:-2026-09-19}"
-CONDUCTOR_GATES_DELIVER="5 9 10 13 P"
+CONDUCTOR_GATES_DELIVER="5 9 10 13 P:heavy"
 CONDUCTOR_GATES_OPERATE="1:fact 4 6"
 CONDUCTOR_GATES_INCIDENT="1 5"
 CONDUCTOR_FLOWS_DELIVER="FULL PLAN-ONLY RESEARCH-ONLY VALIDATE-ONLY"
@@ -175,6 +175,29 @@ function flow_family(val,   n, i, toks) {
   return ""
 }
 function emit(cat, key, msg) { printf "%s\t%s\t%s\n", cat, key, msg }
+
+# True when claim records the lens as a whole token: "<lens>:" not preceded by a
+# letter or digit (so tessian: is not ian:), then either "run" or
+# "no trigger", an em dash and a non-empty reason (the reason ends at a semicolon).
+function lens_recorded(claim, lens,   rest, p, pre, after, dash, reason) {
+  dash = "—"
+  rest = claim
+  while ((p = index(rest, lens ":")) > 0) {
+    pre = (p > 1) ? substr(rest, p - 1, 1) : ""
+    after = trim(substr(rest, p + length(lens) + 1))
+    rest = substr(rest, p + length(lens) + 1)
+    if (pre ~ /[A-Za-z0-9_]/) continue
+    if (after ~ /^run([^A-Za-z0-9]|$)/) return 1
+    if (after ~ /^no trigger/) {
+      after = trim(substr(after, 11))
+      if (index(after, dash) != 1) continue
+      reason = substr(after, length(dash) + 1)
+      sub(/;.*$/, "", reason)
+      if (trim(reason) != "") return 1
+    }
+  }
+  return 0
+}
 
 function valid_ignore_tok(tok,   grammar) {
   grammar = "^[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*(\\.[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*)*$"
@@ -324,6 +347,7 @@ BEGIN {
   in_findings = 0; nf = 0
   in_paths = 0
   incident_stage3 = 0
+  tier_seen = 0; tier = ""; tier_surface = 0
   infile_conductor = 0; infile_findings = 0
   declared_ledger = 0; declared_conductor = 0
 
@@ -366,6 +390,14 @@ raw ~ /\*\*Flow\*\*:/ {
   sub(/^.*\*\*Flow\*\*:[ \t]*/, "", fv)
   sub(/[ \t]*\|.*$/, "", fv)
   flow = trim(fv)
+}
+
+# The first Tier line in the state file decides which Phase rows are required
+# (library parse, shared with the metrics script). Table rows only quote it.
+is_tier_line(raw) && !tier_seen {
+  tier_seen = 1
+  tier = tier_of(raw)
+  tier_surface = tier_has_surface(raw)
 }
 
 # Stage progress ticks (any family): "- [x] N[a-z]. "
@@ -548,14 +580,25 @@ END {
 
   ngates = split(gate_str, gs, " ")
   for (g = 1; g <= ngates; g++) {
-    gkey = gs[g]; want_fact = 0
+    gkey = gs[g]; want_fact = 0; heavy_only = 0
     if (index(gkey, ":fact") > 0) { want_fact = 1; sub(/:fact/, "", gkey) }
+    if (index(gkey, ":heavy") > 0) { heavy_only = 1; sub(/:heavy/, "", gkey) }
     if (gkey == "P") {
+      # Only TINY, LIGHT and STANDARD are exempt. No Tier line, a placeholder
+      # and an unparseable value all keep the requirement.
+      if (heavy_only && (tier == "TINY" || tier == "LIGHT" || tier == "STANDARD")) continue
       for (pk in ticked) {
         if (pk ~ /^P[0-9]+[a-z]?$/) {
-          linked = 0
-          for (id in cr_id_known) if (!cr_placeholder[id] && cr_links[id] == pk) linked = 1
+          linked = 0; lens_ok = 0; first_row = ""
+          for (id in cr_id_known) {
+            if (cr_placeholder[id] || cr_links[id] != pk) continue
+            linked = 1
+            if (first_row == "" || id < first_row) first_row = id
+            if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) lens_ok = 1
+          }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
+          else if (heavy_only && tier == "HEAVY" && tier_surface && !lens_ok)
+            emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
         }
       }
       continue

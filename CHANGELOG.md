@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — a ticked Phase line needs a linked conductor row on HEAVY only
+
+`CONDUCTOR_GATES_DELIVER` is `5 9 10 13 P:heavy`, and S3 in `agents/STATE.md` reads
+`P<N>:heavy`. On TINY, LIGHT and STANDARD a ticked `Phase <N>` line no longer needs a row (a row
+that is written is still checked for form). An absent Tier line, an unfilled placeholder
+(`TINY | LIGHT | STANDARD | HEAVY`) and a value that is not upper case keep the requirement, so no
+existing campaign gains a finding; a campaign on STANDARD or below loses its `conductor-unlinked`
+`P<N>` findings. Where a HEAVY tier line carries `(surface:`, each `P<N>` row's claim must record
+`ian:` and `xander:` as `run` or `no trigger — <why>`; a phase that ran before an escalation to
+HEAVY may read `no trigger — phase ran before escalation`. A HEAVY tier line without
+`(surface:` is not checked for lens records.
+
+The Tier parse is one library function (`tier_of` in `scripts/lib-campaign.sh`) used by both
+scripts, and the first `**Tier**:` line wins in both. `scripts/mozart-metrics.sh` used to take the
+last one, and now buckets `HEAVY (surface: …)` as HEAVY and a lower-case or unfilled value as
+UNTIERED. It also prints `sibling files shadowing an in-file section (in-file rows ignored): N`,
+only when N is not 0, for a conductor record or findings ledger that exists in a sibling file and
+in the state file (lint reports the same case as `*-duplicate`).
+
 ### Changed — a new campaign's findings ledger and conductor record live in their own files; the state-file skeletons are template files
 
 A campaign created from now on is **split**: `## Findings ledger` is in `<slug>.ledger.md` and
