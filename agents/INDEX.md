@@ -25,8 +25,9 @@ the file it names, so the table never promises a file that does not exist.
 
 ## On-demand files, not members
 
-`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md` and `TEMPLATE-CONDUCTOR.md` are state-file skeletons that
-`STATE.md` tells you to copy at intake. They are not manual members and not agents.
+`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md`, `TEMPLATE-CONDUCTOR.md` and `TEMPLATE-FLOW.md` are skeletons that
+`STATE.md` tells you to copy at intake; `TEMPLATE-REPORT.md` is the final-report skeleton `DELIVER.md` tells
+you to copy at closeout. None is a manual member or an agent.
 
 ## Adjacent, not members
 

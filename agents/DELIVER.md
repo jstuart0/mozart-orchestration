@@ -343,35 +343,4 @@ If any step fails, don't leave the campaign half-closed: undo the moves and surf
 
 **Corruption check after the move**: verify the invariant `Status: complete ⇔ file is in finished/`. The May-2026 multi-repo evaluation found two recurring drifts under the old prefix convention: (a) `Status: complete` state files left in `active/` (or at the legacy `active-` prefix); (b) `finished/` files with `Status: in-progress` bodies (mozart moved prematurely or the campaign never actually completed). After the move, `grep -lE '^\*?\*?Status\*?\*?: complete' .mozart/plans/active/*.state.md 2>/dev/null` should return empty, and `grep -LE '^\*?\*?Status\*?\*?: complete' .mozart/plans/finished/<slug>.state.md` should return empty. If either grep returns a result, the directory or status field disagrees with reality — fix immediately, don't ship the campaign with the discrepancy. When the bundled `scripts/mozart-lint.sh` is resolvable, run it against the repo root as the final closeout act — a clean exit (scoped to this slug's findings) is the machine check that the closeout transaction actually completed; prose checklists have twice failed to hold this invariant across evaluation cycles.
 
-Then write the final report:
-
-```
-## <slug>: shipped (tier: <TINY|STANDARD|HEAVY>)
-
-**Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
-**Plan**: <path>
-**Decisions**: <path or "none">
-**Flow sketch**: .mozart/plans/<slug>.flow.md
-**Codex**: <r1-plan path>, <r2-diff path if run>
-**Research**: <path if produced>
-**Investigation** (if applicable): <path>
-**Commits**: <SHAs + one-liners>
-**Phases**: <count>
-**Validation**: SIGNOFF (<reconciliation rounds>) — validation report: <path>
-**Documentation**: <in-repo files updated, wiki URLs published, or "skipped — no user-visible impact">
-
-### What was built
-<one paragraph>
-
-### Agents involved
-<one-line summary referencing the flow sketch — e.g., "harry → bob/librarian → jackson (2 phases, ian mid-build) → valerie → scott. See flow sketch for full trace.">
-
-### Deferred
-<from plan's out-of-scope, or "none">
-
-### Notable findings during the run
-<anything reviewers / specialists / codex surfaced that the user should know>
-
-### Open questions / follow-ups
-<unresolved or recommended next work>
-```
+Then write the final report. Its skeleton is a file beside this one, not text in this manual: `TEMPLATE-REPORT.md`. Copy it and fill every `<…>` field. A skeleton holds headers and placeholder rows only; the "Agents involved" section is one line that points at the flow sketch, for example "harry → bob/librarian → jackson (2 phases, ian mid-build) → valerie → scott. See flow sketch for full trace."

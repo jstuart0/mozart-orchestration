@@ -94,7 +94,8 @@ for f in README.md LICENSE INTEGRATION.md CHANGELOG.md CONTRIBUTING.md SECURITY.
           agents/FLOWS.md agents/OPERATE.md agents/INCIDENT.md \
           agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md \
           agents/AUDIT.md agents/CONTEXT-BUDGET.md \
-          agents/TEMPLATE-STATE.md agents/TEMPLATE-LEDGER.md agents/TEMPLATE-CONDUCTOR.md; do
+          agents/TEMPLATE-STATE.md agents/TEMPLATE-LEDGER.md agents/TEMPLATE-CONDUCTOR.md \
+          agents/TEMPLATE-FLOW.md agents/TEMPLATE-REPORT.md; do
   test -f "$f" && echo "OK: $f" || echo "MISSING: $f"
 done
 ```

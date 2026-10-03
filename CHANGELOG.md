@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — the flow-sketch and final-report skeletons are template files
+
+`agents/TEMPLATE-FLOW.md` and `agents/TEMPLATE-REPORT.md` hold the skeletons that used to sit in
+`agents/STATE.md` (the flow sketch) and `agents/DELIVER.md` (the final report), which the conductor
+reads on every run. Each is copied once, at intake and at closeout. Like the state templates they
+are not manual members and not agents, are never named in `agents/mozart.md`, and are listed in
+`CONTRIBUTING.md` and `validate-plugin.yml`. A skeleton holds headers and placeholder rows only; the
+filled-in examples stay in the manual's prose.
+
+### Changed — the Tier value is read more strictly
+
+`tier_of` returns no value (phase rows required, metrics UNTIERED) for: a non-HEAVY token whose
+remaining text names HEAVY as a whole word (`STANDARD (escalated to HEAVY)`); a token followed by
+anything but the end of the value, a space, `(`, an em dash or `;` (`TINY, LIGHT, STANDARD, HEAVY`,
+`STANDARD2`, `STANDARD.`); italic, underscore, backticked and unbalanced-bold values; and a bold
+pipe-list (`**TINY** | **LIGHT**`). Only a balanced `**` wrapper around the leading token is
+stripped. A campaign whose tier line used to read as STANDARD and now reads as untiered needs its
+Tier line rewritten as a bare tier, with a reason that does not name HEAVY.
+
 ### Changed — a ticked Phase line needs a linked conductor row on HEAVY only
 
 `CONDUCTOR_GATES_DELIVER` is `5 9 10 13 P:heavy`, and S3 in `agents/STATE.md` reads

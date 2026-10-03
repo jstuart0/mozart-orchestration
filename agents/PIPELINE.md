@@ -436,7 +436,7 @@ That last sentence is load-bearing rather than decorative. Without it, a future 
 - The bundled `mozart.md` — the orchestrator persona, plus the bundled manual it routes to via `INDEX.md`
   (`DELIVER.md`, `STATE.md`, `TICKETS.md`, `INTAKE.md`, `WORKTREES.md`, `FLOWS.md`, `OPERATE.md`,
   `INCIDENT.md`, `COUNTERPOINT.md`, `EVAL.md`, `DIAGNOSE.md`, `AUDIT.md`, `CONTEXT-BUDGET.md`), and the
-  state-file skeletons it copies at intake (`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md`, `TEMPLATE-CONDUCTOR.md`).
+  skeletons it copies (`TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md`, `TEMPLATE-CONDUCTOR.md`, `TEMPLATE-FLOW.md` at intake; `TEMPLATE-REPORT.md` at closeout).
   **Direction of authority is declared, not inferred: this file SUMMARIZES; the manual is AUTHORITATIVE.**
   Where the two disagree the manual wins, and a correction belongs in the manual first. Without a declared
   direction, future drift has no correct side and both documents get edited independently.

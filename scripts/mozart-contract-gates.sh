@@ -2190,13 +2190,13 @@ agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
 agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
-agents/STATE.md	50205
+agents/STATE.md	47146
 agents/INTAKE.md	19900
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	62400
+agents/DELIVER.md	58747
 agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700

@@ -157,6 +157,31 @@ def first_line_problems(agents_texts, od):
     return bad
 
 
+EXAMPLE_CHECKED = ("TEMPLATE-FLOW.md", "TEMPLATE-REPORT.md")
+TICK_RE = re.compile(r"^\s*- \[[x-]\]", re.M)
+CLOCK_RE = re.compile(r"\b\d\d:\d\d:\d\d\b")
+
+
+def example_value_problems(template_texts, personas):
+    """A copied skeleton must be usable as copied: no persona name, ticked line or
+    clock time left in it as an example the conductor would have to notice and
+    remove. template_texts maps template name -> text; personas is the set of agent
+    names (mozart excluded: intake and report are always the conductor's)."""
+    bad = []
+    for name in EXAMPLE_CHECKED:
+        t = template_texts.get(name)
+        if not t:
+            continue
+        for p in sorted(personas):
+            if re.search(r"(?<![A-Za-z0-9-])" + re.escape(p) + r"(?![A-Za-z0-9-])", t, re.I):
+                bad.append(f"{name} names the agent {p!r} (an example value; show examples in the manual)")
+        if TICK_RE.search(t):
+            bad.append(f"{name} carries a ticked line")
+        if CLOCK_RE.search(t):
+            bad.append(f"{name} carries a literal clock time")
+    return bad
+
+
 def ondemand_selftest(texts, od, contrib, wf):
     """Each mutation must make ondemand_problems report something. Returns the list
     of mutations that were NOT caught, and the number tried."""
@@ -189,7 +214,15 @@ def ondemand_selftest(texts, od, contrib, wf):
     two[od[first]] = (texts[od[first]] or "") + f"\nsee also {first}\n"
     if not ondemand_problems(two, od, contrib, wf):
         missed.append("the citing file names a template on a second line")
-    return missed, len(cases) + 4
+    # And the example-value rule, on a copy of each checked template.
+    for tname in EXAMPLE_CHECKED:
+        if tname not in od or not texts.get(tname):
+            continue
+        for label, extra in (("an agent name", "\n- **sarah**: example\n"), ("a clock time", "\n- **14:02:10** done\n"),
+                             ("a ticked line", "\n- [x] 1. Intake\n")):
+            if not example_value_problems({tname: texts[tname] + extra}, {"sarah", "harry"}):
+                missed.append(f"{tname} gains {label} and the example-value rule does not notice")
+    return missed, len(cases) + 4 + 3 * sum(1 for t in EXAMPLE_CHECKED if t in od and texts.get(t))
 
 
 def main():
@@ -403,6 +436,14 @@ def main():
         p = root / "agents" / n
         texts[n] = p.read_text() if p.exists() else None
     problems = ondemand_problems(texts, ON_DEMAND, contrib, wf)
+    personas = set()
+    for q in (root / "agents").glob("*.md"):
+        m = re.search(r"^name: *(\S+)", q.read_text(), re.M)
+        if m and m.group(1) != "mozart":
+            personas.add(m.group(1))
+    if len(personas) < 17 or "sarah" not in personas:
+        problems.append(f"persona derivation found {len(personas)} names (floor 17, named member sarah)")
+    problems += example_value_problems({n: texts.get(n) for n in EXAMPLE_CHECKED}, personas)
     problems += first_line_problems(
         {q.name: q.read_text() for q in (root / "agents").glob("*.md")}, ON_DEMAND)
     missed, tried = ondemand_selftest(texts, ON_DEMAND, contrib, wf) if not problems else ([], 0)
@@ -411,7 +452,7 @@ def main():
     rep("V26_ondemand", not problems,
         "; ".join(problems) or f"{len(ON_DEMAND)} on-demand file(s) (floor {ON_DEMAND_FLOOR}), named member "
         f"{' and '.join(a + ' -> ' + b for a, b in ON_DEMAND_NAMED)}: each exists, has no `name:` frontmatter, is cited by "
-        f"name on exactly one line of its citing file, has a first line found nowhere else in agents/*.md, and is listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
+        f"name on exactly one line of its citing file, has a first line found nowhere else in agents/*.md (the flow and report skeletons also carry no agent name, tick or clock time), and is listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
         f"and no D2 pointer line names one; {tried} self-test mutations each detected")
 
     return emit(results)

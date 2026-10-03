@@ -123,7 +123,7 @@ mozart-orchestration/
 │   ├── DELIVER.md STATE.md TICKETS.md INTAKE.md WORKTREES.md FLOWS.md
 │   ├── OPERATE.md INCIDENT.md COUNTERPOINT.md EVAL.md DIAGNOSE.md
 │   ├── AUDIT.md CONTEXT-BUDGET.md   # the bundled manual (13 files)
-│   ├── TEMPLATE-STATE.md TEMPLATE-LEDGER.md TEMPLATE-CONDUCTOR.md   # state-file skeletons the conductor copies at intake (not manual members, not agents)
+│   ├── TEMPLATE-STATE.md TEMPLATE-LEDGER.md TEMPLATE-CONDUCTOR.md TEMPLATE-FLOW.md TEMPLATE-REPORT.md   # skeletons the conductor copies: state files and flow sketch at intake, the final report at closeout (not manual members, not agents)
 │   ├── nina.md
 │   ├── otto.md
 │   ├── percy.md

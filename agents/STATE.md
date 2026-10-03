@@ -274,175 +274,55 @@ A user reviewing a run shouldn't have to parse a state file to see the agent flo
 
 ### Format
 
-```markdown
-# Pipeline flow: <slug>
+The skeleton is a file beside this one, not text in this manual: `TEMPLATE-FLOW.md`. At intake, copy it to `.mozart/plans/active/<slug>.flow.md` and fill every `<…>` field. Copy it; don't retype it. A skeleton holds headers and placeholder rows only; the examples below show what filled ones look like.
 
-| Field | Value |
-|---|---|
-| Run started | <ISO timestamp> |
-| Run completed | <ISO timestamp or "in progress"> |
-| Shape | DELIVER | AUDIT | DIAGNOSE |
-| Tier | TINY | STANDARD | HEAVY |
-| Flow | FULL | PLAN-ONLY | RESEARCH-ONLY | INVESTIGATE-ONLY | AUDIT-ONLY | VALIDATE-ONLY |
-| Mode | AUTONOMOUS | LOOP-IN |
-| Context | GREENFIELD | BROWNFIELD |
-| ticket | <id and url, or n/a> |
-| Plan | .mozart/plans/<slug>.md |
-| Investigation | .mozart/investigations/<slug>.md (or n/a) |
+What each section holds:
+- **Header table** — run times, shape, tier, flow, mode, context, ticket, and the plan and investigation paths. `Run completed` reads "in progress" until the final report stage
+- **Proposed flow (locked at intake)** — a one-paragraph rationale, then a Mermaid diagram of the planned stages and agents. The rationale names the tier, the flow shape, the project context, the conditional specialists you anticipated and why, and **the 2b trigger outcome** (which lens fired, or "not triggered"). Captured once at the end of stage 1, then frozen: it is the snapshot the run is compared against
+- **Actual flow (live)** — the same kind of diagram, updated at every stage transition. Add an agent when it enters; mark an unplanned one `— added`. Never pre-populate it with agents who turn out to be skipped
+- **Deviations from proposed** — one entry per divergence: the stage, what changed, and the trigger. Empty only when actual matched proposed
+- **Stage trace** — chronological, one line per stage: `HH:MM:SS`, the stage, the agents invoked, the outcome
+- **Agent participation summary** and **Skipped agents (and why)** — filled at the final report stage, one row or line per agent
+- **Notes** — anything about the flow itself (escalations, cap hits, agent disagreements); the work product belongs in the final report
 
-## Proposed flow (locked at intake)
+Examples, as filled:
 
-What mozart proposed to run at the end of stage 1 (Intake), *before any agents executed*. Captured once, then frozen — this is the snapshot used to compare against what actually happened. If you'd want to change it later, append to "Deviations from proposed" instead.
+```
+Rationale: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). 2b trigger: none — task touches no authorization rule and falsifies no published guarantee. Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
 
-Shape this section with:
-- A one-paragraph **rationale** — the tier classification, the flow shape (FULL / PLAN-ONLY / etc.), the project context (GREENFIELD / BROWNFIELD), which conditional specialists you anticipated and why, and **the 2b trigger outcome** (which lens, if it fired; "not triggered" if not)
-- A Mermaid diagram of the planned stages and agents (apply the orientation rule below)
-
-Example (DELIVER / STANDARD / BROWNFIELD, FULL flow):
-
-> **Rationale**: STANDARD-tier feature delivery in a brownfield repo. Sarah research warranted (new dependency choice). 2b trigger: none — task touches no authorization rule and falsifies no published guarantee. Bob always reviews; librarian runs because new utilities are likely; xander not anticipated (no auth/secrets surface); otto not anticipated (no infra). Codex on plan and on diff per STANDARD. Valerie FULL, scott documents.
-
-```mermaid
 flowchart TD
     intake[Intake — mozart]
     sarah[Research — sarah]
     harry[Plan — harry]
     bob[Plan review — bob]
-    librarian[Plan review — librarian]
+    dexter[Plan review — dexter — added]
     codex1[Codex r1]
     jacksonP1[Implement — jackson]
     valerie[Validate — valerie]
-    scott[Documentation — scott]
     report[Report — mozart]
 
     intake --> sarah --> harry
-    harry --> bob
-    harry --> librarian
-    bob --> codex1
-    librarian --> codex1
-    codex1 --> jacksonP1
-    jacksonP1 --> valerie --> scott
-    scott -.-> ship[12b Ship] -.-> report
-    scott --> report
-```
+    harry --> bob --> codex1
+    harry --> dexter --> codex1
+    codex1 --> jacksonP1 --> valerie --> report
 
-## Actual flow (live)
-
-What mozart is *actually* running. Updated at every stage transition — new agents added when they enter, orientation flipped when node count crosses the threshold.
-
-**Orientation rule**: count the nodes (each agent/stage box).
-
-- **5 or fewer nodes** → use `flowchart LR` (left-to-right). Compact, fits inline.
-- **More than 5 nodes** → use `flowchart TD` (top-down). Stays readable as the flow grows; no node-squeezing.
-
-When the flow grows mid-run past the threshold (e.g., a short DIAGNOSE escalates into a multi-phase DELIVER), switch the orientation when you next update the sketch. Don't try to squeeze a 12-node flow into LR for visual consistency.
-
-Example (the proposed flow above, with two unforeseen agents pulled in mid-build):
-
-```mermaid
-flowchart TD
-    intake[Intake — mozart]
-    sarah[Research — sarah]
-    harry[Plan — harry]
-    bob[Plan review — bob]
-    librarian[Plan review — librarian]
-    dexter[Plan review — dexter — added]
-    codex1[Codex r1]
-    jacksonP1[Phase 1 — jackson]
-    dick[Mid-build — dick — added]
-    jacksonP2[Phase 2 — jackson]
-    ian[Mid-build — ian]
-    valerie[Validate — valerie]
-    scott[Documentation — scott]
-    report[Report — mozart]
-
-    intake --> sarah --> harry
-    harry --> bob
-    harry --> librarian
-    harry --> dexter
-    bob --> codex1
-    librarian --> codex1
-    dexter --> codex1
-    codex1 --> jacksonP1 --> dick --> jacksonP2 --> ian --> valerie --> scott
-    scott -.-> ship[12b Ship] -.-> report
-    scott --> report
-```
-
-For a short flow (e.g., INVESTIGATE-ONLY: intake → dick → decision):
-
-```mermaid
-flowchart LR
-    intake[Intake — mozart]
-    dick[Investigate — dick]
-    decision[Decision point — mozart]
-
-    intake --> dick
-    dick --> decision
-```
-
-## Deviations from proposed
-
-Append-only list of every place the actual flow diverged from the proposed flow, with the cause. Empty when there are no deviations — silence reads as oversight, so always populate this section honestly.
-
-Each entry: stage, what changed, what triggered it.
-
+Deviations:
 - **Stage 4** — added dexter (not in proposed flow). **Triggered by**: harry's plan introduced 3 new shared utilities; dexter pulled in for shallow-module review before codex
-- **Stage 8 (phase 1 → phase 2)** — invoked dick (not in proposed flow). **Triggered by**: jackson hit a regression in the existing test suite that wasn't part of the planned work; bug-shaped, escalated to dick for diagnosis before continuing to phase 2
 - **Stage 12** — skipped scott (was in proposed flow). **Triggered by**: change is internal-only with no docs surface; rationale captured in *Notes*
 
-If a deviation requires a re-shape (e.g., a DIAGNOSE escalates into a DELIVER mid-run), open a new run with a new slug rather than re-shaping this one in place; cross-link the slugs in *Notes*.
+Stage trace:
+- **14:02:10** — Stage 1 (Intake): mozart classified DELIVER / STANDARD / BROWNFIELD; ticketing project resolved from CLAUDE.md
+- **14:09:41** — Stage 2b (Constraints): skipped — no trigger
+- **14:31:05** — Stage 7 (Implement, phase 1 of 2): jackson → committed `<sha>`
+- **15:10:48** — Stage 10 (Validate): valerie FULL → SIGNOFF
 
-## Stage trace
-
-Chronological. Each entry: timestamp, stage, agent(s) invoked, brief outcome. Append-only as the run advances.
-
-- **<HH:MM:SS>** — Stage 1 (Intake): mozart classified DELIVER / STANDARD / BROWNFIELD; ticketing project resolved from CLAUDE.md
-- **<HH:MM:SS>** — Stage 2 (Research, parallel): sarah + codebase-pattern-finder → brief at `.mozart/research/<slug>.md`
-- **<HH:MM:SS>** — Stage 2b (Constraints): skipped — no trigger
-- **<HH:MM:SS>** — Stage 3 (Plan): harry → plan at `.mozart/plans/<slug>.md`
-- **<HH:MM:SS>** — Stage 4 (Internal review, parallel): bob (2 medium findings), librarian (verdict: NEW)
-- **<HH:MM:SS>** — Stage 5 (Codex r1): 1 high finding (sequencing concern)
-- **<HH:MM:SS>** — Stage 6 (Iterate): harry revised, round 1; converged
-- **<HH:MM:SS>** — Stage 7 (Implement, phase 1 of 2): jackson → committed `<sha>`
-- **<HH:MM:SS>** — Stage 8 (Mid-build, phase 1): ian (HEAVY-tier always) → no findings
-- **<HH:MM:SS>** — Stage 7 (Implement, phase 2 of 2): jackson → committed `<sha>`
-- **<HH:MM:SS>** — Stage 8 (Mid-build, phase 2): ian → 1 medium finding, addressed in commit `<sha>`
-- **<HH:MM:SS>** — Stage 10 (Validate): valerie FULL → SIGNOFF
-- **<HH:MM:SS>** — Stage 12 (Documentation): scott → README.md, CHANGELOG.md, wiki page created
-- **<HH:MM:SS>** — Stage 12b (Ship): scott → pushed campaign/<slug>, PR #<n> opened (draft)
-- **<HH:MM:SS>** — Stage 13 (Report): mozart finalized
-
-## Agent participation summary
-
-Filled at the final report stage:
-
-| Agent | Role this run | Invocations | Outcome |
-|---|---|---|---|
-| sarah | researcher | 1 | brief produced |
-| codebase-pattern-finder | parallel research | 1 | examples returned |
-| harry | planner | 2 (initial + iterate r1) | plan converged |
+Agent participation summary:
 | bob | plan reviewer | 1 | 2 medium findings, addressed |
-| librarian | duplicate guard | 1 | NEW — proceed |
 | jackson | implementer | 2 phases | both committed |
-| ian | mid-build impact | 2 (per phase, HEAVY) | 1 medium finding, addressed |
-| valerie | verifier | 1 (FULL) | SIGNOFF |
-| scott | documenter | 1 | README/CHANGELOG/wiki updated |
 
-## Skipped agents (and why)
-
-Filled at the final report stage. Be explicit — silence reads as oversight.
-
+Skipped agents:
 - **xander**: plan didn't touch auth, secrets, or untrusted input
-- **dexter**: no shared abstractions or refactor surface
 - **ruby**: no UI surface
-- **otto**: no infra/manifest changes
-- **nina**: no cloud assertion
-- **dick**: not a bug-shaped task
-- **codebase-locator / codebase-analyzer**: not needed; sarah's research covered the scope
-
-## Notes
-
-Anything noteworthy about the flow itself — escalations, cap hits, agent disagreements, deviations from the standard pipeline. Not the same as the final report's "Notable findings" — that's about the work product. This is about the orchestration.
 ```
 
 ### Discipline
