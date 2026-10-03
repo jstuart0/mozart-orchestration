@@ -24,7 +24,9 @@ campaign_sibling() { # <state-file> <ledger|conductor> -> stdout; rc 1 when not 
   printf '%s.%s.md' "${1%.state.md}" "$2"
 }
 
-CAMPAIGN_AWK_LIB=$(cat <<'CAMPAIGN_AWK_LIB_EOF'
+# `read` and not `$(cat <<EOF)`: bash 3.2 (stock macOS) cannot parse a command
+# substitution whose body holds an unpaired backtick, and normhdr has one.
+IFS= read -r -d '' CAMPAIGN_AWK_LIB <<'CAMPAIGN_AWK_LIB_EOF' || true
 # CR is stripped as well as blanks: a CRLF-encoded state file (or sibling)
 # parses identically to LF.
 function trim(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
@@ -59,4 +61,3 @@ function campaign_sibling_awk(statefile, kind,   base) {
 }
 BEGIN { SENT = sprintf("%c", 1) }
 CAMPAIGN_AWK_LIB_EOF
-)

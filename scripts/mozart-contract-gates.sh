@@ -2330,7 +2330,7 @@ printf '%s\n' "$v30_lf" | grep -qxF '== mozart pipeline economics ==' || v30_bad
 if [ -s "$v30_lib" ]; then
   mkdir -p "$v30_tmp/dup/scripts"
   cp "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$v30_tmp/dup/scripts/"
-  awk '{ print } /^CAMPAIGN_AWK_LIB=/ { print "function trim(s) { return s }" }' "$v30_lib" > "$v30_tmp/dup/scripts/lib-campaign.sh"
+  awk '{ print } /CAMPAIGN_AWK_LIB <</ { print "function trim(s) { return s }" }' "$v30_lib" > "$v30_tmp/dup/scripts/lib-campaign.sh"
   [ "$(grep -c '^function trim(s) { return s }$' "$v30_tmp/dup/scripts/lib-campaign.sh")" -eq 1 ] || v30_bad="$v30_bad [the duplicate-function plant did not land]"
   for v30_s in mozart-lint mozart-metrics; do
     v30_out=$(bash "$v30_tmp/dup/scripts/$v30_s.sh" "$v30_corpus" 2>/dev/null); v30_rc=$?
@@ -2341,6 +2341,10 @@ fi
 
 if [ -s "$v30_lib" ]; then
   v30_src=$(bash -c 'a=$-; . "$1"; . "$1"; [ "$a" = "$-" ] && echo same-flags' _ "$v30_lib" 2>&1)
+  if [ -x /bin/bash ]; then
+    v30_sys=$(/bin/bash -c '. "$1"; [ -n "$CAMPAIGN_AWK_LIB" ] && echo loaded' _ "$v30_lib" 2>&1)
+    [ "$v30_sys" = "loaded" ] || v30_bad="$v30_bad [the system /bin/bash cannot source the library (stock macOS bash 3.2 cannot parse a command substitution holding an unpaired backtick): $v30_sys]"
+  fi
   v30_srcu=$(bash -uc 'a=$-; . "$1"; . "$1"; [ "$a" = "$-" ] && echo same-flags' _ "$v30_lib" 2>&1)
   [ "$v30_src" = "same-flags" ] || v30_bad="$v30_bad [sourcing the library printed output or changed shell flags: $v30_src]"
   [ "$v30_srcu" = "same-flags" ] || v30_bad="$v30_bad [sourcing the library under set -u printed output or changed shell flags: $v30_srcu]"
