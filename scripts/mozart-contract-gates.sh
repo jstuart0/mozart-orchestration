@@ -2309,7 +2309,7 @@ v30_repo=$(dirname "$(dirname "$gatefile")")
 v30_corpus="$v30_repo/tests/fixtures/conductor/metrics-conductor"
 v30_lib="$gate_root/scripts/lib-campaign.sh"
 v30_bad=""
-v30_tmp=$(mktemp -d)
+v30_tmp=$(mktemp -d) || { v30_bad="$v30_bad [mktemp failed -- the scratch copies could not be built]"; v30_tmp=/nonexistent-v30; }
 v30_runs=0
 
 for v30_s in mozart-lint mozart-metrics; do
@@ -2368,9 +2368,34 @@ if [ -s "$v30_lib" ]; then
   [ "$(grep -c '^function trim(s) { return s }$' "$v30_tmp/dup/scripts/lib-campaign.sh")" -eq 1 ] || v30_bad="$v30_bad [the duplicate-function plant did not land]"
   for v30_s in mozart-lint mozart-metrics; do
     v30_out=$(bash "$v30_tmp/dup/scripts/$v30_s.sh" "$v30_corpus" 2>/dev/null); v30_rc=$?
-    [ "$v30_rc" -ne 0 ] && { [ "$v30_s" != mozart-lint ] || [ "$v30_rc" -ne 1 ]; } || v30_bad="$v30_bad [$v30_s with a function defined twice: exit $v30_rc passes as a normal run]"
+    [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with a function defined twice: exit $v30_rc, want 3 (an awk failure is not 'nothing to lint' or 'findings')]"
     printf '%s\n' "$v30_out" | grep -qE 'pipeline economics|^LINT ' && v30_bad="$v30_bad [$v30_s printed results with a function defined twice]"
   done
+fi
+
+# A library cut off mid-heredoc is non-empty, so the empty check alone passes it.
+# Two cut points: inside the CAMPAIGN_AWK_LIB heredoc, and after it with only the
+# sentinel missing.
+if [ -s "$v30_lib" ]; then
+  v30_cut_at=$(grep -n 'function split_cells' "$v30_lib" | head -1 | cut -d: -f1)
+  v30_end_at=$(grep -n '^CAMPAIGN_LIB_END=1$' "$v30_lib" | head -1 | cut -d: -f1)
+  { [ -n "$v30_cut_at" ] && [ -n "$v30_end_at" ]; } || v30_bad="$v30_bad [truncation arm: cut points not found in the library (split_cells '$v30_cut_at', sentinel '$v30_end_at')]"
+  v30_trunc_runs=0
+  for v30_cut in "mid-heredoc:$((${v30_cut_at:-2} - 1))" "no-sentinel:$((${v30_end_at:-2} - 1))"; do
+    v30_name=${v30_cut%%:*}
+    mkdir -p "$v30_tmp/trunc-$v30_name/scripts"
+    cp "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$v30_tmp/trunc-$v30_name/scripts/"
+    head -n "${v30_cut##*:}" "$v30_lib" > "$v30_tmp/trunc-$v30_name/scripts/lib-campaign.sh"
+    [ -s "$v30_tmp/trunc-$v30_name/scripts/lib-campaign.sh" ] || v30_bad="$v30_bad [truncation arm $v30_name: the truncated copy is empty, so it tests the empty case]"
+    for v30_s in mozart-lint mozart-metrics; do
+      v30_out=$(bash "$v30_tmp/trunc-$v30_name/scripts/$v30_s.sh" "$v30_corpus" 2>&1); v30_rc=$?
+      v30_trunc_runs=$((v30_trunc_runs + 1))
+      [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with a library truncated ($v30_name): exit $v30_rc, want 3]"
+      [ "$v30_out" = "$v30_s: scripts/lib-campaign.sh not found beside this script" ] \
+        || v30_bad="$v30_bad [$v30_s with a library truncated ($v30_name): wrong output: $(printf '%s' "$v30_out" | head -1)]"
+    done
+  done
+  [ "$v30_trunc_runs" -ge 4 ] || v30_bad="$v30_bad [truncation arm ran $v30_trunc_runs time(s), floor 4]"
 fi
 
 if [ -s "$v30_lib" ]; then

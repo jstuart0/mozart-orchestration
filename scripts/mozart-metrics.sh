@@ -24,15 +24,16 @@ set -u
 
 # The shared helpers live in lib-campaign.sh, found beside this script (the
 # path is absolutised from BASH_SOURCE, so it works from any cwd and from a
-# path containing a space). Missing, unreadable or empty is a loud exit 3,
+# path containing a space). Missing, unreadable, empty or truncated (no end sentinel) is a loud exit 3,
 # never a run with undefined awk functions; exit 2 keeps meaning "nothing to
 # aggregate".
 CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
 CAMPAIGN_AWK_LIB=""
+CAMPAIGN_LIB_END=""
 if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
-  . "$CAMPAIGN_LIB"
+  . "$CAMPAIGN_LIB" 2>/dev/null
 fi
-if [ -z "${CAMPAIGN_AWK_LIB:-}" ]; then
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ] || [ "${CAMPAIGN_LIB_END:-}" != 1 ]; then
   echo "mozart-metrics: scripts/lib-campaign.sh not found beside this script" >&2
   exit 3
 fi
@@ -76,7 +77,12 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   exit 2
 fi
 
-awk "$CAMPAIGN_AWK_LIB"'
+# awk exits 2 itself when it cannot parse its program or open a file, which is
+# the code this script uses for "nothing to aggregate". The program therefore
+# reports "no data" with a private code, and anything else non-zero is a
+# failure (exit 3, as for a missing library), not an empty result.
+NO_DATA_RC=7
+awk -v no_data_rc="$NO_DATA_RC" "$CAMPAIGN_AWK_LIB"'
 # A CRLF state file reads as its LF twin: the row rules below anchor on the end
 # of the line (`|` header and separator rows), which a trailing CR defeats.
 { sub(/\r$/, "") }
@@ -240,7 +246,7 @@ END {
   if (findings == 0 && escapes == 0 && !cr_rows_exist) {
     printf "mozart-metrics: %d campaign(s) found, but no findings-ledger data yet.\n", campaigns
     printf "Ledgers populate as campaigns disposition findings (state-file format: ## Findings ledger).\n"
-    exit 2
+    exit no_data_rc
   }
 
   printf "== mozart pipeline economics ==\n"
@@ -300,3 +306,9 @@ END {
   }
 }
 ' "${FILES[@]}"
+awk_rc=$?
+case "$awk_rc" in
+  0) ;;
+  "$NO_DATA_RC") exit 2 ;;
+  *) echo "mozart-metrics: awk failed (exit $awk_rc)" >&2; exit 3 ;;
+esac

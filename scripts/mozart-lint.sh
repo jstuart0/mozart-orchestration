@@ -50,15 +50,16 @@ set -u
 
 # The shared helpers live in lib-campaign.sh, found beside this script (the
 # path is absolutised from BASH_SOURCE, so it works from any cwd and from a
-# path containing a space). Missing, unreadable or empty is a loud exit 3,
+# path containing a space). Missing, unreadable, empty or truncated (no end sentinel) is a loud exit 3,
 # never a run with undefined awk functions; exit 2 keeps meaning "nothing to
 # lint".
 CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
 CAMPAIGN_AWK_LIB=""
+CAMPAIGN_LIB_END=""
 if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
-  . "$CAMPAIGN_LIB"
+  . "$CAMPAIGN_LIB" 2>/dev/null
 fi
-if [ -z "${CAMPAIGN_AWK_LIB:-}" ]; then
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ] || [ "${CAMPAIGN_LIB_END:-}" != 1 ]; then
   echo "mozart-lint: scripts/lib-campaign.sh not found beside this script" >&2
   exit 3
 fi

@@ -3,8 +3,11 @@
 #
 # Sourced, never executed. Both scripts find it beside themselves (resolved
 # from their own absolutised path, not the cwd) and refuse to run without it
-# (exit 3). Sourcing defines functions and two variables and nothing else: no
-# output, no `exit`, no change to shell options, safe to source twice.
+# (exit 3). Sourcing defines functions and three variables and nothing else: no
+# output, no `exit`, no change to shell options, safe to source twice. Its last
+# statement sets CAMPAIGN_LIB_END; a script that does not see it treats the
+# library as missing, so a copy truncated mid-heredoc (non-empty, with
+# CAMPAIGN_AWK_LIB half filled) is loud like an empty one.
 #
 # Two spellings of one rule live here, so a campaign's sibling files are
 # derived in exactly one file:
@@ -61,3 +64,5 @@ function campaign_sibling_awk(statefile, kind,   base) {
 }
 BEGIN { SENT = sprintf("%c", 1) }
 CAMPAIGN_AWK_LIB_EOF
+
+CAMPAIGN_LIB_END=1
