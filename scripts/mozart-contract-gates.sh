@@ -310,8 +310,8 @@ want_since='origin/<base>'
 # occurrence count caught it, and only because the plant was additive.
 range_defs=$(printf '%s\n' "$cmdlines" | grep -coE 'PUSH_RANGE="[^"]*"')
 since_defs=$(printf '%s\n' "$cmdlines" | grep -coE 'PUSH_SINCE="[^"]*"')
-push_range_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_RANGE="[^"]*"' | sed -E 's/^PUSH_RANGE="//; s/"$//')
-push_since_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_SINCE="[^"]*"' | sed -E 's/^PUSH_SINCE="//; s/"$//')
+push_range_value=$(grep -m1 -oE 'PUSH_RANGE="[^"]*"' <<<"$cmdlines" | sed -E 's/^PUSH_RANGE="//; s/"$//')
+push_since_value=$(grep -m1 -oE 'PUSH_SINCE="[^"]*"' <<<"$cmdlines" | sed -E 's/^PUSH_SINCE="//; s/"$//')
 report "V3_range_defs" "$(eq "$range_defs/$since_defs" "1/1")" "PUSH_RANGE/PUSH_SINCE definitions=$range_defs/$since_defs (want 1/1)"
 report "V3_push_range_value" "$(eq "$push_range_value" "$want_range")" "PUSH_RANGE=[$push_range_value] want [$want_range]"
 report "V3_push_since_value" "$(eq "$push_since_value" "$want_since")" "PUSH_SINCE=[$push_since_value] want [$want_since]"
@@ -447,7 +447,7 @@ report "V3_body_scan_req" "$(ge "$body_scan_req" 1)" "body-scan requirement stat
 report "V3_body_scan_cmd" "$(ge "$body_scan_cmd" 1)" "body-scan commands between body creation and the push=$body_scan_cmd (floor 1; the requirement is stated 40+ lines before the artifact exists)"
 
 want_count='PUSH_COUNT=$(git -C <worktree> rev-list --count $PUSH_RANGE)'
-push_count_value=$(printf '%s\n' "$cmdlines" | grep -m1 -oE 'PUSH_COUNT=[$][(][^)]*[)]')
+push_count_value=$(grep -m1 -oE 'PUSH_COUNT=[$][(][^)]*[)]' <<<"$cmdlines")
 report "V3_push_count_value" "$(eq "$push_count_value" "$want_count")" "PUSH_COUNT=[$push_count_value] want [$want_count]"
 
 # The fetch must sit in the unconditional prologue - the fence that defines the
@@ -1727,18 +1727,49 @@ echo "$v11_big" | grep -qxF first-line \
 grep -qxF first-line <<<"$v11_big" \
   || v11_bad="$v11_bad [a here-string quiet grep lost a first-line member in a 3 MB variable]"
 unset v11_big
-v11_pipe_pat=$'printf \'%s(\\\\n)?\' "[^"]*" *\\| *grep +-[a-zA-Z]*q'
-v11_pipe_count() { grep -cE "$v11_pipe_pat" || true; }
-v11_plant_nl=$'  printf \'%s\\n\' "$x" | grep -qxF y'
-v11_plant_s=$'  printf \'%s\' "$x" | grep -qE -- "$p" || true'
-v11_plant_c=$'  printf \'%s\\n\' "$x" | grep -c y'
-v11_plant_ok=$'  grep -qxF y <<<"$x"'
-[ "$(v11_pipe_count <<<"$v11_plant_nl")" -eq 1 ] && [ "$(v11_pipe_count <<<"$v11_plant_s")" -eq 1 ] \
-  || v11_bad="$v11_bad [pipe-into-quiet-grep scan did not flag a planted printf-variable | grep -q line (newline form and bare form)]"
-{ [ "$(v11_pipe_count <<<"$v11_plant_c")" -eq 0 ] && [ "$(v11_pipe_count <<<"$v11_plant_ok")" -eq 0 ]; } \
-  || v11_bad="$v11_bad [pipe-into-quiet-grep scan flagged a grep -c line or a here-string line]"
+# F60: the first version of this scan saw one spelling. A variable-fed printf or echo is the producer, whatever
+# its quoting; an early-exiting consumer is grep -q (also -Fq, -F -q, --quiet), grep -m (also -m1,
+# --max-count) or head. Each of those can close the pipe on a producer that still has a write to make. A
+# two-stage pipe whose first grep reads to the end and feeds a quiet grep is a smaller race (one small write)
+# but is converted too, so the rule has no "outside the scan" category left to argue about.
+# The one allowed hit is the deliberate 3 MB control above, which proves the hazard is real.
+v11_prod='(printf +(-- +)?("[^"]*"|'"'"'[^'"'"']*'"'"') +|echo +(-[a-zA-Z]+ +)?)("[^"]*"|\$[A-Za-z_{][A-Za-z0-9_}]*) *\| *'
+v11_pipe_pat1="${v11_prod}"'(grep( +-[^ ]+)* +(-[a-zA-Z]*[qm][a-zA-Z0-9]*|--quiet|--max-count)|head)([^A-Za-z0-9_-]|$)'
+v11_pipe_pat2="${v11_prod}"'grep[^|]*\| *grep( +-[^ ]+)* +(-[a-zA-Z]*q[a-zA-Z]*|--quiet)'
+v11_pipe_count() { grep -cE -e "$v11_pipe_pat1" -e "$v11_pipe_pat2" || true; }
+v11_pf=printf; v11_ec=echo; v11_gr=grep; v11_hd=head
+v11_plants=(
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -qxF y"
+  "$v11_pf '%s' \"\$x\" | $v11_gr -qE -- \"\$p\" || true"
+  "$v11_pf \"%s\\n\" \"\$x\" | $v11_gr -q y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -F -q y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr --quiet y"
+  "$v11_ec \"\$x\" | $v11_gr -q y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -m1 y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr --max-count=1 y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_hd -1"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -F y | $v11_gr -qF z"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -F y | $v11_gr --quiet z"
+)
+for v11_pl in "${v11_plants[@]}"; do
+  [ "$(v11_pipe_count <<<"$v11_pl")" -eq 1 ] \
+    || v11_bad="$v11_bad [pipe-into-quiet-grep scan did not flag a planted spelling: $v11_pl]"
+done
+v11_clean=(
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -c y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -F -x -v -e y"
+  "$v11_pf '%s\\n' \"\$x\" | $v11_gr -E 'a|b' | wc -l"
+  "$v11_gr -qxF y <<<\"\$x\""
+  "$v11_hd -1 <<<\"\$x\""
+  "$v11_gr -m1 -F y <<<\"\$x\" | $v11_gr -qF z"
+)
+for v11_pl in "${v11_clean[@]}"; do
+  [ "$(v11_pipe_count <<<"$v11_pl")" -eq 0 ] \
+    || v11_bad="$v11_bad [pipe-into-quiet-grep scan flagged a clean line: $v11_pl]"
+done
 v11_pipe_sites=$(v11_pipe_count < "$gatefile")
-[ "$v11_pipe_sites" -eq 0 ] || v11_bad="$v11_bad [$v11_pipe_sites line(s) of this file pipe a variable into a quiet grep (SIGPIPE under pipefail): write grep -q ... <<<\"\$var\"]"
+[ "$v11_pipe_sites" -eq 1 ] && [ "$(grep -E -e "$v11_pipe_pat1" "$gatefile" | grep -c 'v11_big')" -eq 1 ] \
+  || v11_bad="$v11_bad [$v11_pipe_sites line(s) of this file pipe a variable into an early-exiting grep or head; the only allowed one is the v11_big control: write grep -q ... <<<\"\$var\"]"
 v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
   | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
 if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
@@ -2057,7 +2088,7 @@ touch -t 200001010000 "$v14_spaced" 2>/dev/null
 v14_l_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v14_root" 2>&1)
 v14_l_rc=$?
 [ "$v14_l_rc" -eq 1 ] || v14_bad="$v14_bad [lint exit=$v14_l_rc want 1 under a spaced root]"
-printf '%s\n' "$v14_l_out" | grep -F 'LINT [stale-active]' | grep -qF 'deliver-spaced name.state.md' \
+grep -F 'LINT [stale-active]' <<<"$v14_l_out" | grep -qF 'deliver-spaced name.state.md' \
   || v14_bad="$v14_bad [named member absent: no stale-active finding naming the spaced filename]"
 rm -rf "$v14_tmp"
 report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
@@ -2565,7 +2596,7 @@ for v27_member in mozart-contract-gates.sh mozart-lint.sh lib-campaign.sh; do
   [ -f "$gate_root/scripts/$v27_member" ] || v27_bad="$v27_bad [named member absent from the scan: scripts/$v27_member]"
 done
 v27_hits=$(grep -nE "$v27_re" "${v27_files[@]}" 2>/dev/null || true)
-[ -z "$v27_hits" ] || v27_bad="$v27_bad [raw escape in a grep pattern -- GNU and BSD read it differently, build it with printf: $(printf '%s' "$v27_hits" | head -3 | tr '\n' ' ')]"
+[ -z "$v27_hits" ] || v27_bad="$v27_bad [raw escape in a grep pattern -- GNU and BSD read it differently, build it with printf: $(head -3 <<<"$v27_hits" | tr '\n' ' ')]"
 v27_self=$(grep -cE "$v27_re" "$gatefile" || true)
 [ "$v27_self" -eq 0 ] || v27_bad="$v27_bad [the gate file trips its own scan: $v27_self line(s)]"
 if v27_tmp=$(mktemp -d); then
@@ -2641,7 +2672,7 @@ for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozar
         || v27b_bad="$v27b_bad [no awk heredoc body read from $(basename "$v27b_script") -- its delimiter must contain AWK or the program is unscanned]" ;;
   esac
   v27b_hit=$(v27b_check "$v27b_script")
-  [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $(basename "$v27b_script"): $(printf '%s' "$v27b_hit" | head -2 | tr '\n' ' ')]"
+  [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $(basename "$v27b_script"): $(head -2 <<<"$v27b_hit" | tr '\n' ' ')]"
 done
 v27b_tmp=$(mktemp -d) || { v27b_bad="$v27b_bad [mktemp failed -- the self-tests could not run]"; v27b_tmp=/nonexistent-v27b; }
 printf "awk 'BEGIN { print gensub(/a/, \"b\", \"g\") }'\n" > "$v27b_tmp/name.sh"
@@ -2696,7 +2727,7 @@ for v30_state in absent empty; do
     v30_runs=$((v30_runs + 1))
     [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with the library $v30_state: exit $v30_rc, want 3]"
     [ "$v30_out" = "$v30_s: scripts/lib-campaign.sh not found beside this script" ] \
-      || v30_bad="$v30_bad [$v30_s with the library $v30_state: wrong message: $(printf '%s' "$v30_out" | head -1)]"
+      || v30_bad="$v30_bad [$v30_s with the library $v30_state: wrong message: $(head -1 <<<"$v30_out")]"
   done
 done
 [ "$v30_runs" -ge 4 ] || v30_bad="$v30_bad [absent/empty arm ran $v30_runs time(s), floor 4]"
@@ -2762,7 +2793,7 @@ if [ -s "$v30_lib" ]; then
       v30_trunc_runs=$((v30_trunc_runs + 1))
       [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with a library truncated ($v30_name): exit $v30_rc, want 3]"
       [ "$v30_out" = "$v30_s: scripts/lib-campaign.sh not found beside this script" ] \
-        || v30_bad="$v30_bad [$v30_s with a library truncated ($v30_name): wrong output: $(printf '%s' "$v30_out" | head -1)]"
+        || v30_bad="$v30_bad [$v30_s with a library truncated ($v30_name): wrong output: $(head -1 <<<"$v30_out")]"
     done
   done
   [ "$v30_trunc_runs" -ge 4 ] || v30_bad="$v30_bad [truncation arm ran $v30_trunc_runs time(s), floor 4]"
@@ -2803,7 +2834,7 @@ fi
 if [ -x /bin/bash ]; then
   for v30_s in mozart-lint mozart-metrics; do
     v30_syn=$(/bin/bash -n "$gate_root/scripts/$v30_s.sh" 2>&1) \
-      || v30_bad="$v30_bad [$v30_s.sh does not parse under /bin/bash: $(printf '%s' "$v30_syn" | head -1)]"
+      || v30_bad="$v30_bad [$v30_s.sh does not parse under /bin/bash: $(head -1 <<<"$v30_syn")]"
   done
 fi
 
@@ -2885,7 +2916,7 @@ for v32_layout in single split mixed; do
   if [ "$v32_layout" = single ]; then
     v32_ref_lint=$v32_l; v32_ref_metrics=$v32_m
     grep -qF "conductor-unlinked" <<<"$v32_l" && grep -qF "— F3:" <<<"$v32_l" \
-      || v32_bad="$v32_bad [single-file reference lint run did not report the unadjudicated F3: $(printf '%s' "$v32_l" | head -3)]"
+      || v32_bad="$v32_bad [single-file reference lint run did not report the unadjudicated F3: $(head -3 <<<"$v32_l")]"
     grep -qxF "Wrong-override rate: 1/2 rejected findings later reversed (50%)" <<<"$v32_m" \
       || v32_bad="$v32_bad [single-file reference metrics run lacks the wrong-override line]"
     grep -qxF "Conductor rows: check=1 adjudication=1 fact=1" <<<"$v32_m" \
@@ -2939,7 +2970,7 @@ v33_raw="$v33_tmp/raw"
 if v33_build "$v33_raw"; then
   v33_out=$(v33_lint "$v33_raw")
   grep -qF "conductor adoption date overridden: 2099-06-01" <<<"$v33_out" \
-    || v33_bad="$v33_bad [lint did not run on the raw copies: $(printf '%s' "$v33_out" | head -2 | tr '\n' ' ')]"
+    || v33_bad="$v33_bad [lint did not run on the raw copies: $(head -2 <<<"$v33_out" | tr '\n' ' ')]"
   # The adoption-date line above shows lint ran. A raw copy is a clean campaign, so any
   # LINT line (a tick left in the skeleton, a placeholder read as a declaration) fails.
   grep -q '^mozart-lint: clean' <<<"$v33_out" \
@@ -2957,7 +2988,7 @@ if v33_build "$v33_raw"; then
   printf '%s\n' '| F1 | 4-plan-review | bob | High | fixed (plan r2) | x |' >> "$v33_raw/.mozart/plans/active/$v33_slug.ledger.md"
   v33_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v33_raw" 2>&1)
   grep -qxF "Campaigns: 1 (1 UNTIERED)" <<<"$v33_m" \
-    || v33_bad="$v33_bad [the template Tier pipe-list was classified as a tier: $(printf '%s' "$v33_m" | grep -m1 '^Campaigns:')]"
+    || v33_bad="$v33_bad [the template Tier pipe-list was classified as a tier: $(grep -m1 '^Campaigns:' <<<"$v33_m")]"
 else
   v33_bad="$v33_bad [the raw trio could not be built -- a template is missing or unreadable]"
 fi
@@ -2986,7 +3017,7 @@ if v33_build "$v33_mut"; then
     "$gate_root/agents/TEMPLATE-STATE.md" > "$v33_mut/.mozart/plans/active/$v33_slug.state.md"
   rm -f "$v33_mut/.mozart/plans/active/$v33_slug.ledger.md"
   v33_l=$(v33_lint "$v33_mut")
-  printf '%s\n' "$v33_l" | grep -F 'LINT [split-layout]' | grep -qF 'findings-ledger-missing' \
+  grep -F 'LINT [split-layout]' <<<"$v33_l" | grep -qF 'findings-ledger-missing' \
     || v33_bad="$v33_bad [control failed: a real Findings ledger declaration with no file did not produce findings-ledger-missing]"
 fi
 rm -rf "$v33_tmp"
@@ -3034,7 +3065,7 @@ for v34_pair in "closeout:$v34_closeout" "resume:$v34_resume" "detect:$v34_detec
 done
 # Closeout covers the siblings, in the two bullets that name state-file artifacts.
 for v34_pat in 'reachable from HEAD' 'Paths block lists the ACTUAL artifact paths'; do
-  v34_line=$(printf '%s\n' "$v34_closeout" | grep -m1 -F -- "$v34_pat")
+  v34_line=$(grep -m1 -F -- "$v34_pat" <<<"$v34_closeout")
   [ -n "$v34_line" ] || { v34_bad="$v34_bad [DELIVER closeout bullet absent from its section: $v34_pat]"; continue; }
   for v34_sib in .ledger.md .conductor.md; do
     grep -qF -- "$v34_sib" <<<"$v34_line" \
@@ -3046,7 +3077,7 @@ done
   || v34_bad="$v34_bad [agents/STATE.md's resume section must state 'never split on resume' exactly once]"
 [ "$(grep -c 'never split on resume' "$gate_root/agents/STATE.md")" = "1" ] \
   || v34_bad="$v34_bad ['never split on resume' appears other than once in agents/STATE.md]"
-v34_sent=$(printf '%s\n' "$v34_detect" | grep -m1 -F 'finding categories:')
+v34_sent=$(grep -m1 -F 'finding categories:' <<<"$v34_detect")
 v34_word=$(printf '%s' "$v34_sent" | sed -n 's/.* \([a-z][a-z]*\) finding categories:.*/\1/p')
 case "$v34_word" in fifteen) v34_want=15 ;; sixteen) v34_want=16 ;; seventeen) v34_want=17 ;; eighteen) v34_want=18 ;; *) v34_want=-1 ;; esac
 v34_list=${v34_sent#*finding categories:}
@@ -3061,7 +3092,7 @@ grep -qF '`split-layout`' <<<"$v34_list" || v34_bad="$v34_bad [STATE category se
 # bullet of docs/EVAL.md's ledger section, and that bullet names both siblings.
 v34_old=$(grep -ciE 'state-file hash' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" | awk -F: '{ s += $NF } END { print s + 0 }')
 [ "$v34_old" = "0" ] || v34_bad="$v34_bad [$v34_old 'state-file hash' line(s) left in agents/EVAL.md and commands/mozart-eval.md]"
-v34_md5=$(printf '%s\n' "$v34_ledger" | grep -m1 -F -- '`state_md5`**:')
+v34_md5=$(grep -m1 -F -- '`state_md5`**:' <<<"$v34_ledger")
 for v34_sib in .ledger.md .conductor.md 'in that order'; do
   grep -qF -- "$v34_sib" <<<"$v34_md5" || v34_bad="$v34_bad [docs/EVAL.md's state_md5 bullet (ledger section) does not say '$v34_sib']"
 done
@@ -3081,9 +3112,9 @@ v34_fields=$(grep -ohE 'state_[a-z0-9_]+' "$gate_root/agents/EVAL.md" "$gate_roo
 grep -F 'state.md' "$gate_root/.github/ISSUE_TEMPLATE/bug_report.md" | grep -qF 'ledger' \
   || v34_bad="$v34_bad [bug_report.md's state-file line does not mention the ledger sibling]"
 # The lint column list in docs/EVAL.md carries the new category.
-printf '%s\n' "$v34_mech" | grep -F '| Repo | Total |' | grep -qF 'split-layout' \
+grep -F '| Repo | Total |' <<<"$v34_mech" | grep -qF 'split-layout' \
   || v34_bad="$v34_bad [docs/EVAL.md lint table (Mechanical metrics section) has no split-layout column]"
-printf '%s\n' "$v34_mech" | grep -F '| Repo | Total |' | grep -qF 'escape-unrecorded' \
+grep -F '| Repo | Total |' <<<"$v34_mech" | grep -qF 'escape-unrecorded' \
   || v34_bad="$v34_bad [docs/EVAL.md lint table (Mechanical metrics section) has no escape-unrecorded column]"
 report "V33_layout_prose" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
   "${v34_bad:-closeout names both siblings in both bullets; 'never split on resume' once; category sentence says $v34_word and lists $v34_have; no 'state-file hash' wording; state_md5 order defined once; bug-report and lint-table sites updated}"
@@ -3107,6 +3138,7 @@ v34_lint="$gate_root/scripts/mozart-lint.sh"
 # Every case runs under the UTF-8 locale V11 resolved (see gate_utf8); the
 # multibyte cases run once more under C.
 v34_loc="$gate_utf8"
+[ -n "$v34_loc" ] || v34_bad="$v34_bad [no UTF-8 locale in locale -a: the multibyte cases would run under the caller's locale and prove nothing]"
 # Lint exits 0 on a root with no finding and 1 on a root with findings; metrics
 # exits 0 on any root holding a state file. Both statuses are read beside the
 # output, so a script that crashes (empty output, nonzero status) cannot pass as
@@ -3272,6 +3304,39 @@ for v34_l in "$gate_utf8" C; do
     || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface / tier_surface_wants_xander under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
 done
 
+# F59: the F46 guard above aborts only macOS awk (towc: multibyte conversion failure on a lone byte). Measured
+# on ubuntu:24.04 (mawk 1.3.4) under LC_ALL=C.UTF-8 and LC_ALL=C: substr(s, 2, 1) of a 3-byte character is a
+# byte, tested against [A-Za-z0-9] without error, so the CI runner passes the one-byte form. This static scan
+# is the guard that bites everywhere: no substr(..., 1) result is matched with ~ or !~ against a bracket
+# expression. Whole-prefix and whole-suffix windows (substr(s, 1, i - 1), substr(s, i + 5)) are legitimate and
+# stay clean; so do == and != against a string. The scan cannot see a one-char window written as substr(s, n)
+# or a byte first copied into a variable; those stay a review matter.
+v34_sub_re='substr[(][^()]*, *1 *[)] *!?~ *[^ ]*[[]'
+v34_sub_plants=(
+  'if (i > 1 && substr(s, i - 1, 1) ~ /[A-Za-z0-9]/) continue'
+  'if (substr(r, i + 5, 1) !~ /[a-z]/) return 0'
+  'ok = substr(s, i, 1) ~ "^[A-Z]"'
+)
+v34_sub_clean=(
+  'if (substr(s, 1, i - 1) ~ /[A-Za-z0-9]$/) continue'
+  'if (substr(s, i + 5) ~ /^[A-Za-z0-9]/) continue'
+  'if (substr(r, 1, 1) == "(") {'
+  'if (substr(r, 1, 1) != ":") return ""'
+)
+for v34_pl in "${v34_sub_plants[@]}"; do
+  grep -qE -- "$v34_sub_re" <<<"$v34_pl" || v34_bad="$v34_bad [one-byte-window scan did not flag a planted line: $v34_pl]"
+done
+for v34_pl in "${v34_sub_clean[@]}"; do
+  grep -qE -- "$v34_sub_re" <<<"$v34_pl" && v34_bad="$v34_bad [one-byte-window scan flagged a legitimate line: $v34_pl]"
+done
+v34_sub_n=0
+for v34_s in lib-campaign mozart-lint mozart-metrics; do
+  v34_sub_n=$((v34_sub_n + $(v30_code_lines "$gate_root/scripts/$v34_s.sh" | grep -cE -- 'substr[(]' || true)))
+  v34_sub_hit=$(v30_code_lines "$gate_root/scripts/$v34_s.sh" | grep -E -- "$v34_sub_re" || true)
+  [ -z "$v34_sub_hit" ] || v34_bad="$v34_bad [$v34_s.sh tests a one-byte substr window against a bracket expression (aborts macOS awk on multibyte text): $(head -1 <<<"$v34_sub_hit")]"
+done
+[ "$v34_sub_n" -ge 8 ] || v34_bad="$v34_bad [the one-byte-window scan saw only $v34_sub_n substr line(s) in the three scripts, floor 8: it is scanning nothing]"
+
 # Neither script spells the Tier field itself: the rule lives in the library.
 for v34_s in mozart-lint mozart-metrics; do
   v34_spell=$(v30_code_lines "$gate_root/scripts/$v34_s.sh" | grep -cF '**Tier**' || true)
@@ -3319,11 +3384,11 @@ if v35_pick all a b c d; then
   v35_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v35_tmp/all" 2>&1)
   v35_counted=$(printf '%s\n' "$v35_m" | sed -n 's/^Escapes (Traces-to links): \([0-9]*\)$/\1/p')
   for v35_k in b c; do
-    printf '%s\n' "$v35_l" | grep '^LINT \[escape-unrecorded\]' | grep -qF "2099-05-22-deliver-agree-$v35_k.state.md — 2099-09-22-diagnose-agree-$v35_k:" \
+    grep '^LINT \[escape-unrecorded\]' <<<"$v35_l" | grep -qF "2099-05-22-deliver-agree-$v35_k.state.md — 2099-09-22-diagnose-agree-$v35_k:" \
       || v35_bad="$v35_bad [lint did not fire on agreement origin $v35_k]"
   done
   for v35_k in a d; do
-    printf '%s\n' "$v35_l" | grep '^LINT \[escape-unrecorded\]' | grep -qF "agree-$v35_k" \
+    grep '^LINT \[escape-unrecorded\]' <<<"$v35_l" | grep -qF "agree-$v35_k" \
       && v35_bad="$v35_bad [lint fired on agreement origin $v35_k, a recorded escape]"
   done
   [ "$v35_fired" = "2" ] || v35_bad="$v35_bad [lint fired $v35_fired time(s) on the agreement corpus, want 2]"
@@ -3603,7 +3668,7 @@ v28_once "$v28_mz" 'a cause stated only in an untrusted ticket body counts as un
 [ "$(v28_occ "$v28_mz" "$v28_hi_re")" = "1" ] || v28_bad="$v28_bad [mozart.md tier text must say take-the-higher exactly once, counted per occurrence not per line (found $(v28_occ "$v28_mz" "$v28_hi_re"))]"
 [ "$(v28_occ "$v28_mz" 'take the higher')" = "1" ] || v28_bad="$v28_bad [mozart.md tier text: 'take the higher' occurs $(v28_occ "$v28_mz" 'take the higher') time(s), want exactly 1]"
 v28_once "$v28_mz" 'is not LIGHT when the work touches a HEAVY surface' "mozart.md tier text"
-printf '%s\n' "$v28_mz" | grep -iF 'is not LIGHT when the work touches a HEAVY surface' | grep -qiF 'otto or nina trigger' || v28_bad="$v28_bad [mozart.md tier text: the HEAVY-surface ineligibility sentence does not name the otto or nina trigger]"
+grep -iF 'is not LIGHT when the work touches a HEAVY surface' <<<"$v28_mz" | grep -qiF 'otto or nina trigger' || v28_bad="$v28_bad [mozart.md tier text: the HEAVY-surface ineligibility sentence does not name the otto or nina trigger]"
 v28_once "$v28_mz" 'bob flags any trigger term he sees in a LIGHT plan' "mozart.md tier text"
 v28_once "$v28_mz" 'every listed word that applies' "mozart.md tier text"
 v28_once "$v28_mz" "any term in xander's stage-8 row maps to \`security\`" "mozart.md tier text"
@@ -3715,7 +3780,7 @@ v28_once "$v28_del_s8" 'xander is spawned on every phase' "DELIVER stage 8"
 v28_once "$v28_del_s8" 'The surface record is required' "DELIVER stage 8"
 v28_once "$v28_del_s8" 'counts as touching the surface on every phase' "DELIVER stage 8"
 [ "$(printf '%s\n' "$v28_del_s8" | grep -cF -- "$v28_list")" = "1" ] || v28_bad="$v28_bad [DELIVER stage 8: the closed surface list must occur on exactly one line, in the same words as mozart.md]"
-printf '%s\n' "$v28_del_s8" | grep -F 'xander is spawned on every phase' | grep -qE 'auth.*secrets.*security' \
+grep -F 'xander is spawned on every phase' <<<"$v28_del_s8" | grep -qE 'auth.*secrets.*security' \
   || v28_bad="$v28_bad [DELIVER stage 8: the xander-every-phase rule does not name auth, secrets and security]"
 # Stage 4 head and the LIGHT bullet in stage 9.
 v28_once "$v28_del_s4" "any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT" "DELIVER stage 4"
@@ -3728,7 +3793,7 @@ v28_light=$(printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]LIGHT[*][*]:')
 [ "$(printf '%s' "$v28_light" | sed 's/^- [*][*]LIGHT[*][*]: *//; s/ *$//')" = "run" ] || v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet text is not exactly 'run': $v28_light]"
 grep -qi 'skip' <<<"$v28_light" && v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet contains skip]"
 [ "$(printf '%s\n' "$v28_del_s9" | grep -c 'sub-50-LOC')" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must carry the sub-50-LOC clause exactly once]"
-printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:' | grep -qF 'sub-50-LOC' || v28_bad="$v28_bad [the sub-50-LOC clause is not on the STANDARD bullet]"
+grep -E '^- [*][*]STANDARD[*][*]:' <<<"$v28_del_s9" | grep -qF 'sub-50-LOC' || v28_bad="$v28_bad [the sub-50-LOC clause is not on the STANDARD bullet]"
 
 # ---- 4b. review-round policy added after phase 7 (F50-F56, F58) -------------
 # Each policy sentence is pinned where it lives, by heading, so weakening one copy fails here instead of in review.
@@ -3745,11 +3810,11 @@ v28_once "$v28_del_s4" 'bob flags any trigger term he sees in a LIGHT plan' "DEL
 v28_once "$v28_pipe_adj" 'bob flags any trigger term he sees in a LIGHT plan' "PIPELINE tier adjustments"
 v28_bob=$(cat agents/bob.md)
 v28_once "$v28_bob" 'On a LIGHT plan you review alone' "agents/bob.md"
-printf '%s\n' "$v28_bob" | grep -iF 'On a LIGHT plan you review alone' | grep -qiF "flag any term in xander's stage-4 trigger row" \
+grep -iF 'On a LIGHT plan you review alone' <<<"$v28_bob" | grep -qiF "flag any term in xander's stage-4 trigger row" \
   || v28_bad="$v28_bad [agents/bob.md: the LIGHT duty does not name xander's stage-4 trigger row]"
 # F51: a HEAVY surface or an otto or nina trigger also makes the campaign not LIGHT, in both homes of the security sentence.
 v28_once "$v28_del_s4" 'is not LIGHT when the work touches a HEAVY surface' "DELIVER stage 4"
-printf '%s\n' "$v28_del_s4" | grep -iF 'is not LIGHT when the work touches a HEAVY surface' | grep -qiF 'otto or nina trigger' \
+grep -iF 'is not LIGHT when the work touches a HEAVY surface' <<<"$v28_del_s4" | grep -qiF 'otto or nina trigger' \
   || v28_bad="$v28_bad [DELIVER stage 4: the HEAVY-surface ineligibility sentence does not name the otto or nina trigger]"
 v28_once "$v28_pipe_adj" 'a HEAVY surface' "PIPELINE tier adjustments"
 # F52: the surface record names every listed word that applies; any xander-row term is `security`.
@@ -3765,11 +3830,11 @@ v28_once "$v28_xan" 'cumulative diff since the base' "agents/xander.md"
 v28_once "$v28_pipe_s8" 'every phase when the surface is auth, secrets or security' "PIPELINE stage 8"
 grep -qF 'every phase when the surface is auth, secrets or security' <<<"$v28_x_pip8" \
   || v28_bad="$v28_bad [PIPELINE stage-8 xander row does not carry 'every phase when the surface is auth, secrets or security']"
-printf '%s\n' "$v28_xan" | grep -F 'Your DELIVER stages' | grep -qF 'every phase when that surface is auth, secrets or security' \
+grep -F 'Your DELIVER stages' <<<"$v28_xan" | grep -qF 'every phase when that surface is auth, secrets or security' \
   || v28_bad="$v28_bad [agents/xander.md stages line does not carry 'every phase when that surface is auth, secrets or security']"
-printf '%s\n' "$v28_xan" | grep '^Mozart invokes you on plans or slices' | grep -qF 'every phase when that surface is auth, secrets or security' \
+grep '^Mozart invokes you on plans or slices' <<<"$v28_xan" | grep -qF 'every phase when that surface is auth, secrets or security' \
   || v28_bad="$v28_bad [agents/xander.md trigger paragraph does not carry 'every phase when that surface is auth, secrets or security']"
-printf '%s\n' "$v28_xan" | grep -F 'Your DELIVER stages' | grep -qF 'makes it not LIGHT' \
+grep -F 'Your DELIVER stages' <<<"$v28_xan" | grep -qF 'makes it not LIGHT' \
   || v28_bad="$v28_bad [agents/xander.md stages line does not say a xander trigger makes the campaign not LIGHT]"
 grep -qF 'LIGHT and STANDARD: on triggers' <<<"$v28_xan" && v28_bad="$v28_bad [agents/xander.md still says LIGHT runs xander on triggers]"
 # F55: stage 2b stays narrow term by term: every union term the narrow trigger does not name is absent from both 2b texts.
@@ -3808,7 +3873,7 @@ v28_ig=$(v28_sec INTEGRATION.md '^## 6\. Pipeline flags [(]stanza optional[)]' '
 [ "$(printf '%s\n' "$v28_ig" | grep -c .)" -ge 5 ] || v28_bad="$v28_bad [INTEGRATION.md section '6. Pipeline flags (stanza optional)' is missing or under 5 lines]"
 grep -qF 'every_phase: true' <<<"$v28_ig" || v28_bad="$v28_bad [INTEGRATION.md section 6 does not show every_phase: true]"
 v28_ih=$(v28_sec INTEGRATION.md '^## How agents read these stanzas' '^---$')
-printf '%s\n' "$v28_ih" | grep -F 'every_phase' | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md How-agents-read paragraph does not say mozart reads every_phase and never writes it]"
+grep -F 'every_phase' <<<"$v28_ih" | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md How-agents-read paragraph does not say mozart reads every_phase and never writes it]"
 v28_once "$v28_ig" 'every listed word that applies' "INTEGRATION.md section 6"
 v28_once "$v28_ig" "any term in xander's stage-8 row maps to \`security\`" "INTEGRATION.md section 6"
 v28_once "$v28_ig" 'xander runs on every phase when that surface is `auth`, `secrets` or `security`' "INTEGRATION.md section 6 (F55)"
@@ -3881,6 +3946,7 @@ if [ -n "$v29_text" ]; then
   case "$v29_text" in '- **No progress**: '*) : ;; *) v29_bad="$v29_bad [policy text is not a bullet opening '- **No progress**: ']" ;; esac
   for v29_pin in 'the same command three times with the same result and nothing changed between' \
                  'three turns that do nothing' 'a bounded wait expires twice' \
+                 ', stop. Return what you attempted' \
                  'what you attempted, the command, its last output, the likely blocker, and the next step' \
                  'Stuck is a result.'; do
     case "$v29_text" in *"$v29_pin"*) : ;; *) v29_bad="$v29_bad [policy text lacks: $v29_pin]" ;; esac
@@ -3996,6 +4062,8 @@ v29_item8_n=$(grep -c . <<<"$v29_item8" || true)
 [ "$v29_item8_n" = "1" ] || v29_bad="$v29_bad [CONTRIBUTING.md item 8 found $v29_item8_n time(s), want 1]"
 v29_item8_np=$(grep -o 'tests/policy/no-progress.txt' <<<"$v29_item8" | grep -c . || true)
 [ "$v29_item8_np" = "1" ] || v29_bad="$v29_bad [CONTRIBUTING.md item 8 names tests/policy/no-progress.txt $v29_item8_np time(s), want exactly 1]"
+# The section is not the same in every specialist (12 share one text, ian/nina/sarah a second, hank and tessa their own); only the bullet is.
+grep -qF 'same in every specialist' <<<"$v29_item8" && v29_bad="$v29_bad [CONTRIBUTING.md item 8 again claims the whole section is the same in every specialist: only the no-progress bullet is]"
 [ ! -e "$gate_root/tests/parity/snippets/NP.txt" ] || v29_bad="$v29_bad [CONTROL: tests/parity/snippets/NP.txt exists: the no-progress text is not a V15 snippet]"
 v29_np_rows=$(grep -cE '^NP[[:space:]]' <<<"$v15_registry" || true)
 [ "$v29_np_rows" = "0" ] || v29_bad="$v29_bad [CONTROL: the V15 registry has $v29_np_rows NP row(s)]"

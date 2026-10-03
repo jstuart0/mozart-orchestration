@@ -24,7 +24,7 @@ Every specialist persona file must include, in this order:
 5. **`## Core operating principles`** — role-specific principles, as specific subsections.
 6. **`## Working mode`** — how the agent processes a task end-to-end, numbered steps.
 7. **`## Output format`** — a fenced markdown template for the agent's output artifact.
-8. **`## Communicate as you work`** — copy this section verbatim from `agents/sarah.md` or `agents/ruby.md`. It is the same in every specialist. Its cadence list ends with the no-progress bullet, byte-identical to `tests/policy/no-progress.txt`; `V29_noprogress` pins it.
+8. **`## Communicate as you work`** — start from this section in `agents/sarah.md` or `agents/ruby.md`; the rest of it may differ between specialists. What is identical in every specialist is the no-progress bullet in its cadence list, byte-identical to `tests/policy/no-progress.txt`; `V29_noprogress` pins it.
 9. **`## Field notes (append-only)`** — copy the stub from any existing specialist. Append-only; see `agents/LEARNINGS.md` for the protocol.
 
 Use `agents/sarah.md` as the canonical template for a researcher-type agent; use `agents/ian.md` for an analyst-type. Both illustrate the full scaffold.
