@@ -1824,9 +1824,12 @@ v10b_run_case "metrics-split" 16 \
   "Confirmed catches (Critical/High, disposition=fixed): 13" \
   "  sibling files skipped (no section heading): 3" \
   "Wrong-override rate: 1/1 rejected findings later reversed (100%)"
+v10b_run_case "metrics-light" 4 \
+  "Campaigns: 1 (1 LIGHT)" \
+  "Catches per campaign by tier: LIGHT=1.0"
 
 report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
-  "${v10b_bad:-metrics-conductor, metrics-vacuity and metrics-split: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
+  "${v10b_bad:-metrics-conductor, metrics-vacuity, metrics-split and metrics-light: exit=0, expected lines present, rejected-by-lens tokens correct, named members present}"
 
 # ---------------------------------------------------------------------------
 # V13 — cross-file conductor-prose parity, section-scoped (phase 7)
@@ -3276,6 +3279,361 @@ v35_lc=$(v30_code_lines "$gate_root/scripts/mozart-lint.sh" | grep -cF 'is_escap
 { [ "$v35_mc" -ge 1 ] && [ "$v35_lc" -ge 1 ]; } || v35_bad="$v35_bad [is_escape_line is called $v35_mc time(s) in metrics and $v35_lc in lint, want at least 1 each]"
 report "V35_escapes" "$([ -z "$v35_bad" ] && echo 0 || echo 1)" \
   "${v35_bad:-agreement corpus: lint silent on A and D, fires on B and C, metrics counts the 2 lint accepts; B alone 1 finding and Escapes 0; no investigations tree is clean; the Traces-to grammar sentence is in $v35_sites sites exactly once; the rule lives in the library only}"
+
+# ---------------------------------------------------------------------------
+# V28_tiers - the LIGHT tier, HEAVY mid-build, and the codex r2 wording (phase 7)
+#
+# Four populations, each DERIVED and each located by position, because a
+# file-wide count is satisfied by the wrong table (PIPELINE.md has three
+# xander rows, DELIVER.md's stage-4 row carries an extra empty column):
+#   1. every markdown table that names TINY and STANDARD names LIGHT and is
+#      rectangular (cells counted by the library's split_cells, one rule);
+#   2. every line that names TINY and STANDARD names LIGHT, minus a named,
+#      asserted-present exclusion list;
+#   3. the codex r2 wording, in the tables by header and in the prose by line;
+#   4. the stage-8 and stage-4 trigger rows, by heading, exactly one row each,
+#      carrying the surface phrase and the twelve-term security union.
+# Every extractor is run on planted input it must reject before it is trusted
+# on the tree, so an empty extraction cannot read as a pass.
+# ---------------------------------------------------------------------------
+v28_bad=""
+v28_lib=$( . "$gate_root/scripts/lib-campaign.sh" 2>/dev/null; printf '%s' "${CAMPAIGN_AWK_LIB:-}" )
+[ -n "$v28_lib" ] || v28_bad="$v28_bad [scripts/lib-campaign.sh gave no awk library: the table scan cannot run]"
+v28_tmp=$(mktemp -d) || { v28_bad="$v28_bad [mktemp failed]"; v28_tmp=/nonexistent-v28; }
+
+# Tables that name TINY and STANDARD as whole cells, in the header row or in the first column.
+v28_tprog='
+function norm(s) { gsub(/\*/, "", s); return trim(s) }
+function finish(   n, i, hn, rn, c, v, tiny, std, light, rag, hc, rc) {
+  if (nb >= 2) {
+    hn = split_cells(blk[1], hc)
+    tiny = 0; std = 0; light = 0; rag = ""
+    for (c = 1; c <= hn; c++) {
+      v = norm(hc[c])
+      if (v == "TINY") tiny = 1
+      if (v == "STANDARD") std = 1
+      if (v == "LIGHT") light = 1
+    }
+    for (i = 2; i <= nb; i++) {
+      if (blk[i] ~ /^[ \t]*\|[ \t:|-]*$/ && blk[i] ~ /-/) continue
+      rn = split_cells(blk[i], rc)
+      v = norm(rc[2])
+      if (v == "TINY") tiny = 1
+      if (v == "STANDARD") std = 1
+      if (v == "LIGHT") light = 1
+      if (rn != hn) rag = rag " " (start + i - 1)
+    }
+    if (tiny && std) printf "TABLE %s:%d rows=%d light=%d ragged=%s\n", FILENAME, start, nb - 2, light, rag
+  }
+  nb = 0
+}
+/^[ \t]*```/ { finish(); fence = !fence; next }
+fence { next }
+/^[ \t]*\|/ { if (nb == 0) start = FNR; blk[++nb] = $0; next }
+{ finish() }
+END { finish() }'
+v28_tables() { # $1 = file -> one TABLE line per table naming TINY and STANDARD
+  awk "$v28_lib"$'\n'"$v28_tprog" "$1" 2>&1
+}
+# Lines naming TINY and STANDARD but not LIGHT, as file:line:text.
+v28_gaps() { # $@ = files
+  local f
+  for f in "$@"; do
+    grep -n 'TINY' "$f" 2>/dev/null | grep 'STANDARD' | grep -v 'LIGHT' | sed "s|^|$f:|"
+  done
+}
+v28_sec() { # $1 = file, $2 = start ERE, $3 = end ERE -> section text; empty when the heading is gone
+  local r
+  r=$(v3_region "$gate_root/$1" "$2" "$3")
+  case "$r" in __REGION_START_NOT_FOUND__*) return 0 ;; esac
+  printf '%s\n' "$r"
+}
+v28_rows() { # $1 = section text, $2 = lens -> every table row whose first cell, emphasis stripped, is the lens
+  printf '%s\n' "$1" | awk -v lens="$2" '/^[ \t]*\|/ { c = $0; sub(/^[ \t]*\|[ \t]*/, "", c); sub(/[ \t]*\|.*$/, "", c); gsub(/\*/, "", c); if (c == lens) print }'
+}
+v28_cell() { # $1 = table text, $2 = first-cell prefix, $3 = column header -> that cell, emphasis stripped
+  printf '%s\n' "$1" | awk -v want="$3" -v pre="$2" "$v28_lib"$'\n''
+    function norm(s) { gsub(/\*/, "", s); return trim(s) }
+    /^[ \t]*\|/ {
+      n = split_cells($0, c)
+      if (!col_at) { for (i = 2; i <= n; i++) if (norm(c[i]) == want) col_at = i; next }
+      if (index(norm(c[2]), pre) == 1 && col_at) { print norm(c[col_at]); exit }
+    }'
+}
+v28_terms=$(cat <<'V28_TERMS_EOF'
+auth	[Aa]uth,
+secrets	[Ss]ecrets
+untrusted input	[Uu]ntrusted input
+encryption	[Ee]ncryption
+sessions	[Ss]essions
+RBAC	RBAC
+security headers	[Ss]ecurity headers
+CSP	CSP
+dependency changes	[Dd]ependenc|lockfile
+CI/CD workflow changes	CI/CD
+authorization (ownership and tenant filters)	[Aa]uthorization [(]ownership and tenant filters[)]
+outbound requests	[Oo]utbound requests
+V28_TERMS_EOF
+)
+v28_missing() { # $1 = text -> the union terms it lacks, one per line
+  local name pat
+  while IFS=$'\t' read -r name pat; do
+    [ -n "$name" ] || continue
+    printf '%s\n' "$1" | grep -qE -- "$pat" || printf '%s\n' "$name"
+  done < <(printf '%s\n' "$v28_terms")
+}
+v28_once() { # $1 = text, $2 = fixed phrase (case-insensitive), $3 = label -> appends to v28_bad unless it occurs on exactly one line
+  local n
+  n=$(printf '%s\n' "$1" | grep -ciF -- "$2")
+  [ "$n" = "1" ] || v28_bad="$v28_bad [$3: '$2' occurs on $n line(s), want exactly 1]"
+}
+
+# ---- the extractors must reject planted input before they are trusted ------
+printf '%s\n' '| Stage | TINY | LIGHT | STANDARD | HEAVY |' '|---|---|---|---|---|' '| a | x | x | x | x |' '| b | x | x | x |' > "$v28_tmp/ragged.md"
+printf '%s\n' '| Stage | TINY | STANDARD | HEAVY |' '|---|---|---|---|' '| a | x | x | x |' > "$v28_tmp/nolight.md"
+printf '%s\n' '| Tier | What |' '|---|---|' '| **TINY** | x |' '| **LIGHT** | y |' '| **STANDARD** | z |' > "$v28_tmp/column.md"
+printf '%s\n' '```' '| Stage | TINY | STANDARD |' '|---|---|---|' '```' > "$v28_tmp/fenced.md"
+printf '%s\n' '| Tier | <TINY \| STANDARD \| HEAVY> |' '|---|---|' '| a | b |' > "$v28_tmp/escaped.md"
+v28_t=$(v28_tables "$v28_tmp/ragged.md")
+printf '%s' "$v28_t" | grep -qE 'light=1 ragged= 4$' || v28_bad="$v28_bad [self-test: a table with one short row was not reported ragged at its line: $v28_t]"
+v28_t=$(v28_tables "$v28_tmp/nolight.md")
+printf '%s' "$v28_t" | grep -q 'light=0' || v28_bad="$v28_bad [self-test: a TINY/STANDARD table with no LIGHT header was not reported light=0: $v28_t]"
+v28_t=$(v28_tables "$v28_tmp/column.md")
+printf '%s' "$v28_t" | grep -q 'light=1 ragged= *$' || v28_bad="$v28_bad [self-test: a table that names the tiers in its first column was not found, or its LIGHT row was missed: $v28_t]"
+[ -z "$(v28_tables "$v28_tmp/fenced.md")" ] || v28_bad="$v28_bad [self-test: a table inside a code fence was scanned]"
+[ -z "$(v28_tables "$v28_tmp/escaped.md")" ] || v28_bad="$v28_bad [self-test: an escaped-pipe cell was read as a tier table]"
+printf '%s\n' 'Tiers: TINY / STANDARD / HEAVY' > "$v28_tmp/gap.md"
+printf '%s\n' 'Tiers: TINY / LIGHT / STANDARD / HEAVY' > "$v28_tmp/nogap.md"
+[ -n "$(v28_gaps "$v28_tmp/gap.md")" ] || v28_bad="$v28_bad [self-test: a line naming TINY and STANDARD without LIGHT was not reported]"
+[ -z "$(v28_gaps "$v28_tmp/nogap.md")" ] || v28_bad="$v28_bad [self-test: a line naming all four tiers was reported]"
+v28_row_plant=$(printf '%s\n' '| **xander** | a |' '| xander | b |' '| ian | c |')
+[ "$(v28_rows "$v28_row_plant" xander | grep -c .)" = "2" ] || v28_bad="$v28_bad [self-test: the bold and plain xander rows were not both found]"
+[ "$(v28_rows "$v28_row_plant" ian | grep -c .)" = "1" ] || v28_bad="$v28_bad [self-test: the ian row was not found once]"
+[ "$(v28_missing 'Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests; dependency lockfile; CI/CD' | grep -c .)" = "0" ] \
+  || v28_bad="$v28_bad [self-test: a row carrying all twelve terms was reported as missing some]"
+[ "$(v28_missing 'auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, authorization (ownership and tenant filters), outbound requests; dependency lockfile; CI/CD' | tr '\n' ' ')" = "CSP " ] \
+  || v28_bad="$v28_bad [self-test: a row without CSP did not report exactly CSP missing]"
+v28_cell_plant=$(printf '%s\n' '| Stage | TINY | LIGHT | STANDARD |' '|---|---|---|---|' '| Codex r2 on diff (9) | skip | run | default-run |')
+[ "$(v28_cell "$v28_cell_plant" 'Codex r2' LIGHT)" = "run" ] || v28_bad="$v28_bad [self-test: the LIGHT cell of a planted table was not read as run]"
+[ "$(v28_cell "$v28_cell_plant" 'Codex r2' STANDARD)" = "default-run" ] || v28_bad="$v28_bad [self-test: the STANDARD cell of a planted table was not read as default-run]"
+
+# ---- 1. tier tables ---------------------------------------------------------
+v28_docs=$(git ls-files 'agents/*.md' 'commands/*.md' 'docs/*.md' README.md)
+v28_ndocs=$(printf '%s\n' "$v28_docs" | grep -c .)
+[ "$v28_ndocs" -ge 25 ] || v28_bad="$v28_bad [the W1 file set holds $v28_ndocs file(s), floor 25]"
+v28_ntab=0
+# agents/OPERATE.md is out of scope (its tier axis is OPERATE's own); its table is asserted to exist and to
+# stay three-tier, so the exclusion is a checked fact and not a gap.
+v28_op=$(v28_tables agents/OPERATE.md)
+printf '%s' "$v28_op" | grep -q 'light=0' || v28_bad="$v28_bad [exclusion: agents/OPERATE.md no longer has its own three-tier table (found: '$v28_op')]"
+for v28_f in $v28_docs; do
+  [ "$v28_f" = "agents/OPERATE.md" ] && continue
+  while IFS= read -r v28_t; do
+    [ -n "$v28_t" ] || continue
+    v28_ntab=$((v28_ntab + 1))
+    printf '%s' "$v28_t" | grep -q 'light=1' || v28_bad="$v28_bad [tier table does not name LIGHT: ${v28_t%% rows*}]"
+    printf '%s' "$v28_t" | grep -qE 'ragged= *$' || v28_bad="$v28_bad [tier table has a row whose cell count differs from the header: ${v28_t#*ragged=}  in ${v28_t%% rows*}]"
+  done < <(v28_tables "$v28_f")
+done
+[ "$v28_ntab" -ge 4 ] || v28_bad="$v28_bad [only $v28_ntab tier table(s) found, floor 4: mozart.md tiers, PIPELINE adjustments, PIPELINE tier policy, README]"
+for v28_f in agents/mozart.md agents/PIPELINE.md README.md; do
+  [ "$(v28_tables "$v28_f" | grep -c .)" -ge 1 ] || v28_bad="$v28_bad [no tier table found in $v28_f]"
+done
+[ "$(v28_tables agents/PIPELINE.md | grep -c .)" = "2" ] || v28_bad="$v28_bad [agents/PIPELINE.md must hold exactly two tier tables (adjustments and codex policy)]"
+grep -qxF '| Stage | TINY | LIGHT | STANDARD | HEAVY |' agents/PIPELINE.md \
+  || v28_bad="$v28_bad [named member absent: agents/PIPELINE.md header row '| Stage | TINY | LIGHT | STANDARD | HEAVY |']"
+
+# ---- 2. enumeration lines ---------------------------------------------------
+# Exclusions are statements about a named tier or the OPERATE tier axis, not enumerations of the
+# DELIVER tiers. Each fingerprint must still be present exactly once, so the exclusion is a checked fact.
+v28_excl=$(cat <<'V28_EXCL_EOF'
+agents/PIPELINE.md	**Tiers:** TINY
+agents/STATE.md	The same rule already works well on TINY campaigns
+V28_EXCL_EOF
+)
+v28_gap_all=$(v28_gaps $v28_docs | grep -v '^agents/OPERATE\.md:')
+while IFS=$'\t' read -r v28_xf v28_xp; do
+  [ -n "$v28_xf" ] || continue
+  [ "$(grep -cF -- "$v28_xp" "$v28_xf")" = "1" ] || v28_bad="$v28_bad [exclusion fingerprint not present exactly once in $v28_xf: $v28_xp]"
+  v28_gap_all=$(printf '%s\n' "$v28_gap_all" | grep -vF -- "$v28_xp")
+done < <(printf '%s\n' "$v28_excl")
+v28_gap_all=$(printf '%s\n' "$v28_gap_all" | grep .)
+[ -z "$v28_gap_all" ] || v28_bad="$v28_bad [lines naming TINY and STANDARD but not LIGHT: $(printf '%s' "$v28_gap_all" | cut -c1-90 | tr '\n' ';')]"
+v28_nenum=$(for v28_f in $v28_docs; do grep 'TINY' "$v28_f" | grep -c 'STANDARD' ; done | awk '{ s += $1 } END { print s + 0 }')
+[ "$v28_nenum" -ge 12 ] || v28_bad="$v28_bad [only $v28_nenum line(s) name TINY and STANDARD, floor 12: the derivation lost its population]"
+[ "$(grep -cF 'When unsure between STANDARD and HEAVY' agents/OPERATE.md)" = "1" ] \
+  || v28_bad="$v28_bad [control: agents/OPERATE.md must keep its own 'When unsure between STANDARD and HEAVY' exactly once]"
+[ "$(grep -cF 'When unsure between STANDARD and HEAVY' agents/mozart.md)" = "0" ] \
+  || v28_bad="$v28_bad [agents/mozart.md still carries 'When unsure between STANDARD and HEAVY']"
+
+# ---- 3. mozart.md tier text -------------------------------------------------
+v28_mz=$(v28_sec agents/mozart.md '^## Task tiers' '^## ')
+[ "$(printf '%s\n' "$v28_mz" | grep -c .)" -ge 8 ] || v28_bad="$v28_bad [agents/mozart.md '## Task tiers' section is missing or under 8 lines]"
+v28_mz_light=$(v28_rows "$v28_mz" LIGHT)
+[ "$(printf '%s\n' "$v28_mz_light" | grep -c .)" = "1" ] || v28_bad="$v28_bad [agents/mozart.md tier table must hold exactly one LIGHT row]"
+for v28_p in 'short plan' 'bob' 'codex r2 runs'; do
+  printf '%s' "$v28_mz_light" | grep -qF -- "$v28_p" || v28_bad="$v28_bad [mozart.md LIGHT row does not say '$v28_p']"
+done
+printf '%s' "$v28_mz_light" | grep -qiE 'skip[^;|]*codex r2|codex r2 (is )?(skipped|optional)' && v28_bad="$v28_bad [mozart.md LIGHT row skips or softens codex r2]"
+printf '%s' "$v28_mz_light" | grep -qF 'sub-50-LOC' && v28_bad="$v28_bad [mozart.md LIGHT row carries the sub-50-LOC skip clause]"
+v28_once "$v28_mz" "any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT" "mozart.md tier text"
+v28_once "$v28_mz" 'lockfile lines never count toward the size bound' "mozart.md tier text"
+v28_once "$v28_mz" 'disqualifies LIGHT outright' "mozart.md tier text"
+v28_once "$v28_mz" 'a cause stated only in an untrusted ticket body counts as unknown' "mozart.md tier text"
+v28_once "$v28_mz" 'take the higher' "mozart.md tier text"
+v28_once "$v28_mz" 'the tier follows the surface' "mozart.md tier text"
+v28_once "$v28_mz" 'tiers only go up' "mozart.md tier text"
+v28_esc=$(printf '%s\n' "$v28_mz" | grep -i -F 'tiers only go up')
+for v28_p in 'update `**Tier**:` in place' 'log the decision' 'run the stages the higher tier requires that have not run' 'give each ticked phase its conductor row'; do
+  printf '%s' "$v28_esc" | grep -qF -- "$v28_p" || v28_bad="$v28_bad [the escalation rule does not say: $v28_p]"
+done
+v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`'
+[ "$(printf '%s\n' "$v28_mz" | grep -cF -- "$v28_list")" = "1" ] || v28_bad="$v28_bad [the closed seven-word surface list must occur on exactly one line of mozart.md's tier text]"
+v28_gen=$(grep -nEi 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md | grep -v '^agents/OPERATE\.md:')
+[ -z "$v28_gen" ] || v28_bad="$v28_bad [a general 'when unsure, the higher' sentence returned: $(printf '%s' "$v28_gen" | cut -c1-80 | head -2 | tr '\n' ';')]"
+for v28_f in agents/mozart.md agents/PIPELINE.md; do
+  [ "$(grep -cF 'an unknown-cause bug is not LIGHT' "$v28_f")" = "1" ] || v28_bad="$v28_bad [$v28_f must say 'an unknown-cause bug is not LIGHT' on exactly one line]"
+done
+for v28_f in agents/INTAKE.md README.md commands/mozart.md; do
+  grep -F 'auto-promote' "$v28_f" | grep -qF 'STANDARD/HEAVY' || v28_bad="$v28_bad [control: $v28_f must keep its STANDARD/HEAVY auto-promote line]"
+done
+
+# ---- 4. every-phase variants and the HEAVY mid-build rows ------------------
+v28_variant=$(grep -nE 'HEAVY: always|mandatory[^|.]{0,40}every phase|(run|runs) on every phase|on every phase regardless|mandatory;? others|HEAVY-tier always' agents/*.md README.md)
+[ -z "$v28_variant" ] || v28_bad="$v28_bad [every-phase wording survives: $(printf '%s' "$v28_variant" | cut -c1-70 | tr '\n' ';')]"
+# The three W2 allow-list lines do not match the variant regex; each is asserted still present so the
+# allow-list names real, unedited text rather than a line that has since moved.
+for v28_a in 'agents/valerie.md|By the time you run, every phase has been committed' 'agents/OPERATE.md|mandatory xander at the pre-flight gate' 'agents/FLOWS.md|every phase gate returned a needs-revision test punch list'; do
+  [ "$(grep -cF -- "${v28_a#*|}" "${v28_a%%|*}")" = "1" ] || v28_bad="$v28_bad [W2 allow-list line moved or was edited: ${v28_a%%|*}]"
+done
+v28_pipe_adj=$(v28_sec agents/PIPELINE.md '^### Tier adjustments' '^### ')
+v28_pipe_pol=$(v28_sec agents/PIPELINE.md '^### Tier policy' '^### ')
+v28_pipe_s2b=$(v28_sec agents/PIPELINE.md '^### Constraints triggers [(]stage 2b' '^### ')
+v28_pipe_s4=$(v28_sec agents/PIPELINE.md '^### Reviewer triggers [(]stage 4' '^### ')
+v28_pipe_s8=$(v28_sec agents/PIPELINE.md '^### Mid-build specialist triggers [(]stage 8' '^### ')
+v28_del_s2b=$(v28_sec agents/DELIVER.md '^### 2b\. Constraints' '^### ')
+v28_del_s4=$(v28_sec agents/DELIVER.md '^### 4\. Internal review' '^### ')
+v28_del_s8=$(v28_sec agents/DELIVER.md '^### 8\. Mid-build specialists' '^### ')
+v28_del_s9=$(v28_sec agents/DELIVER.md '^### 9\. External review' '^### ')
+for v28_pair in "PIPELINE adjustments:$v28_pipe_adj" "PIPELINE policy:$v28_pipe_pol" "PIPELINE 2b:$v28_pipe_s2b" "PIPELINE 4:$v28_pipe_s4" "PIPELINE 8:$v28_pipe_s8" \
+                "DELIVER 2b:$v28_del_s2b" "DELIVER 4:$v28_del_s4" "DELIVER 8:$v28_del_s8" "DELIVER 9:$v28_del_s9"; do
+  [ "$(printf '%s\n' "${v28_pair#*:}" | grep -c .)" -ge 3 ] || v28_bad="$v28_bad [section '${v28_pair%%:*}' is missing or under 3 lines: its heading was renamed]"
+done
+# Tables: LIGHT cells, by header and row.
+v28_cells=0
+for v28_chk in "adj|Research|skip" "adj|Constraints|skip" "adj|Plan-review|bob only" "adj|Codex r1|skip" "adj|Mid-build|conditional" "adj|Codex r2|run"; do
+  v28_k=${v28_chk%%|*}; v28_r=${v28_chk#*|}; v28_want=${v28_r#*|}; v28_r=${v28_r%%|*}
+  v28_got=$(v28_cell "$v28_pipe_adj" "$v28_r" LIGHT)
+  v28_cells=$((v28_cells + 1))
+  [ "$v28_got" = "$v28_want" ] || v28_bad="$v28_bad [PIPELINE Tier adjustments: row '$v28_r' LIGHT cell is '$v28_got', want '$v28_want']"
+done
+[ "$(v28_cell "$v28_pipe_adj" 'Codex r2' STANDARD)" = "default-run" ] || v28_bad="$v28_bad [PIPELINE Tier adjustments: Codex r2 STANDARD cell is not default-run]"
+[ "$(v28_cell "$v28_pipe_pol" LIGHT 'Codex r2 (diff)')" = "run" ] || v28_bad="$v28_bad [PIPELINE Tier policy: the LIGHT row's Codex r2 cell is not run]"
+[ "$(v28_cell "$v28_pipe_pol" LIGHT 'Codex r1 (plan)')" = "skip" ] || v28_bad="$v28_bad [PIPELINE Tier policy: the LIGHT row's Codex r1 cell is not skip]"
+[ "$(v28_cell "$v28_pipe_pol" STANDARD 'Codex r2 (diff)')" = "default-run" ] || v28_bad="$v28_bad [PIPELINE Tier policy: the STANDARD row's Codex r2 cell is not default-run]"
+# Rows by heading, exactly one each. DELIVER's stage-2b section holds prose, not a table (the plan assumed a row).
+v28_x_del4=$(v28_rows "$v28_del_s4" xander); v28_x_del8=$(v28_rows "$v28_del_s8" xander); v28_i_del8=$(v28_rows "$v28_del_s8" ian)
+v28_x_pip4=$(v28_rows "$v28_pipe_s4" xander); v28_x_pip8=$(v28_rows "$v28_pipe_s8" xander); v28_i_pip8=$(v28_rows "$v28_pipe_s8" ian)
+v28_x_pip2b=$(v28_rows "$v28_pipe_s2b" xander)
+for v28_pair in "DELIVER stage-4 xander:$v28_x_del4" "DELIVER stage-8 xander:$v28_x_del8" "DELIVER stage-8 ian:$v28_i_del8" \
+                "PIPELINE stage-4 xander:$v28_x_pip4" "PIPELINE stage-8 xander:$v28_x_pip8" "PIPELINE stage-8 ian:$v28_i_pip8" "PIPELINE stage-2b xander:$v28_x_pip2b"; do
+  [ "$(printf '%s\n' "${v28_pair#*:}" | grep -c .)" = "1" ] || v28_bad="$v28_bad [${v28_pair%%:*}: the heading-scoped extraction must yield exactly one row]"
+done
+for v28_pair in "DELIVER stage-8 xander:$v28_x_del8" "DELIVER stage-8 ian:$v28_i_del8" "PIPELINE stage-8 xander:$v28_x_pip8" "PIPELINE stage-8 ian:$v28_i_pip8"; do
+  printf '%s' "${v28_pair#*:}" | grep -qF 'touches the recorded HEAVY surface' || v28_bad="$v28_bad [${v28_pair%%:*} row lacks the surface-trigger phrase 'touches the recorded HEAVY surface']"
+done
+for v28_pair in "DELIVER stage-4:$v28_x_del4" "DELIVER stage-8:$v28_x_del8" "PIPELINE stage-4:$v28_x_pip4" "PIPELINE stage-8:$v28_x_pip8"; do
+  v28_m=$(v28_missing "${v28_pair#*:}" | tr '\n' ',')
+  [ -z "$v28_m" ] || v28_bad="$v28_bad [${v28_pair%%:*} xander row lacks union term(s): $v28_m]"
+done
+v28_n_terms=$(printf '%s\n' "$v28_terms" | grep -c .)
+[ "$v28_n_terms" = "12" ] || v28_bad="$v28_bad [the union term table holds $v28_n_terms terms, want 12]"
+printf '%s' "$v28_x_pip4$v28_x_del4" | grep -qF 'CSP' || v28_bad="$v28_bad [named member CSP absent from the stage-4 rows]"
+printf '%s' "$v28_x_pip8$v28_x_del8" | grep -qF 'outbound requests' || v28_bad="$v28_bad [named member 'outbound requests' absent from the stage-8 rows]"
+# The stage-2b trigger is deliberately narrower: asserted, so the exclusion is a fact and not an omission.
+printf '%s' "$v28_x_pip2b" | grep -qF 'CSP' && v28_bad="$v28_bad [PIPELINE stage-2b xander row carries CSP: it must stay narrower than stage 4 and stage 8]"
+printf '%s\n' "$v28_del_s2b" | grep -qF 'CSP' && v28_bad="$v28_bad [DELIVER stage-2b section carries CSP: it must stay narrower than stage 4 and stage 8]"
+v28_xm=$(v28_missing "$(sed -n '/^Mozart invokes you on plans or slices/p' agents/xander.md)" | tr '\n' ',')
+[ -z "$v28_xm" ] || v28_bad="$v28_bad [agents/xander.md trigger paragraph lacks union term(s): $v28_xm]"
+grep -q '^Mozart invokes you on plans or slices' agents/xander.md || v28_bad="$v28_bad [agents/xander.md trigger paragraph moved: its first words changed]"
+# The stage-8 section holds each HEAVY rule once, and the closed list in the same words as mozart.md.
+v28_once "$v28_del_s8" 'ian and xander both run' "DELIVER stage 8"
+v28_once "$v28_del_s8" 'xander is spawned on every phase' "DELIVER stage 8"
+v28_once "$v28_del_s8" 'The surface record is required' "DELIVER stage 8"
+v28_once "$v28_del_s8" 'counts as touching the surface on every phase' "DELIVER stage 8"
+[ "$(printf '%s\n' "$v28_del_s8" | grep -cF -- "$v28_list")" = "1" ] || v28_bad="$v28_bad [DELIVER stage 8: the closed surface list must occur on exactly one line, in the same words as mozart.md]"
+printf '%s\n' "$v28_del_s8" | grep -F 'xander is spawned on every phase' | grep -qE 'auth.*secrets.*security' \
+  || v28_bad="$v28_bad [DELIVER stage 8: the xander-every-phase rule does not name auth, secrets and security]"
+# Stage 4 head and the LIGHT bullet in stage 9.
+v28_once "$v28_del_s4" "any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT" "DELIVER stage 4"
+v28_s4_at=$(printf '%s\n' "$v28_del_s4" | grep -niF "any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT" | head -1 | cut -d: -f1)
+v28_s4_tab=$(printf '%s\n' "$v28_del_s4" | grep -n '^| Reviewer |' | head -1 | cut -d: -f1)
+{ [ -n "$v28_s4_at" ] && [ -n "$v28_s4_tab" ] && [ "$v28_s4_at" -lt "$v28_s4_tab" ]; } \
+  || v28_bad="$v28_bad [DELIVER stage 4: the LIGHT-ineligibility sentence is not at the head, before the reviewer table (sentence line '$v28_s4_at', table line '$v28_s4_tab')]"
+v28_light=$(printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]LIGHT[*][*]:')
+[ "$(printf '%s\n' "$v28_light" | grep -c .)" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must hold exactly one LIGHT bullet]"
+[ "$(printf '%s' "$v28_light" | sed 's/^- [*][*]LIGHT[*][*]: *//; s/ *$//')" = "run" ] || v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet text is not exactly 'run': $v28_light]"
+printf '%s' "$v28_light" | grep -qi 'skip' && v28_bad="$v28_bad [DELIVER stage 9 LIGHT bullet contains skip]"
+[ "$(printf '%s\n' "$v28_del_s9" | grep -c 'sub-50-LOC')" = "1" ] || v28_bad="$v28_bad [DELIVER stage 9 must carry the sub-50-LOC clause exactly once]"
+printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:' | grep -qF 'sub-50-LOC' || v28_bad="$v28_bad [the sub-50-LOC clause is not on the STANDARD bullet]"
+
+# ---- 5. codex r2 wording (W3) ----------------------------------------------
+v28_opt=$(grep -niE 'codex r2|codex on diff|9 ·' agents/PIPELINE.md README.md | grep -E 'optional|opt /')
+[ -z "$v28_opt" ] || v28_bad="$v28_bad [codex r2 still reads optional: $(printf '%s' "$v28_opt" | cut -c1-70 | tr '\n' ';')]"
+v28_tp=$(grep -niE 'codex r2[^()]*[(][^()]*HEAVY[^()]*[)]' agents/*.md README.md | grep -vE 'STANDARD|LIGHT')
+[ -z "$v28_tp" ] || v28_bad="$v28_bad [a codex r2 tier parenthetical names HEAVY alone: $(printf '%s' "$v28_tp" | cut -c1-70 | tr '\n' ';')]"
+grep -F 'codex round 2' agents/valerie.md | grep -qF 'LIGHT' || v28_bad="$v28_bad [agents/valerie.md's codex round 2 line does not name LIGHT]"
+grep -F 'Codex r2<br/>' README.md | grep -qF 'LIGHT' || v28_bad="$v28_bad [named member: README.md's codex r2 mermaid label does not name LIGHT]"
+grep -F 'install it from' README.md | grep -qF 'LIGHT' || v28_bad="$v28_bad [named member: README.md's codex sentence does not name LIGHT]"
+grep -qF 'Stage 9' agents/mozart.md && grep -F "Stage 9's table reads" agents/mozart.md | grep -qF 'LIGHT: run' \
+  || v28_bad="$v28_bad [agents/mozart.md's quotation of the stage-9 table does not read LIGHT: run]"
+
+# ---- 6. EVERY-PHASE, defined once, named in the rest ------------------------
+[ "$(grep -c '^- [*][*]EVERY-PHASE[*][*]' agents/FLOWS.md)" = "1" ] || v28_bad="$v28_bad [agents/FLOWS.md must define EVERY-PHASE on exactly one bullet]"
+for v28_f in agents/mozart.md agents/DELIVER.md agents/PIPELINE.md agents/INTAKE.md INTEGRATION.md README.md; do
+  grep -q 'EVERY-PHASE' "$v28_f" || v28_bad="$v28_bad [$v28_f does not name EVERY-PHASE]"
+done
+v28_ig=$(v28_sec INTEGRATION.md '^## 6\. Pipeline flags [(]stanza optional[)]' '^---$')
+[ "$(printf '%s\n' "$v28_ig" | grep -c .)" -ge 5 ] || v28_bad="$v28_bad [INTEGRATION.md section '6. Pipeline flags (stanza optional)' is missing or under 5 lines]"
+printf '%s\n' "$v28_ig" | grep -qF 'every_phase: true' || v28_bad="$v28_bad [INTEGRATION.md section 6 does not show every_phase: true]"
+v28_ih=$(v28_sec INTEGRATION.md '^## How agents read these stanzas' '^---$')
+printf '%s\n' "$v28_ih" | grep -F 'every_phase' | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md How-agents-read paragraph does not say mozart reads every_phase and never writes it]"
+printf '%s\n' "$v28_ig" | grep -qE 'never writes' || v28_bad="$v28_bad [INTEGRATION.md section 6 does not say mozart never writes the stanza]"
+
+# ---- 7. dead persona text (step 28a) ---------------------------------------
+[ "$(grep -cE '^## Communicate as you work' agents/mozart.md)" = "0" ] || v28_bad="$v28_bad [agents/mozart.md still has its '## Communicate as you work' section]"
+[ "$(grep -c 'You run in a subprocess' agents/mozart.md)" = "0" ] || v28_bad="$v28_bad [agents/mozart.md still says 'You run in a subprocess']"
+v28_comm=$(grep -lE '^## Communicate as you work' agents/*.md | grep -vc '^agents/mozart\.md$')
+[ "$v28_comm" = "17" ] || v28_bad="$v28_bad [control: $v28_comm agents/*.md besides mozart.md carry the Communicate section, want 17]"
+printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" || v28_bad="$v28_bad [the V16 ceiling for agents/mozart.md is no longer 55000]"
+
+# ---- 8. a LIGHT campaign is read by metrics --------------------------------
+v28_lf="$gate_root/tests/fixtures/conductor/metrics-light/.mozart/plans/finished/2099-10-20-deliver-light.state.md"
+if [ -f "$v28_lf" ]; then
+  v28_mk() { # $1 = scratch name, $2 = the Tier line to write -> a one-campaign root
+    mkdir -p "$v28_tmp/$1/.mozart/plans/finished"
+    awk -v tl="$2" '/^\*\*Tier\*\*:/ { print tl; next } { print }' "$v28_lf" > "$v28_tmp/$1/.mozart/plans/finished/2099-10-20-deliver-light.state.md"
+  }
+  v28_bucket() { bash "$gate_root/scripts/mozart-metrics.sh" "$v28_tmp/$1" 2>&1 | sed -n 's/^Campaigns: 1 (1 \(.*\))$/\1/p'; }
+  v28_tier_template=$(grep -m1 '^[*][*]Tier[*][*]:' agents/TEMPLATE-STATE.md)
+  v28_mk plain '**Tier**: LIGHT'
+  v28_mk combined '**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS'
+  v28_mk template "$v28_tier_template"
+  v28_mk heavylist '**Tier**: TINY | LIGHT | STANDARD | HEAVY'
+  [ "$(v28_bucket plain)" = "LIGHT" ] || v28_bad="$v28_bad [metrics does not bucket '**Tier**: LIGHT' as LIGHT: '$(v28_bucket plain)']"
+  [ "$(v28_bucket combined)" = "LIGHT" ] || v28_bad="$v28_bad [metrics does not bucket a combined header carrying LIGHT as LIGHT: '$(v28_bucket combined)']"
+  [ "$(v28_bucket template)" = "UNTIERED" ] || v28_bad="$v28_bad [metrics reads the raw state-template Tier line ($v28_tier_template) as '$(v28_bucket template)', want UNTIERED]"
+  [ "$(v28_bucket heavylist)" = "UNTIERED" ] || v28_bad="$v28_bad [metrics reads a pipe-list of all four tiers as '$(v28_bucket heavylist)', want UNTIERED]"
+  printf '%s' "$v28_tier_template" | grep -qF 'TINY | LIGHT | STANDARD | HEAVY' || v28_bad="$v28_bad [agents/TEMPLATE-STATE.md Tier line does not list LIGHT]"
+else
+  v28_bad="$v28_bad [the LIGHT metrics fixture is missing]"
+fi
+# docs/EVAL.md's by-tier bullet and the library's tier comment name LIGHT, positionally.
+sed -n '/Catches\/campaign by tier/,/^$/p' docs/EVAL.md | grep -qF 'LIGHT' || v28_bad="$v28_bad [docs/EVAL.md's 'Catches/campaign by tier' bullet does not name LIGHT]"
+grep -q 'LIGHT' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh's tier comment does not name LIGHT]"
+rm -rf "$v28_tmp"
+report "V28_tiers" "$([ -z "$v28_bad" ] && echo 0 || echo 1)" \
+  "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum TINY+STANDARD lines all naming LIGHT (2 asserted exclusions), $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
