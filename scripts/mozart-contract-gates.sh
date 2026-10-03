@@ -4177,6 +4177,157 @@ report "V29_noprogress" "$([ -z "$v29_bad" ] && echo 0 || echo 1)" \
   "${v29_bad:-the frozen no-progress bullet ($v29_bytes bytes) is the fourth item of the cadence list of $v29_n specialists (the V4 roster minus mozart, equal to the files carrying the section), once each, named member jackson with its three original items intact; 0 in mozart.md and in $v29_sup support agents; the conductor rule once in Orchestration discipline, one clause each in DELIVER.md and CONTEXT-BUDGET.md with their numbers unchanged; 5 planted personas judged correctly}"
 
 # ---------------------------------------------------------------------------
+# V31_editions_selftest - scripts/check-editions.sh checks itself (phase 9)
+#
+# check-editions.sh is the only cross-edition check and mozart-codex has no CI,
+# so a checker that can exit 0 vacuously, or that can read a skip as a pass,
+# would fail unseen until an edition drifted. The fake edition roots are built
+# here from THIS tree: each carries the shipped scripts and a copy of the S3
+# host file at the path that edition keeps it, so every arm reads real files.
+# Two arms run the whole check (behaviour included); the rest pass
+# --skip-behaviour, which can never exit 0, and assert the exit-code order
+# (1 failure, 3 skip, 2 usage), the RUN/SKIP/FAIL lines, and the mutations.
+# ---------------------------------------------------------------------------
+v31_script="$gate_root/scripts/check-editions.sh"
+v31_bad=""
+v31_arms=0
+v31_tmp=$(mktemp -d) || { v31_bad="$v31_bad [mktemp failed -- no scratch space for the fake edition roots]"; v31_tmp=/nonexistent-v31; }
+v31_s3codex=.codex/skills/mozart/SKILL.md
+v31_s3copilot=.github/mozart/manual/STATE.md
+v31_s3local=src/mozart_local/bundle/manual/STATE.md
+
+if [ ! -f "$v31_script" ]; then
+  v31_bad="$v31_bad [scripts/check-editions.sh is absent]"
+elif ! command -v python3 >/dev/null 2>&1; then
+  v31_bad="$v31_bad [python3 missing: the behaviour arm cannot run (FAIL, not skip)]"
+elif ! bash -n "$v31_script"; then
+  v31_bad="$v31_bad [scripts/check-editions.sh does not parse]"
+else
+  # mk <dest> <s3 host path> <with scripts: 1|0>
+  v31_mk() {
+    mkdir -p "$1/$(dirname "$2")" || return 1
+    cp "$gate_root/agents/STATE.md" "$1/$2" || return 1
+    if [ "$3" = 1 ]; then
+      mkdir -p "$1/scripts" || return 1
+      cp "$gate_root"/scripts/lib-campaign.sh "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$1/scripts/" || return 1
+    fi
+  }
+  v31_mk "$v31_tmp/codex" "$v31_s3codex" 1 && v31_mk "$v31_tmp/copilot" "$v31_s3copilot" 1 \
+    && v31_mk "$v31_tmp/local" "$v31_s3local" 0 \
+    || v31_bad="$v31_bad [building the fake edition roots failed]"
+  # The host file must carry S3 exactly once, or every "present" arm below is
+  # measuring a tree the script is right to refuse.
+  v31_n=$(python3 -c 'import sys;print(open(sys.argv[2]).read().count(open(sys.argv[1]).read().strip()))' "$gate_root/tests/parity/snippets/S3.txt" "$gate_root/agents/STATE.md")
+  [ "$v31_n" = "1" ] || v31_bad="$v31_bad [CONTROL: agents/STATE.md carries S3 $v31_n time(s), want 1]"
+
+  # arm <label> <want rc> <command...>; sets v31_out, v31_rc, checks the code
+  v31_arm() {
+    v31_label=$1; v31_want=$2; shift 2
+    v31_out=$("$@" 2>&1); v31_rc=$?
+    v31_arms=$((v31_arms + 1))
+    [ "$v31_rc" -eq "$v31_want" ] || v31_bad="$v31_bad [$v31_label: exit $v31_rc, want $v31_want]"
+  }
+  v31_has() { grep -qE "$2" <<<"$1" || v31_bad="$v31_bad [$3]"; }
+  v31_hasnt() { ! grep -qE "$2" <<<"$1" || v31_bad="$v31_bad [$3]"; }
+  v31_c="codex=$v31_tmp/codex"; v31_p="copilot=$v31_tmp/copilot"; v31_l="local=$v31_tmp/local"
+
+  # 9.1 everything present, the full check: exit 0, four RUN lines, no SKIP,
+  #     and local counted by its S3 run. Argument roots beat the environment.
+  v31_arm "all present" 0 env MOZART_EDITION_ROOTS=/nonexistent-v31-a:/nonexistent-v31-b:/nonexistent-v31-c \
+    bash "$v31_script" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
+  [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [all present: not exactly four RUN lines]"
+  for v31_e in orchestration codex copilot local; do v31_has "$v31_out" "^RUN $v31_e " "all present: no RUN line for $v31_e"; done
+  v31_hasnt "$v31_out" '^SKIP ' "all present: a SKIP line"
+  v31_hasnt "$v31_out" '^FAIL ' "all present: a FAIL line"
+
+  # 9.5/9.6 discovery from the environment, a relative path and a path with a
+  #     space, in one full run: the relative codex root is absolutised, the
+  #     spaced copilot root works, the roots arrive without any argument.
+  mkdir -p "$v31_tmp/work dir" && mv "$v31_tmp/copilot" "$v31_tmp/work dir/copilot with space" \
+    || v31_bad="$v31_bad [moving the copilot root to a spaced path failed]"
+  v31_arm "environment roots, relative and spaced paths" 0 bash -c 'cd "$1" && MOZART_EDITION_ROOTS="../codex:copilot with space:../local" bash "$2"' _ "$v31_tmp/work dir" "$v31_script"
+  v31_has "$v31_out" "^RUN codex $v31_tmp/codex" "relative path not absolutised in the RUN line"
+  v31_has "$v31_out" "^RUN copilot $v31_tmp/work dir/copilot with space" "spaced path not carried through"
+  [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [environment roots: not exactly four RUN lines]"
+  mv "$v31_tmp/work dir/copilot with space" "$v31_tmp/copilot"
+
+  # --skip-behaviour is a partial run: it passes through exit 4, never 0.
+  v31_arm "partial run" 4 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_has "$v31_out" '^PARTIAL' "partial run: no PARTIAL line"
+  [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [partial run: not exactly four RUN lines]"
+
+  # 9.2 each edition omitted in turn: exit 3 and one SKIP line naming it.
+  for v31_omit in codex copilot local; do
+    case $v31_omit in
+      codex) v31_set="$v31_p $v31_l" ;;
+      copilot) v31_set="$v31_c $v31_l" ;;
+      local) v31_set="$v31_c $v31_p" ;;
+    esac
+    # shellcheck disable=SC2086
+    v31_arm "$v31_omit omitted" 3 bash "$v31_script" --skip-behaviour $v31_set
+    v31_has "$v31_out" "^SKIP $v31_omit: checkout not found" "$v31_omit omitted: no SKIP line naming it"
+    [ "$(grep -c '^SKIP ' <<<"$v31_out" || true)" = "1" ] || v31_bad="$v31_bad [$v31_omit omitted: not exactly one SKIP line]"
+    [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "3" ] || v31_bad="$v31_bad [$v31_omit omitted: not exactly three RUN lines]"
+  done
+
+  # 9.3 S3 changed by one word in the codex root, and S3 present twice in the
+  #     copilot root: exit 1 and the output names the failing edition.
+  cp -R "$v31_tmp/codex" "$v31_tmp/codex-s3" && cp -R "$v31_tmp/copilot" "$v31_tmp/copilot-s3x2" || v31_bad="$v31_bad [copying roots for the S3 mutations failed]"
+  sed 's/Reversals append/Reversals appended/' "$v31_tmp/codex-s3/$v31_s3codex" > "$v31_tmp/m" && mv "$v31_tmp/m" "$v31_tmp/codex-s3/$v31_s3codex"
+  cmp -s "$v31_tmp/codex-s3/$v31_s3codex" "$v31_tmp/codex/$v31_s3codex" && v31_bad="$v31_bad [CONTROL: the S3 mutation changed nothing]"
+  v31_arm "S3 mutated" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-s3" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_has "$v31_out" '^FAIL codex' "S3 mutated: the output does not name codex"
+  v31_hasnt "$v31_out" '^FAIL (copilot|local|orchestration)' "S3 mutated: a different edition is named as failing"
+  { echo; cat "$gate_root/tests/parity/snippets/S3.txt"; } >> "$v31_tmp/copilot-s3x2/$v31_s3copilot"
+  v31_arm "S3 twice" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-s3x2" "$v31_tmp/local"
+  v31_has "$v31_out" '^FAIL copilot' "S3 twice: the output does not name copilot"
+
+  # 9.4 failure outranks skip, and the skip is still reported.
+  v31_arm "mutated and omitted" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-s3" "$v31_p"
+  v31_has "$v31_out" '^SKIP local: checkout not found' "mutated and omitted: the SKIP line is missing"
+  v31_has "$v31_out" '^FAIL codex' "mutated and omitted: the output does not name codex"
+
+  # 9.10 one byte of the shared library changed in a fake codex root; and the
+  #     library absent from a fake copilot root.
+  cp -R "$v31_tmp/codex" "$v31_tmp/codex-lib" && printf '#' >> "$v31_tmp/codex-lib/scripts/lib-campaign.sh"
+  v31_arm "library one byte off" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-lib" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_has "$v31_out" '^FAIL codex.*lib-campaign\.sh' "library one byte off: the output does not name codex and the library"
+  cp -R "$v31_tmp/copilot" "$v31_tmp/copilot-nolib" && rm "$v31_tmp/copilot-nolib/scripts/lib-campaign.sh"
+  v31_arm "library absent" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-nolib" "$v31_tmp/local"
+  v31_has "$v31_out" '^FAIL copilot.*lib-campaign\.sh' "library absent: the output does not name copilot and the library"
+
+  # 9.5 usage errors exit 2: an unknown flag, one positional root, four, an
+  #     unknown edition name. A nonexistent path is a skip; an existing empty
+  #     directory is a failure, never a skip and never a pass.
+  v31_arm "unknown flag" 2 bash "$v31_script" --no-such-flag
+  v31_arm "one positional root" 2 bash "$v31_script" "$v31_tmp/codex"
+  v31_arm "four positional roots" 2 bash "$v31_script" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local" "$v31_tmp/local"
+  v31_arm "unknown edition name" 2 bash "$v31_script" "rust=$v31_tmp/codex"
+  v31_arm "nonexistent path" 3 bash "$v31_script" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/no such dir"
+  v31_has "$v31_out" '^SKIP local: checkout not found' "nonexistent path: no SKIP line"
+  mkdir "$v31_tmp/empty"
+  v31_arm "empty directory" 1 bash "$v31_script" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/empty"
+  v31_has "$v31_out" '^FAIL local' "empty directory: the output does not name local"
+  v31_hasnt "$v31_out" '^SKIP ' "empty directory: read as a skip"
+
+  # A port script that exits other than 0 or 1 is a failure with its output
+  # shown, not a mysterious exit code: the codex lint exits 7 and says why.
+  cp -R "$v31_tmp/codex" "$v31_tmp/codex-bad" && printf '#!/bin/sh\necho "lint-stub: boom"\nexit 7\n' > "$v31_tmp/codex-bad/scripts/mozart-lint.sh"
+  v31_arm "port script exits 7" 1 bash "$v31_script" "codex=$v31_tmp/codex-bad" "$v31_l"
+  v31_has "$v31_out" 'exit=7' "port script exits 7: the harness line naming the exit code is not shown"
+  v31_has "$v31_out" '^FAIL codex' "port script exits 7: the output does not name codex"
+  v31_hasnt "$v31_out" '^FAIL (copilot|local)' "port script exits 7: a healthy edition is named as failing"
+fi
+# D7: the script is named where contributors look for the cross-edition checks.
+v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
+[ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
+[ "$v31_arms" -ge 18 ] || v31_bad="$v31_bad [only $v31_arms arms ran, want at least 18 -- the self-test shrank]"
+rm -rf "$v31_tmp"
+
+report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present 0 with four RUN lines (arguments beat the environment), environment roots with a relative and a spaced path 0, a partial run 4 and never 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output}"
+
+# ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
 # EXISTS; these prove the pointers into it still RESOLVE, which conservation is
 # structurally blind to. python3 missing is a FAIL, never a skip.
