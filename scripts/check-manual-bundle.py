@@ -60,9 +60,11 @@ ON_DEMAND = {
     "TEMPLATE-STATE.md": "STATE.md",
     "TEMPLATE-LEDGER.md": "STATE.md",
     "TEMPLATE-CONDUCTOR.md": "STATE.md",
+    "TEMPLATE-FLOW.md": "STATE.md",
+    "TEMPLATE-REPORT.md": "DELIVER.md",
 }
-ON_DEMAND_FLOOR = 3          # 5 after phase 6 adds TEMPLATE-FLOW.md and TEMPLATE-REPORT.md
-ON_DEMAND_NAMED = ("TEMPLATE-STATE.md", "STATE.md")
+ON_DEMAND_FLOOR = 5
+ON_DEMAND_NAMED = (("TEMPLATE-STATE.md", "STATE.md"), ("TEMPLATE-REPORT.md", "DELIVER.md"))
 
 HEAD_RE = re.compile(r"^#{2,6} (.+)$")
 PLEAD_RE = re.compile(r"\*\*[^*]+\*\* — read `[^`]+\.md`")
@@ -100,8 +102,9 @@ def ondemand_problems(texts, od, contrib, wf):
     bad = []
     if len(od) < ON_DEMAND_FLOOR:
         bad.append(f"ON_DEMAND has {len(od)} entr(ies), floor {ON_DEMAND_FLOOR}")
-    if od.get(ON_DEMAND_NAMED[0]) != ON_DEMAND_NAMED[1]:
-        bad.append(f"named member absent: {ON_DEMAND_NAMED[0]} -> {ON_DEMAND_NAMED[1]}")
+    for nm, nciter in ON_DEMAND_NAMED:
+        if od.get(nm) != nciter:
+            bad.append(f"named member absent: {nm} -> {nciter}")
     # List parsers carry a population floor: an empty parse of a required-file list
     # would make every membership test below pass for the wrong reason.
     tok = re.compile(r"agents/[A-Za-z][A-Za-z0-9-]*\.md")
@@ -118,6 +121,10 @@ def ondemand_problems(texts, od, contrib, wf):
         c = texts.get(citer)
         if c is None or f"`{name}`" not in c:
             bad.append(f"{name} is not cited by backticked name in {citer}")
+        else:
+            named_on = sum(1 for l in c.split("\n") if name in l)
+            if named_on != 1:
+                bad.append(f"{citer} names {name} on {named_on} lines, want exactly 1")
         for label, text in (("CONTRIBUTING.md", contrib), ("validate-plugin.yml", wf)):
             if f"agents/{name}" not in text:
                 bad.append(f"{label} does not list agents/{name}")
@@ -130,6 +137,23 @@ def ondemand_problems(texts, od, contrib, wf):
         for i, l in enumerate(t.split("\n"), 1):
             if PLEAD_RE.search(l) and any(n in l for n in od):
                 bad.append(f"{fname}:{i} names an ON_DEMAND file in the D2 pointer form")
+    return bad
+
+
+def first_line_problems(agents_texts, od):
+    """A template's first line is its identity: it must occur as a whole line in
+    exactly one agents/*.md file (the template), so the skeleton cannot also live
+    on as text in a manual file. agents_texts maps every agents/*.md name to its text."""
+    bad = []
+    for name in sorted(od):
+        t = agents_texts.get(name)
+        if not t:
+            continue                      # absence is reported by ondemand_problems
+        first = t.split("\n", 1)[0]
+        n = sum(1 for body in agents_texts.values() if body
+                for l in body.split("\n") if l == first)
+        if n != 1:
+            bad.append(f"the first line of {name} ({first!r}) occurs {n} times across agents/*.md, want 1")
     return bad
 
 
@@ -155,7 +179,17 @@ def ondemand_selftest(texts, od, contrib, wf):
         missed.append("CONTRIBUTING.md stops listing a template")
     if not ondemand_problems(texts, od, contrib, wf.replace(f"agents/{first}", "")):
         missed.append("validate-plugin.yml stops listing a template")
-    return missed, len(cases) + 2
+    # And the first-line rule: a manual file that carries a template's first line again.
+    dup = {k: v for k, v in texts.items() if v}
+    dup["STATE.md"] = dup["STATE.md"] + "\n" + (texts[first] or "").split("\n", 1)[0] + "\n"
+    if not first_line_problems(dup, od):
+        missed.append("a manual file repeats a template's first line")
+    # And the exactly-one-line rule: the citing file names a template on a second line.
+    two = dict(texts)
+    two[od[first]] = (texts[od[first]] or "") + f"\nsee also {first}\n"
+    if not ondemand_problems(two, od, contrib, wf):
+        missed.append("the citing file names a template on a second line")
+    return missed, len(cases) + 4
 
 
 def main():
@@ -369,13 +403,15 @@ def main():
         p = root / "agents" / n
         texts[n] = p.read_text() if p.exists() else None
     problems = ondemand_problems(texts, ON_DEMAND, contrib, wf)
+    problems += first_line_problems(
+        {q.name: q.read_text() for q in (root / "agents").glob("*.md")}, ON_DEMAND)
     missed, tried = ondemand_selftest(texts, ON_DEMAND, contrib, wf) if not problems else ([], 0)
     if missed:
         problems.append(f"self-test: mutation(s) not detected: {missed}")
     rep("V26_ondemand", not problems,
         "; ".join(problems) or f"{len(ON_DEMAND)} on-demand file(s) (floor {ON_DEMAND_FLOOR}), named member "
-        f"{ON_DEMAND_NAMED[0]} -> {ON_DEMAND_NAMED[1]}: each exists, has no `name:` frontmatter, is cited by "
-        f"name in its citing file and listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
+        f"{' and '.join(a + ' -> ' + b for a, b in ON_DEMAND_NAMED)}: each exists, has no `name:` frontmatter, is cited by "
+        f"name on exactly one line of its citing file, has a first line found nowhere else in agents/*.md, and is listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
         f"and no D2 pointer line names one; {tried} self-test mutations each detected")
 
     return emit(results)

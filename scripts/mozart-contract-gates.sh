@@ -2204,12 +2204,14 @@ agents/nina.md	33750
 agents/TEMPLATE-STATE.md	4300
 agents/TEMPLATE-LEDGER.md	700
 agents/TEMPLATE-CONDUCTOR.md	900
+agents/TEMPLATE-FLOW.md	1900
+agents/TEMPLATE-REPORT.md	1500
 V16_BUDGETS_EOF
 )
 
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
-[ "$v16_rows" -ge 22 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 22 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina + 3 TEMPLATE files]"
+[ "$v16_rows" -ge 24 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 24 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina + 5 TEMPLATE files]"
 printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
 v16_has_row() { # $1 = table, $2 = path: true when the FIRST field equals the path exactly
@@ -2229,13 +2231,18 @@ v16_has_row "$v16_lookalike" agents/DELIVER.md \
 # an empty derivation (no git, no files) would otherwise pass for "all have rows".
 v16_templates=$( { git ls-files 'agents/TEMPLATE-*.md' 2>/dev/null; ls agents/TEMPLATE-*.md 2>/dev/null; } | sort -u)
 v16_ntemplates=$(printf '%s\n' "$v16_templates" | grep -c .)
-[ "$v16_ntemplates" -ge 3 ] || v16_bad="$v16_bad [template population $v16_ntemplates < 3: agents/TEMPLATE-*.md not found]"
+[ "$v16_ntemplates" -ge 5 ] || v16_bad="$v16_bad [template population $v16_ntemplates < 5: agents/TEMPLATE-*.md not found]"
 while IFS= read -r v16_t; do
   [ -n "$v16_t" ] || continue
   v16_has_row "$v16_budgets" "$v16_t" || v16_bad="$v16_bad [template without a budget row: $v16_t]"
 done < <(printf '%s\n' "$v16_templates")
-v16_has_row "$v16_budgets" agents/TEMPLATE-STATE.md \
-  || v16_bad="$v16_bad [named member absent from the budget table: agents/TEMPLATE-STATE.md]"
+for v16_named in agents/TEMPLATE-STATE.md agents/TEMPLATE-FLOW.md agents/TEMPLATE-REPORT.md; do
+  v16_has_row "$v16_budgets" "$v16_named" \
+    || v16_bad="$v16_bad [named member absent from the budget table: $v16_named]"
+done
+# scott is not budgeted by this campaign (Decision 11): no scott file has a row.
+printf '%s\n' "$v16_budgets" | awk -F'\t' '$1 ~ /scott/ { found = 1 } END { exit !found }' \
+  && v16_bad="$v16_bad [named-absent member present: a scott row in the budget table]"
 
 v16_checked=0
 v16_sizes=""
