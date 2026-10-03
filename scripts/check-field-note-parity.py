@@ -191,11 +191,12 @@ def cmd_bullets(bullet_files, paths, roots):
 CASES = ("lint", "metrics-placeholder", "metrics-conductor", "metrics-vacuity", "metrics-split")
 # The six K/L names, missing-2b, split-layout (Check M), and the two older
 # categories the split fixtures exercise: stranded-artifacts (Check H, a ledger
-# left behind in active/) and stale-paths (Check G).
+# left behind in active/) and stale-paths (Check G), and escape-unrecorded (Check N).
 LINT_CATEGORIES = frozenset({
     "conductor-missing", "conductor-unlinked", "conductor-row",
     "conductor-reference", "decision-trigger", "mutation-manifest",
     "missing-2b", "split-layout", "stranded-artifacts", "stale-paths",
+    "escape-unrecorded",
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
@@ -305,6 +306,21 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-10-22-phase-lensreason", "CR1"),
     ("conductor-row", "2099-10-23-phase-lenstoken", "CR1"),
     ("conductor-row", "2099-10-26-phase-widgets", "CR1"),
+    # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
+    ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
+    ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
+    ("escape-unrecorded", "2099-05-05-deliver-esc-forms", "2099-09-05-diagnose-form-partial"),
+    ("escape-unrecorded", "2099-05-07-deliver-esc-pm", "2099-09-07-incident-pm"),
+    ("escape-unrecorded", "2099-09-08-diagnose-nostate", "2099-09-08-diagnose-nostate"),
+    ("escape-unrecorded", "2099-08-30-diagnose-nostate", "2099-08-30-diagnose-nostate"),
+    ("escape-unrecorded", "2099-05-09-deliver-esc-prefix", "2099-09-09-diagnose-a"),
+    ("escape-unrecorded", "2099-05-10-deliver-esc-section", "2099-09-10-diagnose-section"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-abo", "2099-09-11-diagnose-lk-abo-no"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-rev", "2099-09-11-diagnose-lk-rev-no"),
+    ("escape-unrecorded", "2099-05-13-deliver-esc-dup", "2099-09-13-diagnose-dup2"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-after"),
+    ("escape-unrecorded", "2099-09-18-diagnose-dotted", "2099-09-18-diagnose-dotted"),
+    ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-extslug"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -318,6 +334,26 @@ NAMED_ABSENT_TRIPLES = (
     ("conductor-row", "2099-09-18-deliver-split-crlf", "CR1"),
     ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "9"),  # the CRLF sibling's CR1 was read
     ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-duplicate"),  # headingless: not usable, not a duplicate
+    # Check N silent twins: recorded, prefix-collision twin, fenced, external, ticket id, self reference
+    ("escape-unrecorded", "2099-05-01-deliver-esc-recorded", "2099-09-01-diagnose-recorded"),
+    ("escape-unrecorded", "2099-05-02-deliver-esc-trailing", "2099-09-02-diagnose-trailing"),
+    ("escape-unrecorded", "2099-05-04-deliver-esc-real", "2099-09-04-diagnose-not-applicable"),
+    ("escape-unrecorded", "2099-05-04-deliver-esc-real", "2099-09-04-diagnose-silent-forms"),
+    ("escape-unrecorded", "2099-09-06-diagnose-self", "2099-09-06-diagnose-self"),
+    ("escape-unrecorded", "2099-05-09-deliver-esc-prefix", "2099-09-09-diagnose-ab"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-act", "2099-09-11-diagnose-lk-act-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-fin", "2099-09-11-diagnose-lk-fin-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-abo", "2099-09-11-diagnose-lk-abo-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-apre", "2099-09-11-diagnose-lk-apre-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-fpre", "2099-09-11-diagnose-lk-fpre-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-flat", "2099-09-11-diagnose-lk-flat-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-leg", "2099-09-11-diagnose-lk-leg-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-rev", "2099-09-11-diagnose-lk-rev-ok"),
+    ("escape-unrecorded", "2099-09-12-diagnose-ticket", "2099-09-12-diagnose-ticket"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-backtick"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-tilde"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-open"),
+    ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-external"),
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the
@@ -415,9 +451,10 @@ def parse_lint_output(output):
         cat, path, key = m.group(1), m.group(2), m.group(3).strip()
         if cat not in LINT_CATEGORIES:
             continue
-        slug = pathlib.Path(path).name
-        if slug.endswith(".state.md"):
-            slug = slug[: -len(".state.md")]
+        # The slug is the file name up to the FIRST dot: a state file has none, and a
+        # post-mortem (<slug>.postmortem.md) or an investigation reported against its
+        # own path is cut to the slug it was written under.
+        slug = pathlib.Path(path).name.split(".")[0]
         triples.add((cat, slug, key))
     return triples, override_present
 

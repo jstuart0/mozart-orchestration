@@ -1230,7 +1230,7 @@ report "V10a" "$([ -z "$v10a_bad" ] && echo 0 || echo 1)" \
 v11_script_repo=$(dirname "$(dirname "$gatefile")")
 v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
-v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b|split-layout|stranded-artifacts|stale-paths'
+v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b|split-layout|stranded-artifacts|stale-paths|escape-unrecorded'
 v11_bad=""
 v11_scratch=$(mktemp -d) || { v11_bad="$v11_bad [mktemp failed -- no scratch space for the corpus copies]"; v11_scratch=""; }
 
@@ -1289,7 +1289,7 @@ v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restric
       key = r[1]
       slug = path
       sub(/^.*\//, "", slug)
-      sub(/\.state\.md$/, "", slug)
+      sub(/\..*$/, "", slug)
       printf "%s\t%s\t%s\n", cat, slug, key
     }
   '
@@ -1486,6 +1486,72 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
       && arm_bad="$arm_bad [pre-adoption or accepted-spelling slug $slug produced a triple]"
   done
 
+  # Check N (escape-unrecorded). Present: every firing fixture by name, so editing expected.tsv
+  # alone cannot hide one. Absent: the silent twins (recorded, prefix-collision twin, fenced,
+  # external, ticket id, self-reference, not-a-claim), each shown able to fire by its firing sibling.
+  local esc_want esc_n no_esc
+  for member in \
+    "$(printf 'escape-unrecorded\t2099-05-02-deliver-esc-noneyet\t2099-09-02-diagnose-noneyet')" \
+    "$(printf 'escape-unrecorded\t2099-05-02-deliver-esc-placeholder\t2099-09-02-diagnose-placeholder')" \
+    "$(printf 'escape-unrecorded\t2099-05-03-deliver-esc-noheading\t2099-09-03-diagnose-noheading')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-plain')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-bold')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-boldcolon')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-tick')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-nested')" \
+    "$(printf 'escape-unrecorded\t2099-05-05-deliver-esc-forms\t2099-09-05-diagnose-form-partial')" \
+    "$(printf 'escape-unrecorded\t2099-05-07-deliver-esc-pm\t2099-09-07-incident-pm')" \
+    "$(printf 'escape-unrecorded\t2099-09-08-diagnose-nostate\t2099-09-08-diagnose-nostate')" \
+    "$(printf 'escape-unrecorded\t2099-08-30-diagnose-nostate\t2099-08-30-diagnose-nostate')" \
+    "$(printf 'escape-unrecorded\t2099-05-09-deliver-esc-prefix\t2099-09-09-diagnose-a')" \
+    "$(printf 'escape-unrecorded\t2099-05-10-deliver-esc-section\t2099-09-10-diagnose-section')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-act\t2099-09-11-diagnose-lk-act-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fin\t2099-09-11-diagnose-lk-fin-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-abo\t2099-09-11-diagnose-lk-abo-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-flat\t2099-09-11-diagnose-lk-flat-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-leg\t2099-09-11-diagnose-lk-leg-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-rev\t2099-09-11-diagnose-lk-rev-no')" \
+    "$(printf 'escape-unrecorded\t2099-05-13-deliver-esc-dup\t2099-09-13-diagnose-dup')" \
+    "$(printf 'escape-unrecorded\t2099-05-13-deliver-esc-dup\t2099-09-13-diagnose-dup2')" \
+    "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-after')" \
+    "$(printf 'escape-unrecorded\t2099-09-18-diagnose-dotted\t2099-09-18-diagnose-dotted')" \
+    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-extslug')"
+  do
+    printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
+  done
+  for member in \
+    "$(printf 'escape-unrecorded\t2099-05-01-deliver-esc-recorded\t2099-09-01-diagnose-recorded')" \
+    "$(printf 'escape-unrecorded\t2099-05-02-deliver-esc-trailing\t2099-09-02-diagnose-trailing')" \
+    "$(printf 'escape-unrecorded\t2099-05-04-deliver-esc-real\t2099-09-04-diagnose-not-applicable')" \
+    "$(printf 'escape-unrecorded\t2099-05-04-deliver-esc-real\t2099-09-04-diagnose-silent-forms')" \
+    "$(printf 'escape-unrecorded\t2099-09-06-diagnose-self\t2099-09-06-diagnose-self')" \
+    "$(printf 'escape-unrecorded\t2099-05-09-deliver-esc-prefix\t2099-09-09-diagnose-ab')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-act\t2099-09-11-diagnose-lk-act-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fin\t2099-09-11-diagnose-lk-fin-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-abo\t2099-09-11-diagnose-lk-abo-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-flat\t2099-09-11-diagnose-lk-flat-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-leg\t2099-09-11-diagnose-lk-leg-ok')" \
+    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-rev\t2099-09-11-diagnose-lk-rev-ok')" \
+    "$(printf 'escape-unrecorded\t2099-09-12-diagnose-ticket\t2099-09-12-diagnose-ticket')" \
+    "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-backtick')" \
+    "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-tilde')" \
+    "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-open')" \
+    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-external')"
+  do
+    printf '%s\n' "$ov_triples" | grep -qxF "$member" \
+      && arm_bad="$arm_bad [named-absent member present: ${member//$'\t'/ / }]"
+  done
+  esc_want=$(awk -F'\t' '$1 == "lint" && $2 == "escape-unrecorded"' "$v11_expected" | grep -c . || true)
+  esc_n=$(printf '%s\n' "$ov_triples" | grep -c '^escape-unrecorded	' || true)
+  no_esc=$(printf '%s\n' "$no_triples" | grep -c '^escape-unrecorded	' || true)
+  [ "$esc_n" -eq "$esc_want" ] || arm_bad="$arm_bad [escape-unrecorded: $esc_n emitted, $esc_want in expected.tsv]"
+  [ "$esc_want" -ge 6 ] || arm_bad="$arm_bad [escape-unrecorded expected rows $esc_want < floor 6]"
+  [ "$no_esc" -eq "$esc_want" ] || arm_bad="$arm_bad [escape-unrecorded fires $no_esc time(s) without the adoption-date override, want $esc_want: the check must not be gated on it]"
+
   # F45: two same-category triples in one file (fixture #3's CR1/CR2, #34's
   # C3-C6) could have their reasons swapped and still pass a key-only
   # set-equality check. Assert the actual message text too, so the gate
@@ -1525,6 +1591,10 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-10-26-phase-widgets.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
+  msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
+  msg_check "2099-05-02-deliver-esc-noneyet.state.md" "2099-09-02-diagnose-noneyet" "## Escapes block has no Traces-to: line naming 2099-09-02-diagnose-noneyet"
+  msg_check "2099-09-08-diagnose-nostate.md" "2099-09-08-diagnose-nostate" "which has no state file in this repo"
+  msg_check "2099-08-30-diagnose-nostate.postmortem.md" "2099-08-30-diagnose-nostate" "which has no state file in this repo"
   printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
     || arm_bad="$arm_bad [override-control triple absent from the no-override run]"
   printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
@@ -1574,6 +1644,12 @@ fi
 [ "$v11_floor" -ge 105 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 105]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
 [ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
+# The slug rule is "basename up to the first dot" (Check N, and all three extractors). That reads a
+# state file's slug correctly only while no slug holds a dot; the corpus must keep that premise.
+v11_dotted=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | sed 's#.*/##; s#\.state\.md$##' | grep -c '\.' || true)
+[ "$v11_dotted" -eq 0 ] || v11_bad="$v11_bad [$v11_dotted corpus state file(s) have a dot in the slug: the first-dot slug rule would cut them]"
+v11_escdirs=$(find "$v11_corpus" -type d \( -name investigations -o -name incidents \) 2>/dev/null | grep -c . || true)
+[ "$v11_escdirs" -ge 4 ] || v11_bad="$v11_bad [corpus has $v11_escdirs investigations/incidents dir(s), floor 4 (both roots, and incidents)]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 # Self-test: the widened comparison can fail. An ignored file planted in a
@@ -2875,7 +2951,8 @@ v34_list=${v34_list%%. \*\**}
 v34_have=$(printf '%s' "$v34_list" | grep -o '`[a-z0-9-]*`' | grep -c .)
 [ "$v34_want" = "$v34_have" ] \
   || v34_bad="$v34_bad [STATE category sentence says '$v34_word' ($v34_want) but lists $v34_have backticked categories]"
-[ "$v34_word" = "sixteen" ] || v34_bad="$v34_bad [STATE category sentence says '$v34_word', want sixteen after phase 3]"
+[ "$v34_word" = "seventeen" ] || v34_bad="$v34_bad [STATE category sentence says '$v34_word', want seventeen after phase 5]"
+printf '%s' "$v34_list" | grep -qF '`escape-unrecorded`' || v34_bad="$v34_bad [STATE category sentence omits escape-unrecorded]"
 printf '%s' "$v34_list" | grep -qF '`split-layout`' || v34_bad="$v34_bad [STATE category sentence omits split-layout]"
 # state_md5: no 'state-file hash' wording left; the order is defined once, in the state_md5
 # bullet of docs/EVAL.md's ledger section, and that bullet names both siblings.
@@ -2903,6 +2980,8 @@ grep -F 'state.md' "$gate_root/.github/ISSUE_TEMPLATE/bug_report.md" | grep -qF 
 # The lint column list in docs/EVAL.md carries the new category.
 printf '%s\n' "$v34_mech" | grep -F '| Repo | Total |' | grep -qF 'split-layout' \
   || v34_bad="$v34_bad [docs/EVAL.md lint table (Mechanical metrics section) has no split-layout column]"
+printf '%s\n' "$v34_mech" | grep -F '| Repo | Total |' | grep -qF 'escape-unrecorded' \
+  || v34_bad="$v34_bad [docs/EVAL.md lint table (Mechanical metrics section) has no escape-unrecorded column]"
 report "V33_layout_prose" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
   "${v34_bad:-closeout names both siblings in both bullets; 'never split on resume' once; category sentence says $v34_word and lists $v34_have; no 'state-file hash' wording; state_md5 order defined once; bug-report and lint-table sites updated}"
 
@@ -2991,6 +3070,110 @@ done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
   "${v34_bad:-$v34_n fixtures each run alone through lint and metrics: Phase rows required on HEAVY and on a missing, placeholder or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses; library tier_of cases; neither script spells the Tier field}"
+
+# ---------------------------------------------------------------------------
+# V35_escapes - Check N, and the one rule for what an escape is (phase 5)
+#
+# A DIAGNOSE or INCIDENT artifact that names the campaign a defect traces to must
+# find that campaign's ## Escapes block recording it. Lint and metrics share one
+# rule for a recorded-escape line (is_escape_line, in the library); the agreement
+# corpus is four origins run through both scripts: A recorded, B "(none yet) |
+# Traces-to: <slug>", C a placeholder target, D recorded with trailing "n<3
+# affected". Lint must be silent on A and D and fire on B and C, and metrics must
+# count exactly the lines lint accepts. The per-fixture outcomes (layouts, forms,
+# fences, prefix collision, external, ticket ids) are V11's, over the lint corpus.
+# This gate holds what V11 cannot: the agreement, a repo with no investigations
+# tree, the frozen grammar sentence at its seven sites, and the single copy of the
+# rule.
+# ---------------------------------------------------------------------------
+v35_bad=""
+v35_repo=$(dirname "$(dirname "$gatefile")")
+v35_agree="$v35_repo/tests/fixtures/conductor/escapes-agree"
+v35_tmp=$(mktemp -d) || { v35_bad="$v35_bad [mktemp failed]"; v35_tmp=/nonexistent-v35; }
+v35_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
+v35_pick() { # $1 = scratch name, then the letters of the origins to keep (state file and artifact)
+  local dst="$v35_tmp/$1" k; shift
+  mkdir -p "$dst/.mozart/plans/finished" "$dst/.mozart/investigations/finished" || return 1
+  for k in "$@"; do
+    cp "$v35_agree/.mozart/plans/finished/2099-05-22-deliver-agree-$k.state.md" "$dst/.mozart/plans/finished/" || return 1
+    cp "$v35_agree/.mozart/investigations/finished/2099-09-22-diagnose-agree-$k.md" "$dst/.mozart/investigations/finished/" || return 1
+  done
+}
+v35_n=$(find "$v35_agree" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
+[ "$v35_n" -eq 4 ] || v35_bad="$v35_bad [agreement corpus holds $v35_n origin(s), want 4]"
+if v35_pick all a b c d; then
+  v35_l=$(v35_lint "$v35_tmp/all")
+  v35_fired=$(printf '%s\n' "$v35_l" | grep -c '^LINT \[escape-unrecorded\]' || true)
+  v35_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v35_tmp/all" 2>&1)
+  v35_counted=$(printf '%s\n' "$v35_m" | sed -n 's/^Escapes (Traces-to links): \([0-9]*\)$/\1/p')
+  for v35_k in b c; do
+    printf '%s\n' "$v35_l" | grep '^LINT \[escape-unrecorded\]' | grep -qF "2099-05-22-deliver-agree-$v35_k.state.md — 2099-09-22-diagnose-agree-$v35_k:" \
+      || v35_bad="$v35_bad [lint did not fire on agreement origin $v35_k]"
+  done
+  for v35_k in a d; do
+    printf '%s\n' "$v35_l" | grep '^LINT \[escape-unrecorded\]' | grep -qF "agree-$v35_k" \
+      && v35_bad="$v35_bad [lint fired on agreement origin $v35_k, a recorded escape]"
+  done
+  [ "$v35_fired" = "2" ] || v35_bad="$v35_bad [lint fired $v35_fired time(s) on the agreement corpus, want 2]"
+  [ "$v35_counted" = "2" ] || v35_bad="$v35_bad [metrics counted '$v35_counted' escape(s) on the agreement corpus, want 2]"
+  [ "$((v35_n - v35_fired))" = "$v35_counted" ] \
+    || v35_bad="$v35_bad [lint accepts $((v35_n - v35_fired)) origin(s) as recorded but metrics counts $v35_counted: the two scripts disagree about what an escape is]"
+else
+  v35_bad="$v35_bad [the agreement corpus could not be copied]"
+fi
+# B alone is the plan's "(none yet) | Traces-to: <slug>" fixture: one finding in lint, none counted by metrics.
+if v35_pick bonly b; then
+  v35_fired=$(v35_lint "$v35_tmp/bonly" | grep -c '^LINT \[escape-unrecorded\]' || true)
+  v35_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v35_tmp/bonly" 2>&1)
+  [ "$v35_fired" = "1" ] || v35_bad="$v35_bad [B alone: lint fired $v35_fired time(s), want 1]"
+  printf '%s\n' "$v35_m" | grep -qxF 'Escapes (Traces-to links): 0' || v35_bad="$v35_bad [B alone: metrics did not print 'Escapes (Traces-to links): 0']"
+else
+  v35_bad="$v35_bad [the B-only copy could not be built]"
+fi
+# A repo with plans and no investigations or incidents tree: no error, no finding.
+if v35_pick noinv a && rm -rf "$v35_tmp/noinv/.mozart/investigations"; then
+  v35_l=$(v35_lint "$v35_tmp/noinv"; echo "rc=$?")
+  printf '%s\n' "$v35_l" | grep -q '^mozart-lint: clean' && printf '%s\n' "$v35_l" | grep -qxF 'rc=0' \
+    || v35_bad="$v35_bad [a repo with no investigations or incidents tree did not lint clean: $(printf '%s' "$v35_l" | tail -2 | tr '\n' ' ')]"
+else
+  v35_bad="$v35_bad [the no-investigations copy could not be built]"
+fi
+# The older corpora carry no investigations tree: Check N adds nothing there.
+for v35_c in metrics-conductor metrics-split metrics-placeholder; do
+  v35_cn=$(v35_lint "$v35_repo/tests/fixtures/conductor/$v35_c" | grep -c '^LINT \[escape-unrecorded\]' || true)
+  [ "$v35_cn" = "0" ] || v35_bad="$v35_bad [$v35_c emits $v35_cn escape-unrecorded line(s), want 0]"
+done
+rm -rf "$v35_tmp"
+
+# The grammar sentence: frozen once, present exactly once at each of seven sites.
+v35_policy="$v35_repo/tests/policy/traces-to-grammar.txt"
+v35_sites=0
+if [ -s "$v35_policy" ] && [ "$(grep -c . "$v35_policy")" = "1" ]; then
+  v35_sent=$(cat "$v35_policy")
+  for v35_f in agents/dick.md agents/DIAGNOSE.md agents/INCIDENT.md agents/scott.md agents/PIPELINE.md agents/STATE.md docs/EVAL.md; do
+    v35_c=$(awk -v s="$v35_sent" '{ l = $0; while ((p = index(l, s)) > 0) { c++; l = substr(l, p + length(s)) } } END { print c + 0 }' "$gate_root/$v35_f" 2>/dev/null)
+    v35_sites=$((v35_sites + 1))
+    [ "$v35_c" = "1" ] || v35_bad="$v35_bad [$v35_f holds the Traces-to grammar sentence $v35_c time(s), want exactly 1]"
+  done
+else
+  v35_bad="$v35_bad [tests/policy/traces-to-grammar.txt is missing, empty or not a single line]"
+fi
+[ "$v35_sites" -ge 7 ] || v35_bad="$v35_bad [only $v35_sites site(s) checked, floor 7]"
+
+# One copy of the rule: it lives in the library, and neither script spells it.
+v35_lib_n=$(v30_code_lines "$gate_root/scripts/lib-campaign.sh" | grep -cF 'none yet' || true)
+[ "$v35_lib_n" -ge 1 ] || v35_bad="$v35_bad [the library does not hold the recorded-escape rule ('none yet' in no code line)]"
+for v35_s in mozart-lint mozart-metrics; do
+  v35_dup=$(v30_code_lines "$gate_root/scripts/$v35_s.sh" | grep -cF 'none yet' || true)
+  [ "$v35_dup" = "0" ] || v35_bad="$v35_bad [$v35_s.sh spells the recorded-escape rule in $v35_dup code line(s): it lives in the library]"
+done
+v35_mt=$(v30_code_lines "$gate_root/scripts/mozart-metrics.sh" | grep -cF 'Traces-to:' || true)
+[ "$v35_mt" = "0" ] || v35_bad="$v35_bad [mozart-metrics.sh parses Traces-to: itself in $v35_mt code line(s): call is_escape_line]"
+v35_mc=$(v30_code_lines "$gate_root/scripts/mozart-metrics.sh" | grep -cF 'is_escape_line' || true)
+v35_lc=$(v30_code_lines "$gate_root/scripts/mozart-lint.sh" | grep -cF 'is_escape_line' || true)
+{ [ "$v35_mc" -ge 1 ] && [ "$v35_lc" -ge 1 ]; } || v35_bad="$v35_bad [is_escape_line is called $v35_mc time(s) in metrics and $v35_lc in lint, want at least 1 each]"
+report "V35_escapes" "$([ -z "$v35_bad" ] && echo 0 || echo 1)" \
+  "${v35_bad:-agreement corpus: lint silent on A and D, fires on B and C, metrics counts the 2 lint accepts; B alone 1 finding and Escapes 0; no investigations tree is clean; the Traces-to grammar sentence is in $v35_sites sites exactly once; the rule lives in the library only}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
