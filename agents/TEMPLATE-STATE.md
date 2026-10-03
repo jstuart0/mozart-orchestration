@@ -30,13 +30,13 @@
 <sha at intake>
 
 ## Stage progress
-- [x] 1. Intake — <timestamp>
-- [x] 2. Research — <timestamp> — <agents that ran, or "skipped">
-- [x] 2b. Constraints — <timestamp> — <lens invoked, or "skipped: no trigger">
-- [x] 3. Plan — <timestamp>
-- [x] 4. Internal review — <timestamp> — <reviewers invoked>
-- [x] 5. Codex on plan — <timestamp>
-- [x] 6. Iterate — <timestamp> — <round count>
+- [ ] 1. Intake — <timestamp>
+- [ ] 2. Research — <timestamp> — <agents that ran, or "skipped">
+- [ ] 2b. Constraints — <timestamp> — <lens invoked, or "skipped: no trigger">
+- [ ] 3. Plan — <timestamp>
+- [ ] 4. Internal review — <timestamp> — <reviewers invoked>
+- [ ] 5. Codex on plan — <timestamp>
+- [ ] 6. Iterate — <timestamp> — <round count>
 - [ ] 7. Implement — in progress, phase <N> of <total>
 - [ ] 8. Mid-build specialists (per phase)
 - [ ] 9. Codex on diff — <run|skip per tier>
@@ -47,8 +47,8 @@
 - [ ] 13. Report
 
 ## Phase tracker (stage 7)
-- [x] Phase 1: <description> — committed <sha>
-- [x] Phase 2: <description> — committed <sha>
+- [ ] Phase 1: <description> — committed <sha>
+- [ ] Phase 2: <description> — committed <sha>
 - [ ] Phase 3: <description> — <not started | in progress | failed attempt N/3>
 - [ ] Phase 4: <description>
 

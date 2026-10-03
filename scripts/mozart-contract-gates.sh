@@ -2741,6 +2741,13 @@ report "V30_layout_agreement" "$([ -z "$v32_bad" ] && echo 0 || echo 1)" \
 v33_bad=""
 v33_tmp=$(mktemp -d) || { v33_bad="$v33_bad [mktemp failed -- the raw campaigns could not be built]"; v33_tmp=/nonexistent-v33; }
 v33_slug=2099-09-30-deliver-raw
+# A fresh campaign starts with nothing done. Lint flags only some ticks (a ticked stage 5 against
+# "not yet run"), so the template is also read directly: no done or skipped mark, and a
+# non-empty population of unticked lines so an emptied file cannot pass.
+v33_ticked=$(grep -cE '^- \[[x-]\] ' "$gate_root/agents/TEMPLATE-STATE.md")
+v33_unticked=$(grep -cE '^- \[ \] ' "$gate_root/agents/TEMPLATE-STATE.md")
+[ "$v33_ticked" = "0" ] && [ "$v33_unticked" -ge 15 ] \
+  || v33_bad="$v33_bad [TEMPLATE-STATE.md has $v33_ticked ticked line(s) (want 0) and $v33_unticked unticked (floor 15): a fresh campaign must start with nothing done]"
 v33_build() { # $1 = root: raw copies of the three templates in active/
   mkdir -p "$1/.mozart/plans/active" || return 1
   cp "$gate_root/agents/TEMPLATE-STATE.md" "$1/.mozart/plans/active/$v33_slug.state.md" || return 1
@@ -2754,8 +2761,10 @@ if v33_build "$v33_raw"; then
   v33_out=$(v33_lint "$v33_raw")
   printf '%s\n' "$v33_out" | grep -qF "conductor adoption date overridden: 2099-06-01" \
     || v33_bad="$v33_bad [lint did not run on the raw copies: $(printf '%s' "$v33_out" | head -2 | tr '\n' ' ')]"
-  printf '%s\n' "$v33_out" | grep -qF "$v33_slug.state.md" \
-    || v33_bad="$v33_bad [lint reported nothing about the raw state file at all: the campaign was not read]"
+  # The adoption-date line above shows lint ran. A raw copy is a clean campaign, so any
+  # LINT line (a tick left in the skeleton, a placeholder read as a declaration) fails.
+  printf '%s\n' "$v33_out" | grep -q '^mozart-lint: clean' \
+    || v33_bad="$v33_bad [a raw template trio does not lint clean: $(printf '%s' "$v33_out" | grep '^LINT' | head -3 | tr '\n' ' ')]"
   [ "$(v33_count "$v33_out" '^LINT \[split-layout\]')" = "0" ] \
     || v33_bad="$v33_bad [a raw template trio emits split-layout: a placeholder was read as a declaration]"
   [ "$(v33_count "$v33_out" '^LINT \[conductor-row\]')" = "0" ] \
@@ -2826,19 +2835,39 @@ report "V33_templates" "$([ -z "$v33_bad" ] && echo 0 || echo 1)" \
 # a campaign's artifacts or the state_md5 key say so (phase 3)
 # ---------------------------------------------------------------------------
 v34_bad=""
+# Every phrase below is pinned inside the section that owns it (v3_region: first heading
+# match to the next heading of the stated rank, HTML-comment lines dropped), not by a
+# file-wide count or first match that a comment or another paragraph could satisfy.
+v34_sec() { # $1 = file, $2 = start ERE, $3 = end ERE -> region on stdout; empty when the start anchor is gone
+  local r
+  r=$(v3_region "$gate_root/$1" "$2" "$3")
+  case "$r" in __REGION_START_NOT_FOUND__*) return 0 ;; esac
+  printf '%s\n' "$r"
+}
+v34_closeout=$(v34_sec agents/DELIVER.md '^#### Campaign closeout' '^#### |^### |^## ')
+v34_resume=$(v34_sec agents/STATE.md '^### Resume from a state file' '^### |^## ')
+v34_detect=$(v34_sec agents/STATE.md '^### Detecting an in-progress run at intake' '^### |^## ')
+v34_ledger=$(v34_sec docs/EVAL.md '^## The ledger' '^## ')
+v34_mech=$(v34_sec docs/EVAL.md '^## Mechanical metrics' '^## ')
+for v34_pair in "closeout:$v34_closeout" "resume:$v34_resume" "detect:$v34_detect" "ledger:$v34_ledger" "mech:$v34_mech"; do
+  [ "$(printf '%s\n' "${v34_pair#*:}" | grep -c .)" -ge 3 ] \
+    || v34_bad="$v34_bad [section '${v34_pair%%:*}' is missing or has under 3 lines: its anchor was renamed]"
+done
 # Closeout covers the siblings, in the two bullets that name state-file artifacts.
 for v34_pat in 'reachable from HEAD' 'Paths block lists the ACTUAL artifact paths'; do
-  v34_line=$(grep -m1 -F -- "$v34_pat" "$gate_root/agents/DELIVER.md")
-  [ -n "$v34_line" ] || { v34_bad="$v34_bad [DELIVER closeout bullet absent: $v34_pat]"; continue; }
+  v34_line=$(printf '%s\n' "$v34_closeout" | grep -m1 -F -- "$v34_pat")
+  [ -n "$v34_line" ] || { v34_bad="$v34_bad [DELIVER closeout bullet absent from its section: $v34_pat]"; continue; }
   for v34_sib in .ledger.md .conductor.md; do
     printf '%s' "$v34_line" | grep -qF -- "$v34_sib" \
       || v34_bad="$v34_bad [DELIVER closeout bullet '$v34_pat' does not name $v34_sib]"
   done
 done
-# Resume rule present once; category count word agrees with the list.
+# Resume rule present once, in the resume section; category count word agrees with the list.
+[ "$(printf '%s\n' "$v34_resume" | grep -c 'never split on resume')" = "1" ] \
+  || v34_bad="$v34_bad [agents/STATE.md's resume section must state 'never split on resume' exactly once]"
 [ "$(grep -c 'never split on resume' "$gate_root/agents/STATE.md")" = "1" ] \
-  || v34_bad="$v34_bad [agents/STATE.md must state 'never split on resume' exactly once]"
-v34_sent=$(grep -m1 -F 'finding categories:' "$gate_root/agents/STATE.md")
+  || v34_bad="$v34_bad ['never split on resume' appears other than once in agents/STATE.md]"
+v34_sent=$(printf '%s\n' "$v34_detect" | grep -m1 -F 'finding categories:')
 v34_word=$(printf '%s' "$v34_sent" | sed -n 's/.* \([a-z][a-z]*\) finding categories:.*/\1/p')
 case "$v34_word" in fifteen) v34_want=15 ;; sixteen) v34_want=16 ;; seventeen) v34_want=17 ;; eighteen) v34_want=18 ;; *) v34_want=-1 ;; esac
 v34_list=${v34_sent#*finding categories:}
@@ -2848,13 +2877,23 @@ v34_have=$(printf '%s' "$v34_list" | grep -o '`[a-z0-9-]*`' | grep -c .)
   || v34_bad="$v34_bad [STATE category sentence says '$v34_word' ($v34_want) but lists $v34_have backticked categories]"
 [ "$v34_word" = "sixteen" ] || v34_bad="$v34_bad [STATE category sentence says '$v34_word', want sixteen after phase 3]"
 printf '%s' "$v34_list" | grep -qF '`split-layout`' || v34_bad="$v34_bad [STATE category sentence omits split-layout]"
-# state_md5: no 'state-file hash' wording left; the order is defined once, in docs/EVAL.md.
+# state_md5: no 'state-file hash' wording left; the order is defined once, in the state_md5
+# bullet of docs/EVAL.md's ledger section, and that bullet names both siblings.
 v34_old=$(grep -ciE 'state-file hash' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" | awk -F: '{ s += $NF } END { print s + 0 }')
 [ "$v34_old" = "0" ] || v34_bad="$v34_bad [$v34_old 'state-file hash' line(s) left in agents/EVAL.md and commands/mozart-eval.md]"
-[ "$(grep -c '\.ledger\.md' "$gate_root/docs/EVAL.md")" -ge 1 ] || v34_bad="$v34_bad [docs/EVAL.md does not name .ledger.md]"
+v34_md5=$(printf '%s\n' "$v34_ledger" | grep -m1 -F -- '`state_md5`**:')
+for v34_sib in .ledger.md .conductor.md 'in that order'; do
+  printf '%s' "$v34_md5" | grep -qF -- "$v34_sib" || v34_bad="$v34_bad [docs/EVAL.md's state_md5 bullet (ledger section) does not say '$v34_sib']"
+done
 [ "$(grep -c 'in that order' "$gate_root/docs/EVAL.md")" = "1" ] || v34_bad="$v34_bad [docs/EVAL.md must define the state_md5 concatenation order exactly once]"
 for v34_f in agents/EVAL.md commands/mozart-eval.md docs/EVAL.md; do
   grep -q 'state_md5' "$gate_root/$v34_f" || v34_bad="$v34_bad [$v34_f does not name state_md5]"
+done
+# Positive half: naming state_md5 was true before the layout change. The line that names it
+# must also say it covers the sibling ledger and conductor files.
+for v34_f in agents/EVAL.md commands/mozart-eval.md; do
+  grep -F 'state_md5' "$gate_root/$v34_f" | grep -qF 'sibling ledger and conductor files' \
+    || v34_bad="$v34_bad [$v34_f: no line names state_md5 together with 'sibling ledger and conductor files']"
 done
 v34_fields=$(grep -ohE 'state_[a-z0-9_]+' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" "$gate_root/docs/EVAL.md" | sort -u | tr '\n' ' ')
 [ "$v34_fields" = "state_md5 " ] || v34_bad="$v34_bad [state_ field names in the EVAL files: $v34_fields (want only state_md5)]"
@@ -2862,8 +2901,8 @@ v34_fields=$(grep -ohE 'state_[a-z0-9_]+' "$gate_root/agents/EVAL.md" "$gate_roo
 grep -F 'state.md' "$gate_root/.github/ISSUE_TEMPLATE/bug_report.md" | grep -qF 'ledger' \
   || v34_bad="$v34_bad [bug_report.md's state-file line does not mention the ledger sibling]"
 # The lint column list in docs/EVAL.md carries the new category.
-grep -F '| Repo | Total |' "$gate_root/docs/EVAL.md" | grep -qF 'split-layout' \
-  || v34_bad="$v34_bad [docs/EVAL.md lint table has no split-layout column]"
+printf '%s\n' "$v34_mech" | grep -F '| Repo | Total |' | grep -qF 'split-layout' \
+  || v34_bad="$v34_bad [docs/EVAL.md lint table (Mechanical metrics section) has no split-layout column]"
 report "V33_layout_prose" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
   "${v34_bad:-closeout names both siblings in both bullets; 'never split on resume' once; category sentence says $v34_word and lists $v34_have; no 'state-file hash' wording; state_md5 order defined once; bug-report and lint-table sites updated}"
 
@@ -2913,8 +2952,12 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-10-15-phase-stdfirst 0 STANDARD
   v34_case 2099-10-16-phase-stdmalformed 0 STANDARD
   v34_case 2099-10-27-phase-quoted 1 UNTIERED
+  v34_case 2099-10-29-phase-boldheavy 1 HEAVY
+  v34_case 2099-10-30-phase-boldstd 0 STANDARD
+  v34_case 2099-10-31-phase-italicstd 0 STANDARD
+  v34_case 2099-11-01-phase-underlight 0 LIGHT
 fi
-[ "$v34_n" -ge 17 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 17]"
+[ "$v34_n" -ge 21 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 21]"
 
 # The library function on its own: the cases that matter, including the two
 # that a naive parse gets wrong (the unfilled template and a lower-case value).
@@ -2925,13 +2968,17 @@ v34_prog='BEGIN {
   printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS")
   printf "[%s]", tier_of("**Tier**: heavy")
   printf "[%s]", tier_of("**Tier**: HEAVYish")
+  printf "[%s]", tier_of("**Tier**: **HEAVY** — maintainer confirmed")
+  printf "[%s]", tier_of("**Tier**: *STANDARD*")
+  printf "[%s]", tier_of("**Tier**: _LIGHT_")
+  printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: **HEAVY** | **Mode**: AUTONOMOUS")
   printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY")
 }'
 v34_got=$( . "$v34_lib" 2>/dev/null; awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
-[ "$v34_got" = "[HEAVY][][][LIGHT][][][0][1][1][0]" ] \
+[ "$v34_got" = "[HEAVY][][][LIGHT][][][HEAVY][STANDARD][LIGHT][HEAVY][0][1][1][0]" ] \
   || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface returned '$v34_got']"
 
 # Neither script spells the Tier field itself: the rule lives in the library.

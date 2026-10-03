@@ -65,7 +65,8 @@ function split_cells(line, arr,   t, i, n) {
 # the FIRST such line in the state file; a later one is never a second vote.
 function is_tier_line(line) { return (index(line, "**Tier**:") > 0 && line !~ /^[ \t]*\|/) }
 # The tier that line names: its leading upper-case token ("HEAVY (surface: ...)"
-# is HEAVY), or "" when the line holds no value. "" covers the unfilled template
+# is HEAVY; "**HEAVY** — why", "*HEAVY*" and "_HEAVY_" too, emphasis markers
+# around the value are not part of it), or "" when the line holds no value. "" covers the unfilled template
 # (a pipe-list not followed by another bold field, or an unfilled <tier>) and
 # anything not upper case ("heavy", "Standard", "HEAVYish"); callers read ""
 # as untiered.
@@ -77,6 +78,7 @@ function tier_of(line,   t, rest, tok) {
     sub(/[ \t]*\|.*$/, "", t)
   }
   t = trim(t)
+  sub(/^[*_]+/, "", t)
   if (!match(t, /^[A-Z]+/)) return ""
   tok = substr(t, 1, RLENGTH)
   if (substr(t, RLENGTH + 1, 1) ~ /[A-Za-z]/) return ""

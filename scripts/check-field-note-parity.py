@@ -297,6 +297,8 @@ NAMED_PRESENT = (
     ("conductor-unlinked", "2099-10-13-phase-title", "P2"),
     ("conductor-unlinked", "2099-10-14-phase-heavyfirst", "P2"),
     ("conductor-unlinked", "2099-10-27-phase-quoted", "P2"),
+    # a bold Tier value is a value: HEAVY, so the Phase line is required
+    ("conductor-unlinked", "2099-10-29-phase-boldheavy", "P2"),
     ("conductor-row", "2099-10-16-phase-stdmalformed", "CR1"),
     ("conductor-row", "2099-10-19-phase-lensbad", "CR2"),
     ("conductor-row", "2099-10-21-phase-lensian", "CR1"),
@@ -363,6 +365,8 @@ NAMED_ABSENT_SLUGS = (
     "2099-10-09-phase-combinedstd", "2099-10-11-phase-stdfmt", "2099-10-15-phase-stdfirst",
     "2099-10-18-phase-lensok", "2099-10-20-phase-lenspre", "2099-10-24-phase-stdsurface",
     "2099-10-25-phase-escalated", "2099-10-28-phase-lowersurface",
+    # emphasis around a Tier value is not part of it: STANDARD and LIGHT, so no Phase line is required
+    "2099-10-30-phase-boldstd", "2099-10-31-phase-italicstd", "2099-11-01-phase-underlight",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing

@@ -75,6 +75,11 @@ The two are independent: a repo can have prefix-style files under the legacy `th
 The skeletons are files beside this one, not text in this manual: `TEMPLATE-STATE.md`, `TEMPLATE-LEDGER.md` and `TEMPLATE-CONDUCTOR.md`. At intake, in one step, copy all three into the campaign's plans directory as `<slug>.state.md`, `<slug>.ledger.md` and `<slug>.conductor.md`, then fill every `<…>` field in the state file, including the two `## Paths` lines that declare the siblings. Copy the files; don't retype them. A retyped header is how a row-width mismatch starts, and the linter compares every row against the header it finds. A skeleton holds headers and placeholder rows only; the rows below show what filled ones look like.
 
 ```
+Stage and phase lines (state file), as they read once done:
+- [x] 1. Intake — <timestamp>
+- [-] 9. Codex on diff — skipped: <rationale>
+- [x] Phase 1: <description> — committed <sha>
+
 Findings ledger rows (<slug>.ledger.md):
 | F1 | 4-plan-review | xander | High | fixed (plan r2) | <one-line finding summary> |
 | F2 | 8-midbuild-p2 | tessa | High | fixed (<sha>) | <one-line finding summary> |
