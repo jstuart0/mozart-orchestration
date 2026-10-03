@@ -1222,6 +1222,8 @@ v11_script_repo=$(dirname "$(dirname "$gatefile")")
 v11_corpus="$v11_script_repo/tests/fixtures/conductor/lint"
 v11_expected="$v11_corpus/expected.tsv"
 v11_cats='conductor-missing|conductor-unlinked|conductor-row|conductor-reference|decision-trigger|mutation-manifest|missing-2b'
+v11_bad=""
+v11_scratch=$(mktemp -d) || { v11_bad="$v11_bad [mktemp failed -- no scratch space for the corpus copies]"; v11_scratch=""; }
 
 # F47: the floor used to count only the two subdirs, so the legacy prefix,
 # legacy flat and legacy-root fixtures the corpus now carries were invisible
@@ -1274,110 +1276,174 @@ v11_extract() { # stdin: raw LINT output -> stdout: category\tslug\tkey, restric
 # F47 residual, closed here: the legacy-root fixture was gitignored by the
 # blanket `thoughts/` rule and passed locally while being absent from every
 # other checkout. A corpus file git cannot see is a phantom, so assert the
-# whole corpus is tracked rather than trusting that it is.
-v11_on_disk=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | wc -l | tr -d ' ')
-v11_tracked=$(git -C "$v11_script_repo" ls-files -- "${v11_corpus#"$v11_script_repo/"}" 2>/dev/null | grep -c '\.state\.md$' || true)
+# whole corpus is tracked rather than trusting that it is. Every file counts,
+# not just *.state.md (an ignored .ledger.md or expected.tsv is the same
+# phantom); .DS_Store is excluded because the repo ignores it by design.
+v11_tracked_vs_disk() { # $1 = repo, $2 = dir -> "<on-disk> <tracked>"
+  local on_disk tracked
+  on_disk=$(find "$2" -type f ! -name .DS_Store 2>/dev/null | wc -l | tr -d ' ')
+  tracked=$(git -C "$1" ls-files -- "${2#"$1/"}" 2>/dev/null | grep -vc '/\.DS_Store$' || true)
+  printf '%s %s' "$on_disk" "$tracked"
+}
+read -r v11_on_disk v11_tracked <<<"$(v11_tracked_vs_disk "$v11_script_repo" "$v11_corpus")"
 
-v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
-v11_ov_rc=$?
-v11_no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_corpus" 2>&1)
-
-v11_ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
-v11_no_triples=$(printf '%s\n' "$v11_no_out" | v11_extract "$v11_cats" | sort -u)
 v11_expected_triples=$(awk -F'\t' -v cats="$v11_cats" '
     BEGIN { n = split(cats, a, "|"); for (i = 1; i <= n; i++) catset[a[i]] = 1 }
     $1 == "lint" && ($2 in catset) { printf "%s\t%s\t%s\n", $2, $3, $4 }
   ' "$v11_expected" | sort -u)
-
-# F49: every LINT line the corpus emits must be accounted for in
-# expected.tsv. Set-equality over a FILTERED category list cannot see a
-# fixture that also fires an unfiltered category -- 2099-07-29-noflow-j fired
-# missing-12b as well as its intended missing-2b, so it was not failing only
-# for its stated reason and nothing said so. Compare totals, not just the
-# filtered set: 45 emitted lines, 45 expected rows, 45 distinct triples.
-v11_emitted=$(printf '%s\n' "$v11_ov_out" | grep -c '^LINT \[' || true)
 v11_expected_n=$(grep -c '^lint	' "$v11_expected" || true)
-v11_triple_n=$(printf '%s\n' "$v11_ov_triples" | grep -c . || true)
 
-v11_bad=""
-[ "$v11_ov_rc" -eq 1 ] || v11_bad="$v11_bad [override rc=$v11_ov_rc want 1]"
+# The assertion body below is a function of a corpus DIRECTORY, so it can be
+# run on the in-repo corpus and on an aged copy of it. A lint verdict that
+# depends on how old the fixture files are is a gate that goes red on a
+# calendar date: Check F reports any active state file untouched for more than
+# STALE_DAYS, and a checkout, an archive extract or a CI cache all stamp the
+# fixtures with whatever time they happen to have.
+v11_arm() { # $1 = arm label, $2 = corpus dir
+  local label="$1" dir="$2" arm_bad=""
+  v11_ov_out=""; v11_emitted=0
+
+  v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  local ov_rc=$?
+  local no_out
+  no_out=$(bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+
+  local ov_triples no_triples
+  ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
+  no_triples=$(printf '%s\n' "$no_out" | v11_extract "$v11_cats" | sort -u)
+
+  # F49: every LINT line the corpus emits must be accounted for in
+  # expected.tsv. Set-equality over a FILTERED category list cannot see a
+  # fixture that also fires an unfiltered category -- 2099-07-29-noflow-j fired
+  # missing-12b as well as its intended missing-2b, so it was not failing only
+  # for its stated reason and nothing said so. Compare totals, not just the
+  # filtered set: N emitted lines, N expected rows, N distinct triples.
+  v11_emitted=$(printf '%s\n' "$v11_ov_out" | grep -c '^LINT \[' || true)
+  local triple_n
+  triple_n=$(printf '%s\n' "$ov_triples" | grep -c . || true)
+
+  [ "$ov_rc" -eq 1 ] || arm_bad="$arm_bad [override rc=$ov_rc want 1]"
+  [ "$v11_emitted" -eq "$v11_expected_n" ] || arm_bad="$arm_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
+  [ "$triple_n" -eq "$v11_expected_n" ] || arm_bad="$arm_bad [$triple_n distinct triples vs $v11_expected_n expected rows]"
+  [ "$ov_triples" = "$v11_expected_triples" ] || arm_bad="$arm_bad [K/L triples not set-equal to expected.tsv]"
+  local member
+  for member in \
+    "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
+    "$(printf 'conductor-unlinked\t2099-07-13-deliver-freeform\t10')" \
+    "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')" \
+    "$(printf 'mutation-manifest\t2099-08-05-deliver-ledger-postadopt\tC1')" \
+    "$(printf 'missing-2b\t2099-08-06-deliver-combined\t-')" \
+    "$(printf 'conductor-unlinked\t2099-08-07-deliver-exempt-bypass\t5')" \
+    "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')" \
+    "$(printf 'conductor-missing\t2099-08-11-deliver-flat\t-')" \
+    "$(printf 'conductor-missing\tactive-2099-08-12-deliver-prefix\t-')" \
+    "$(printf 'conductor-unlinked\tfinished-2099-08-13-deliver-prefix\t5')" \
+    "$(printf 'conductor-unlinked\t2099-08-14-deliver-legacyroot\t9')" \
+    "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
+    "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
+    "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')" \
+    "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')"
+  do
+    printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
+  done
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
+    && arm_bad="$arm_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
+  # F48 control: the escaped-pipe fixture's CR2 carries `\|` in BOTH source and
+  # control and is otherwise well formed. It must stay silent — otherwise the
+  # width rule is just rejecting every row that mentions a pipe, and CR1's
+  # finding would prove nothing about column alignment.
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" \
+    && arm_bad="$arm_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
+    && arm_bad="$arm_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
+  printf '%s\n' "$ov_triples" | grep -q "	2099-07-27-operate-j	" \
+    && arm_bad="$arm_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
+  local slug
+  for slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
+    2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
+    printf '%s\n' "$ov_triples" | grep -q "	${slug}	" \
+      && arm_bad="$arm_bad [pre-adoption or accepted-spelling slug $slug produced a triple]"
+  done
+
+  # F45: two same-category triples in one file (fixture #3's CR1/CR2, #34's
+  # C3-C6) could have their reasons swapped and still pass a key-only
+  # set-equality check. Assert the actual message text too, so the gate
+  # proves each fired for ITS OWN stated reason.
+  msg_check() { # $1=path-suffix (basename), $2=key, $3=expected message substring
+    printf '%s\n' "$v11_ov_out" | grep -F "$1" | grep -F -- "— $2:" | grep -qF "$3" \
+      || arm_bad="$arm_bad [message mismatch: $1 $2 does not contain '$3']"
+  }
+  msg_check "2099-07-03-deliver-ctl.state.md" "CR1" "control restates the claim"
+  msg_check "2099-07-03-deliver-ctl.state.md" "CR2" "empty or placeholder control"
+  msg_check "2099-07-31-operate-ignore.state.md" "C3" "bad ignore token: spec.*"
+  msg_check "2099-07-31-operate-ignore.state.md" "C4" "bad ignore token: status.conditions[*]"
+  msg_check "2099-07-31-operate-ignore.state.md" "C5" "bad ignore token: spec."
+  msg_check "2099-07-31-operate-ignore.state.md" "C6" "bad ignore token: status"
+  # F48: the two pipe fixtures are the same shape modulo the escape, so a
+  # key-only assertion would pass if both produced the same finding. Name the
+  # distinct reasons: the raw row is rejected on WIDTH, the escaped row parses
+  # and is then rejected on its genuinely empty control.
+  msg_check "2099-08-15-deliver-pipe-raw.state.md" "CR1" "row has 8 cells, header has 7"
+  msg_check "2099-08-16-deliver-pipe-escaped.state.md" "CR1" "empty or placeholder control"
+  msg_check "2099-07-31-operate-ignore.state.md" "C7" "row has 8 cells, header has 7"
+  printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
+    || arm_bad="$arm_bad [override-control triple absent from the no-override run]"
+  printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
+    || arm_bad="$arm_bad [override-visibility line absent from the override run]"
+  printf '%s\n' "$no_out" | grep -q '^conductor adoption date overridden:' \
+    && arm_bad="$arm_bad [no-override run printed an override line]"
+  [ -z "$arm_bad" ] || v11_bad="$v11_bad [$label:$arm_bad]"
+}
+
+# Arm (a): the in-repo corpus as it stands. Arm (b): a copy whose every file is
+# stamped 2020-01-01, which is what the corpus looks like to any consumer more
+# than STALE_DAYS after the fixtures were last written.
+v11_aged="$v11_scratch/aged"
+if [ -n "$v11_scratch" ] && mkdir -p "$v11_aged" && cp -R "$v11_corpus/." "$v11_aged/" \
+   && find "$v11_aged" -exec touch -t 202001010000 {} + ; then
+  :
+else
+  v11_bad="$v11_bad [could not build the aged corpus copy]"
+fi
+
+# Raw lint of the aged copy (no normalization) must emit stale-active: this is
+# what shows the normalization in v11_arm is removing something real, and that
+# a lint which stopped checking staleness is noticed.
+v11_raw_aged=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_aged" 2>&1)
+v11_stale_n=$(printf '%s\n' "$v11_raw_aged" | grep -c '^LINT \[stale-active\]' || true)
+[ "$v11_stale_n" -ge 40 ] || v11_bad="$v11_bad [raw lint of the aged corpus emitted $v11_stale_n stale-active line(s), floor 40 -- the aged arm is not aged]"
+for v11_stale_member in 2099-08-11-deliver-flat active-2099-08-12-deliver-prefix; do
+  printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]' | grep -qF "$v11_stale_member.state.md" \
+    || v11_bad="$v11_bad [named member absent: stale-active for $v11_stale_member in the aged corpus]"
+done
+printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]' | grep -qF "2099-07-01-deliver-clean.state.md" \
+  && v11_bad="$v11_bad [named-absent member present: stale-active on the terminal fixture 2099-07-01-deliver-clean]"
+
+v11_arm "in-repo corpus" "$v11_corpus"
+v11_arm_a_emitted=$v11_emitted
+v11_arm "aged corpus copy" "$v11_aged"
+[ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
+
 [ "$v11_floor" -ge 48 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 48]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
-[ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus state file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
-[ "$v11_emitted" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
-[ "$v11_triple_n" -eq "$v11_expected_n" ] || v11_bad="$v11_bad [$v11_triple_n distinct triples vs $v11_expected_n expected rows]"
-[ "$v11_ov_triples" = "$v11_expected_triples" ] || v11_bad="$v11_bad [K/L triples not set-equal to expected.tsv]"
-for v11_member in \
-  "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
-  "$(printf 'conductor-unlinked\t2099-07-13-deliver-freeform\t10')" \
-  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC4')" \
-  "$(printf 'mutation-manifest\t2099-08-05-deliver-ledger-postadopt\tC1')" \
-  "$(printf 'missing-2b\t2099-08-06-deliver-combined\t-')" \
-  "$(printf 'conductor-unlinked\t2099-08-07-deliver-exempt-bypass\t5')" \
-  "$(printf 'decision-trigger\t2099-08-10-deliver-revisit-placeholder\tD1')" \
-  "$(printf 'conductor-missing\t2099-08-11-deliver-flat\t-')" \
-  "$(printf 'conductor-missing\tactive-2099-08-12-deliver-prefix\t-')" \
-  "$(printf 'conductor-unlinked\tfinished-2099-08-13-deliver-prefix\t5')" \
-  "$(printf 'conductor-unlinked\t2099-08-14-deliver-legacyroot\t9')" \
-  "$(printf 'conductor-row\t2099-08-15-deliver-pipe-raw\tCR1')" \
-  "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR1')" \
-  "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC7')" \
-  "$(printf 'decision-trigger\t2099-05-30-deliver-precutoff-header\tD1')"
-do
-  printf '%s\n' "$v11_ov_triples" | grep -qxF "$v11_member" || v11_bad="$v11_bad [named member absent: $v11_member]"
-done
-printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC2')" \
-  && v11_bad="$v11_bad [named-absent member present: C2 (all-literal ignore paths must not fire)]"
-# F48 control: the escaped-pipe fixture's CR2 carries `\|` in BOTH source and
-# control and is otherwise well formed. It must stay silent — otherwise the
-# width rule is just rejecting every row that mentions a pipe, and CR1's
-# finding would prove nothing about column alignment.
-printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-08-16-deliver-pipe-escaped\tCR2')" \
-  && v11_bad="$v11_bad [named-absent member present: pipe-escaped CR2 (a correctly escaped row must not fire)]"
-printf '%s\n' "$v11_ov_triples" | grep -qxF "$(printf 'mutation-manifest\t2099-07-31-operate-ignore\tC8')" \
-  && v11_bad="$v11_bad [named-absent member present: operate-ignore C8 (the escaped change-ledger twin must not fire)]"
-printf '%s\n' "$v11_ov_triples" | grep -q "	2099-07-27-operate-j	" \
-  && v11_bad="$v11_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
-for v11_slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
-  2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
-  printf '%s\n' "$v11_ov_triples" | grep -q "	${v11_slug}	" \
-    && v11_bad="$v11_bad [pre-adoption or accepted-spelling slug $v11_slug produced a triple]"
-done
-
-# F45: two same-category triples in one file (fixture #3's CR1/CR2, #34's
-# C3-C6) could have their reasons swapped and still pass a key-only
-# set-equality check. Assert the actual message text too, so the gate
-# proves each fired for ITS OWN stated reason.
-v11_msg_check() { # $1=path-suffix (basename), $2=key, $3=expected message substring
-  printf '%s\n' "$v11_ov_out" | grep -F "$1" | grep -F -- "— $2:" | grep -qF "$3" \
-    || v11_bad="$v11_bad [message mismatch: $1 $2 does not contain '$3']"
+[ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
+# Self-test: the widened comparison can fail. An ignored file planted in a
+# scratch repo must make it unequal.
+v11_st=$(mktemp -d) && {
+  git -C "$v11_st" init -q 2>/dev/null && mkdir -p "$v11_st/c" && : > "$v11_st/c/a.md" \
+    && git -C "$v11_st" add -A 2>/dev/null && : > "$v11_st/c/.DS_Store" && : > "$v11_st/c/ignored.ledger.md" \
+    && printf 'ignored.ledger.md\n' > "$v11_st/.git/info/exclude"
+  read -r v11_st_disk v11_st_tracked <<<"$(v11_tracked_vs_disk "$v11_st" "$v11_st/c")"
+  [ "$v11_st_disk" -ne "$v11_st_tracked" ] || v11_bad="$v11_bad [tracked-vs-disk self-test: a planted ignored file did not make the counts differ ($v11_st_disk vs $v11_st_tracked)]"
+  rm -rf "$v11_st"
 }
-v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR1" "control restates the claim"
-v11_msg_check "2099-07-03-deliver-ctl.state.md" "CR2" "empty or placeholder control"
-v11_msg_check "2099-07-31-operate-ignore.state.md" "C3" "bad ignore token: spec.*"
-v11_msg_check "2099-07-31-operate-ignore.state.md" "C4" "bad ignore token: status.conditions[*]"
-v11_msg_check "2099-07-31-operate-ignore.state.md" "C5" "bad ignore token: spec."
-v11_msg_check "2099-07-31-operate-ignore.state.md" "C6" "bad ignore token: status"
-# F48: the two pipe fixtures are the same shape modulo the escape, so a
-# key-only assertion would pass if both produced the same finding. Name the
-# distinct reasons: the raw row is rejected on WIDTH, the escaped row parses
-# and is then rejected on its genuinely empty control.
-v11_msg_check "2099-08-15-deliver-pipe-raw.state.md" "CR1" "row has 8 cells, header has 7"
-v11_msg_check "2099-08-16-deliver-pipe-escaped.state.md" "CR1" "empty or placeholder control"
-v11_msg_check "2099-07-31-operate-ignore.state.md" "C7" "row has 8 cells, header has 7"
-printf '%s\n' "$v11_no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
-  || v11_bad="$v11_bad [override-control triple absent from the no-override run]"
-printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
-  || v11_bad="$v11_bad [override-visibility line absent from the override run]"
-printf '%s\n' "$v11_no_out" | grep -q '^conductor adoption date overridden:' \
-  && v11_bad="$v11_bad [no-override run printed an override line]"
 v11_default=$(grep -oE 'CONDUCTOR_SINCE="\$\{MOZART_LINT_CONDUCTOR_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" \
   | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
 if [ -z "$v11_default" ] || { [ "$v11_default" != "2026-09-18" ] && [ "$(printf '%s\n%s\n' "$v11_default" "2026-09-18" | sort | head -1)" = "$v11_default" ]; }; then
   v11_bad="$v11_bad [CONDUCTOR_SINCE default '$v11_default' < 2026-09-18]"
 fi
 report "V11" "$([ -z "$v11_bad" ] && echo 0 || echo 1)" \
-  "${v11_bad:-lint corpus: override rc=1, floor=$v11_floor across 6 layouts, $v11_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
+  "${v11_bad:-lint corpus, in-repo and aged copy (raw aged lint emits $v11_stale_n stale-active): override rc=1, floor=$v11_floor across 6 layouts, $v11_arm_a_emitted emitted = $v11_expected_n expected (no unaccounted category), K/L triples set-equal, named members present, override-visibility correct both ways, CONDUCTOR_SINCE default=$v11_default}"
 
 # ---------------------------------------------------------------------------
 # V12 — S3's row-required-gate table agrees with the lint constants (cut 2)
@@ -2080,6 +2146,92 @@ V25_PY
     report "V25_nina_template" 1 "${v25_out#FAIL }"
   fi
 fi
+
+# ---------------------------------------------------------------------------
+# V27 - portable grep and awk in the shipped scripts
+#
+# CI runs on GNU userland; the author's machine is BSD. A grep pattern that
+# carries a backslash escape inside quotes is read by the shell as the two
+# characters, and then grep decides what they mean: BSD grep -E reads a tab,
+# GNU grep -E reads the letter t. V16 shipped exactly that and was green here
+# and red in CI. The portable spelling is a pattern built by printf (or $'..').
+# V27 rejects the next one, in single quotes or double quotes.
+#
+# The gate must not trip on its own text: the scan pattern is assembled from
+# pieces below, and the planted self-test lines are written with printf.
+# ---------------------------------------------------------------------------
+v27_bs=$(printf '\\')
+v27_esc="${v27_bs}${v27_bs}[tnrdswb]"
+v27_re="[ef]?grep( +(-[A-Za-z]+|--))* +['\"][^'\"]*${v27_esc}"
+v27_bad=""
+v27_files=("$gate_root"/scripts/*.sh)
+v27_scanned=${#v27_files[@]}
+[ "$v27_scanned" -ge 3 ] || v27_bad="$v27_bad [only $v27_scanned script(s) under scripts/*.sh, floor 3]"
+for v27_member in mozart-contract-gates.sh mozart-lint.sh; do
+  [ -f "$gate_root/scripts/$v27_member" ] || v27_bad="$v27_bad [named member absent from the scan: scripts/$v27_member]"
+done
+v27_hits=$(grep -nE "$v27_re" "${v27_files[@]}" 2>/dev/null || true)
+[ -z "$v27_hits" ] || v27_bad="$v27_bad [raw escape in a grep pattern -- GNU and BSD read it differently, build it with printf: $(printf '%s' "$v27_hits" | head -3 | tr '\n' ' ')]"
+v27_self=$(grep -cE "$v27_re" "$gatefile" || true)
+[ "$v27_self" -eq 0 ] || v27_bad="$v27_bad [the gate file trips its own scan: $v27_self line(s)]"
+v27_tmp=$(mktemp -d)
+printf "grep -q '^a%st'\n" "$v27_bs" > "$v27_tmp/single.sh"
+printf 'grep -qE "^a%sd+"\n' "$v27_bs" > "$v27_tmp/double.sh"
+printf "grep -q '^a'\n" > "$v27_tmp/clean.sh"
+grep -qE "$v27_re" "$v27_tmp/single.sh" || v27_bad="$v27_bad [self-test: a single-quoted raw escape was not caught]"
+grep -qE "$v27_re" "$v27_tmp/double.sh" || v27_bad="$v27_bad [self-test: a double-quoted raw escape was not caught]"
+grep -qE "$v27_re" "$v27_tmp/clean.sh" && v27_bad="$v27_bad [self-test: a clean pattern was flagged]"
+rm -rf "$v27_tmp"
+report "V27_portable_grep" "$([ -z "$v27_bad" ] && echo 0 || echo 1)" \
+  "${v27_bad:-no raw escape in a grep pattern across $v27_scanned script(s), gate file clean, single- and double-quoted self-tests caught}"
+
+# V27b - gawk-only constructs. CI's awk is mawk and the author's is
+# one-true-awk; both lack these. Names are checked across the whole script;
+# the regex-interval and three-argument match() checks apply to the extracted
+# awk programs only, since shell grep -E patterns legitimately use {n}.
+v27b_programs() { # $1 = script -> stdout: the text of every single-quoted awk program
+  awk '
+    inprog { q = index($0, "\047"); if (q) { print substr($0, 1, q - 1); inprog = 0 } else print; next }
+    pend || index($0, "awk ") {
+      line = $0
+      if (!pend) line = substr($0, index($0, "awk "))
+      q = index(line, "\047")
+      if (!q) { pend = (substr($0, length($0)) == "\\"); next }
+      pend = 0
+      body = substr(line, q + 1)
+      e = index(body, "\047")
+      if (e) print substr(body, 1, e - 1); else { print body; inprog = 1 }
+    }
+  ' "$1"
+}
+v27b_names='gensub\(|asorti?\(|strftime|systime|PROCINFO|IGNORECASE|BEGINFILE|ENDFILE'
+v27b_prog_re='match\([^,()]*,[^,()]*,|\{[0-9]+(,[0-9]*)?\}'
+v27b_check() { # $1 = script -> stdout: offending lines (empty when clean)
+  grep -nE "$v27b_names" "$1"
+  v27b_programs "$1" | grep -E "$v27b_prog_re"
+}
+v27b_bad=""
+v27b_progs=0
+for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-metrics.sh"; do
+  [ -f "$v27b_script" ] || { v27b_bad="$v27b_bad [named member absent: $v27b_script]"; continue; }
+  v27b_n=$(v27b_programs "$v27b_script" | grep -c . || true)
+  [ "$v27b_n" -ge 1 ] || v27b_bad="$v27b_bad [no awk program extracted from $(basename "$v27b_script") -- the extractor is blind]"
+  v27b_progs=$((v27b_progs + v27b_n))
+  v27b_hit=$(v27b_check "$v27b_script")
+  [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $(basename "$v27b_script"): $(printf '%s' "$v27b_hit" | head -2 | tr '\n' ' ')]"
+done
+v27b_tmp=$(mktemp -d)
+printf "awk 'BEGIN { print gensub(/a/, \"b\", \"g\") }'\n" > "$v27b_tmp/name.sh"
+printf "awk '/a{2}/ { print }'\n" > "$v27b_tmp/interval.sh"
+printf "awk '{ match(\$0, /x/, m) }'\n" > "$v27b_tmp/match3.sh"
+printf "awk '{ print }'\n" > "$v27b_tmp/clean.sh"
+for v27b_plant in name interval match3; do
+  [ -n "$(v27b_check "$v27b_tmp/$v27b_plant.sh")" ] || v27b_bad="$v27b_bad [self-test: planted $v27b_plant construct was not caught]"
+done
+[ -z "$(v27b_check "$v27b_tmp/clean.sh")" ] || v27b_bad="$v27b_bad [self-test: a clean awk line was flagged]"
+rm -rf "$v27b_tmp"
+report "V27b_portable_awk" "$([ -z "$v27b_bad" ] && echo 0 || echo 1)" \
+  "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across lint and metrics, planted self-tests caught}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
