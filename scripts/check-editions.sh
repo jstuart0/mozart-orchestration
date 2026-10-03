@@ -212,10 +212,12 @@ if [ -n "$behaviour_only" ] && [ "$src_ok" = 1 ]; then
       --scripts-root "copilot=$bs_copilot" --scripts-root "local=$SRC" 2>&1); hrc=$?
     shown=0
     for ed in $(echo "$behaviour_only" | tr ',' ' '); do
-      if grep -qE "^PASS  $ed: behaviour checks complete" <<<"$hout" && [ "$hrc" -eq 0 ]; then
+      # The harness exits 1 when ANY edition failed, so its status says nothing
+      # about this one: the edition's own PASS line is the evidence.
+      if grep -qE "^PASS  $ed: behaviour checks complete" <<<"$hout"; then
         echo "ok   $ed: behaviour (lint and metrics over the corpus match expected.tsv)"
       else
-        fail "$ed" "behaviour: harness exit $hrc, no PASS line (output below)"
+        fail "$ed" "behaviour: no PASS line from the harness (exit $hrc; output below)"
         shown=1
       fi
     done

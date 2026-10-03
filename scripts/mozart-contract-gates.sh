@@ -4309,9 +4309,12 @@ else
   v31_hasnt "$v31_out" '^SKIP ' "empty directory: read as a skip"
 
   # A port script that exits other than 0 or 1 is a failure with its output
-  # shown, not a mysterious exit code: the codex lint exits 7 and says why.
+  # shown, not a mysterious exit code: the codex lint exits 7 and says why. The
+  # copilot root beside it is healthy, and the harness's own exit status (1, for
+  # the codex failure) must not be read as copilot's.
   cp -R "$v31_tmp/codex" "$v31_tmp/codex-bad" && printf '#!/bin/sh\necho "lint-stub: boom"\nexit 7\n' > "$v31_tmp/codex-bad/scripts/mozart-lint.sh"
-  v31_arm "port script exits 7" 1 bash "$v31_script" "codex=$v31_tmp/codex-bad" "$v31_l"
+  v31_arm "port script exits 7" 1 bash "$v31_script" "codex=$v31_tmp/codex-bad" "$v31_p" "$v31_l"
+  v31_has "$v31_out" '^ok   copilot: behaviour' "port script exits 7: the healthy copilot edition is not reported ok"
   v31_has "$v31_out" 'exit=7' "port script exits 7: the harness line naming the exit code is not shown"
   v31_has "$v31_out" '^FAIL codex' "port script exits 7: the output does not name codex"
   v31_hasnt "$v31_out" '^FAIL (copilot|local)' "port script exits 7: a healthy edition is named as failing"
