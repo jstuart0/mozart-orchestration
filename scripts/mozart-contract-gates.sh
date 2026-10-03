@@ -1402,7 +1402,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-unlinked\t2099-05-25-deliver-split-preadopted\t9')" \
     "$(printf 'conductor-unlinked\t2099-09-20-deliver-zerostate\tF2')" \
     "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-noheading')" \
-    "$(printf 'conductor-unlinked\t2099-09-25-deliver-split-noheadinfile\tF2')"
+    "$(printf 'conductor-unlinked\t2099-09-25-deliver-split-noheadinfile\tF2')" \
+    "$(printf 'split-layout\t2099-09-26-deliver-split-conductorstray\tconductor-record-noheading')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1479,6 +1480,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-05-21-deliver-split-conductormissing.state.md" "conductor-record-missing" "declares a conductor record but the sibling conductor file"
   msg_check "2099-09-07-deliver-split-ledgernohead.state.md" "findings-ledger-noheading" "sibling ledger file has content outside a ## Findings ledger section"
   msg_check "2099-09-08-deliver-split-conductornohead.state.md" "conductor-record-noheading" "sibling conductor file has content outside a ## Conductor record section"
+  msg_check "2099-09-26-deliver-split-conductorstray.state.md" "conductor-record-noheading" "sibling conductor file has content outside a ## Conductor record section (no such heading, or text ahead of it)"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
@@ -1527,9 +1529,9 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 78 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 78]"
+[ "$v11_floor" -ge 79 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 79]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
-[ "$v11_conductor_floor" -ge 24 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 24]"
+[ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 # Self-test: the widened comparison can fail. An ignored file planted in a
@@ -1639,6 +1641,13 @@ v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
   for member in "$@"; do
     printf '%s\n' "$out" | grep -qxF "$member" || v10b_bad="$v10b_bad [$case named member absent: $member]"
   done
+  if [ "$case" != "metrics-split" ]; then
+    # Both counted lines print only when non-zero. These corpora have no sibling
+    # that is skipped or that shadows an in-file section, so a line here means
+    # the zero case started printing.
+    printf '%s\n' "$out" | grep -q '^  sibling files ' \
+      && v10b_bad="$v10b_bad [$case prints a sibling-count line though its count is 0]"
+  fi
   if [ "$case" = "metrics-split" ]; then
     # One lens per layout: the catches line is unordered, so each token is
     # checked on its own. Present: the seven layouts and the split, mixed and
@@ -1665,8 +1674,9 @@ v10b_run_case "metrics-conductor" 6 \
   "  rejected (judgment): 1 of 3"
 v10b_run_case "metrics-vacuity" 1 \
   "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)"
-v10b_run_case "metrics-split" 15 \
-  "Campaigns: 16 (16 STANDARD)" \
+v10b_run_case "metrics-split" 16 \
+  "Campaigns: 17 (17 STANDARD)" \
+  "  sibling files shadowing an in-file section (in-file rows ignored): 2" \
   "Confirmed catches (Critical/High, disposition=fixed): 13" \
   "  sibling files skipped (no section heading): 3" \
   "Wrong-override rate: 1/1 rejected findings later reversed (100%)"

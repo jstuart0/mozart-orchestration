@@ -70,3 +70,4 @@ lint	conductor-unlinked	finished-2099-09-21-deliver-split-fprefix	5
 lint	conductor-unlinked	2099-09-23-deliver-split-legacyroot	F2
 lint	split-layout	2099-09-25-deliver-split-noheadinfile	findings-ledger-noheading
 lint	conductor-unlinked	2099-09-25-deliver-split-noheadinfile	F2
+lint	split-layout	2099-09-26-deliver-split-conductorstray	conductor-record-noheading

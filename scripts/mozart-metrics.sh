@@ -197,6 +197,12 @@ FNR == 1 {
 
 /^## /      { section = trim($0) }
 
+# A sibling that exists wins and the in-file section is not read (lint reports
+# it as a duplicate). Count each such section once per file so a campaign whose
+# in-file rows were dropped says so instead of reading low.
+section == "## Conductor record" && con_sib && !((FILENAME SUBSEP "c") in shadow_seen) { shadow_seen[FILENAME SUBSEP "c"] = 1; sib_shadowing++ }
+section == "## Findings ledger" && led_sib && !((FILENAME SUBSEP "l") in shadow_seen) { shadow_seen[FILENAME SUBSEP "l"] = 1; sib_shadowing++ }
+
 # --- Findings ledger rows: stored per (file, id) for PD13 reversal
 # accounting, which needs to resolve a reversing note against its target
 # WITHIN THE SAME FILE before any totals are tallied -- so all aggregation
@@ -328,6 +334,7 @@ END {
     ca_controlled, ca_total, fact_unverified, fact_total
   printf "  malformed conductor rows skipped (cell count != header): %d\n", cr_malformed
   if (sib_skipped > 0) printf "  sibling files skipped (no section heading): %d\n", sib_skipped
+  if (sib_shadowing > 0) printf "  sibling files shadowing an in-file section (in-file rows ignored): %d\n", sib_shadowing
   if (d == 0) {
     printf "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)\n"
   } else {
