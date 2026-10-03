@@ -140,8 +140,11 @@ report "V0b_no_mirrored_gate" "$(eq "$gatevar_hits" 0)" \
 # ---------------------------------------------------------------------------
 
 # Scope derived: the field list comes from the state-file template, not a list.
+# The template is agents/TEMPLATE-STATE.md (phase 3 of 2026-10-03-deliver-eval-
+# efficiency-fixes moved it out of agents/STATE.md). A missing template yields an
+# empty list, and the floors below turn that into a FAIL, not a quiet pass.
 v1_fields=$(awk '/^\*\*Last updated\*\*/{f=1} f && /^\*\*[A-Z]/{gsub(/^\*\*/,"");sub(/\*\*.*/,"");print} f && /^## Tickets/{exit}' \
-  agents/STATE.md | sort -u)
+  agents/TEMPLATE-STATE.md | sort -u)
 v1_alt=$(printf '%s\n' "$v1_fields" | paste -sd'|' -)
 
 # Control on the derivation itself. Every other derived scope in this file has
@@ -190,7 +193,7 @@ report "V1_flagmix" "$(eq "$v1_ell/$v1_bigell" "6/1")" "-lE/-LE = $v1_ell/$v1_bi
 # behavioural half: each pattern must match the template's bold form AND the
 # legacy bare form, must not match a different enum value, and its value must
 # be a member of the template's declared enum.
-v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/STATE.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
+v1_enum=$(grep -m1 -E '^\*\*Status\*\*: ' agents/TEMPLATE-STATE.md | sed -E 's/^\*\*Status\*\*: //; s/ *\| */ /g')
 v1_bad=""
 v1_corpus=$(mktemp -d)
 while IFS= read -r gpat; do
@@ -1711,6 +1714,15 @@ v13_check "$gate_root/agents/STATE.md" "### Directory convention" "$L3" "decisio
 v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "decisions.md" "PIPELINE Output paths / decisions.md"
 v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "decisions.md" "commands 6. Maintain all artifacts / decisions.md"
 v13_check "$gate_root/README.md" "## What's in the box" "$L2" "decisions.md" "README What's in the box / decisions.md"
+# (a2) the split layout's two sibling files at the same five sites. Dot-prefixed so a
+# stray `ledger.md` substring elsewhere in the section cannot satisfy it.
+for v13_sib in .ledger.md .conductor.md; do
+  v13_check "$gate_root/agents/WORKTREES.md" "### Per-campaign artifacts" "$L3" "$v13_sib" "WORKTREES Per-campaign artifacts / $v13_sib"
+  v13_check "$gate_root/agents/STATE.md" "### Directory convention" "$L3" "$v13_sib" "STATE Directory convention / $v13_sib"
+  v13_check "$gate_root/agents/PIPELINE.md" "## Output paths" "$L2" "$v13_sib" "PIPELINE Output paths / $v13_sib"
+  v13_check "$gate_root/commands/mozart.md" "### 6. Maintain all artifacts" "$L3" "$v13_sib" "commands 6. Maintain all artifacts / $v13_sib"
+  v13_check "$gate_root/README.md" "## What's in the box" "$L2" "$v13_sib" "README What's in the box / $v13_sib"
+done
 
 # (d) manifest across the nine OPERATE/INCIDENT sections
 v13_check "$gate_root/agents/OPERATE.md" "### 3. Change plan (otto)" "$L3" "manifest" "OPERATE Change plan / manifest"
@@ -1748,7 +1760,7 @@ v13_sites=$((v13_sites + 1))
 v13_deleted_note_n=$(grep -rlF 'An unattended run needs a decision log' "$gate_root"/agents/*.md 2>/dev/null | grep -c .)
 [ "$v13_deleted_note_n" -eq 0 ] || v13_bad="$v13_bad [deleted field note title still present in $v13_deleted_note_n agents/*.md file(s)]"
 
-[ "$v13_sites" -ge 20 ] || v13_bad="$v13_bad [scoped-site population $v13_sites < 20]"
+[ "$v13_sites" -ge 30 ] || v13_bad="$v13_bad [scoped-site population $v13_sites < 30]"
 [ "$v13_named_hank_apply" -eq 1 ] || v13_bad="$v13_bad [named member absent: hank ### 4. Apply / manifest]"
 
 report "V13" "$([ -z "$v13_bad" ] && echo 0 || echo 1)" \
@@ -1861,11 +1873,11 @@ report "V14" "$([ -z "$v14_bad" ] && echo 0 || echo 1)" \
 v15_snipdir="$gate_root/tests/parity/snippets"
 v15_registry=$(cat <<'V15_REGISTRY_EOF'
 S1	agents/mozart.md
-S2	agents/STATE.md
+S2	agents/TEMPLATE-CONDUCTOR.md
 S3	agents/STATE.md
 S4	agents/STATE.md
-S5	agents/STATE.md
-S6	agents/STATE.md
+S5	agents/TEMPLATE-STATE.md
+S6	agents/TEMPLATE-STATE.md
 S7	agents/STATE.md
 S8	agents/OPERATE.md
 S9	agents/OPERATE.md
@@ -1877,7 +1889,7 @@ S14	agents/dick.md
 S15	agents/hank.md
 S16	agents/otto.md
 S17	agents/jackson.md
-S18	agents/STATE.md
+S18	agents/TEMPLATE-STATE.md
 S19	agents/hank.md
 S21	agents/hank.md
 M2	agents/harry.md
@@ -1947,6 +1959,10 @@ v15_only_files=$(comm -13 <(printf '%s\n' "$v15_keys" | uniq) <(printf '%s\n' "$
 [ -z "$v15_only_files" ] || v15_bad="${v15_bad} [snippet file(s) with no registry row, so never checked: ${v15_only_files}]"
 printf '%s\n' "$v15_registry" | grep -qxF "$(printf 'S3\tagents/STATE.md')" \
   || v15_bad="$v15_bad [named member absent from the registry: S3 -> agents/STATE.md]"
+for v15_nm in "S2	agents/TEMPLATE-CONDUCTOR.md" "S5	agents/TEMPLATE-STATE.md" "S6	agents/TEMPLATE-STATE.md" "S18	agents/TEMPLATE-STATE.md"; do
+  printf '%s\n' "$v15_registry" | grep -qxF "$v15_nm" \
+    || v15_bad="$v15_bad [named member absent from the registry: $(printf '%s' "$v15_nm" | tr '\t' ' ')]"
+done
 
 v15_checked=0
 while IFS=$'\t' read -r v15_snip v15_target; do
@@ -2019,7 +2035,7 @@ agents/DIAGNOSE.md	5500
 agents/EVAL.md	6300
 agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
-agents/STATE.md	53500
+agents/STATE.md	41000
 agents/INTAKE.md	19900
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
@@ -2030,12 +2046,15 @@ agents/hank.md	22300
 agents/dick.md	23490
 agents/otto.md	21700
 agents/nina.md	33750
+agents/TEMPLATE-STATE.md	4300
+agents/TEMPLATE-LEDGER.md	700
+agents/TEMPLATE-CONDUCTOR.md	900
 V16_BUDGETS_EOF
 )
 
 v16_bad=""
 v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
-[ "$v16_rows" -ge 19 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 19 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina]"
+[ "$v16_rows" -ge 22 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 22 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina + 3 TEMPLATE files]"
 printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
 v16_has_row() { # $1 = table, $2 = path: true when the FIRST field equals the path exactly
@@ -2049,6 +2068,19 @@ v16_has_row "$v16_without" agents/DELIVER.md \
 v16_lookalike=$(printf 'docs/agents/DELIVER.md\t62400\n')
 v16_has_row "$v16_lookalike" agents/DELIVER.md \
   && v16_bad="$v16_bad [self-test: docs/agents/DELIVER.md satisfied the exact-field member check]"
+
+# Every template on disk or in the index needs a row, so a sixth template added
+# without a ceiling fails here instead of growing unbudgeted. Derived, with a floor:
+# an empty derivation (no git, no files) would otherwise pass for "all have rows".
+v16_templates=$( { git ls-files 'agents/TEMPLATE-*.md' 2>/dev/null; ls agents/TEMPLATE-*.md 2>/dev/null; } | sort -u)
+v16_ntemplates=$(printf '%s\n' "$v16_templates" | grep -c .)
+[ "$v16_ntemplates" -ge 3 ] || v16_bad="$v16_bad [template population $v16_ntemplates < 3: agents/TEMPLATE-*.md not found]"
+while IFS= read -r v16_t; do
+  [ -n "$v16_t" ] || continue
+  v16_has_row "$v16_budgets" "$v16_t" || v16_bad="$v16_bad [template without a budget row: $v16_t]"
+done < <(printf '%s\n' "$v16_templates")
+v16_has_row "$v16_budgets" agents/TEMPLATE-STATE.md \
+  || v16_bad="$v16_bad [named member absent from the budget table: agents/TEMPLATE-STATE.md]"
 
 v16_checked=0
 v16_sizes=""
@@ -2629,13 +2661,150 @@ report "V30_layout_agreement" "$([ -z "$v32_bad" ] && echo 0 || echo 1)" \
   "${v32_bad:-lint and metrics give the same verdict on one campaign built single-file, split and mixed (each verdict non-empty)}"
 
 # ---------------------------------------------------------------------------
+# V33_templates - a raw copy of each state template is a clean campaign (phase 3)
+#
+# The skeletons moved out of agents/STATE.md into agents/TEMPLATE-*.md, which the
+# conductor copies at intake. Two things can go wrong with that move and neither is
+# visible to a text gate: a template header drifts from what the scripts parse, or a
+# placeholder in a template is counted as a real row or a real declaration. So the
+# test is behavioural: build a campaign from RAW copies, run both scripts, and
+# require that nothing is read from it. The raw copies are built here at gate time,
+# not committed as fixtures, because a committed copy would be a second copy of the
+# template that could drift from the first and keep passing.
+#
+# Two controls show the assertions can fail for the right reason: a conductor
+# header with one column dropped must produce a conductor-row finding, and a
+# Paths declaration that names a real path with no file there must produce a
+# findings-ledger-missing finding. Without them, "no finding" could mean the
+# scripts looked at nothing.
+# ---------------------------------------------------------------------------
+v33_bad=""
+v33_tmp=$(mktemp -d) || { v33_bad="$v33_bad [mktemp failed -- the raw campaigns could not be built]"; v33_tmp=/nonexistent-v33; }
+v33_slug=2099-09-30-deliver-raw
+v33_build() { # $1 = root: raw copies of the three templates in active/
+  mkdir -p "$1/.mozart/plans/active" || return 1
+  cp "$gate_root/agents/TEMPLATE-STATE.md" "$1/.mozart/plans/active/$v33_slug.state.md" || return 1
+  cp "$gate_root/agents/TEMPLATE-LEDGER.md" "$1/.mozart/plans/active/$v33_slug.ledger.md" || return 1
+  cp "$gate_root/agents/TEMPLATE-CONDUCTOR.md" "$1/.mozart/plans/active/$v33_slug.conductor.md" || return 1
+}
+v33_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
+v33_count() { printf '%s\n' "$1" | grep -c "$2" ; }
+v33_raw="$v33_tmp/raw"
+if v33_build "$v33_raw"; then
+  v33_out=$(v33_lint "$v33_raw")
+  printf '%s\n' "$v33_out" | grep -qF "conductor adoption date overridden: 2099-06-01" \
+    || v33_bad="$v33_bad [lint did not run on the raw copies: $(printf '%s' "$v33_out" | head -2 | tr '\n' ' ')]"
+  printf '%s\n' "$v33_out" | grep -qF "$v33_slug.state.md" \
+    || v33_bad="$v33_bad [lint reported nothing about the raw state file at all: the campaign was not read]"
+  [ "$(v33_count "$v33_out" '^LINT \[split-layout\]')" = "0" ] \
+    || v33_bad="$v33_bad [a raw template trio emits split-layout: a placeholder was read as a declaration]"
+  [ "$(v33_count "$v33_out" '^LINT \[conductor-row\]')" = "0" ] \
+    || v33_bad="$v33_bad [a raw template trio emits conductor-row: the template header does not resolve]"
+  v33_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v33_raw" 2>&1; echo "rc=$?")
+  printf '%s\n' "$v33_m" | grep -qxF "rc=2" \
+    || v33_bad="$v33_bad [metrics on the raw trio did not exit 2: $(printf '%s' "$v33_m" | tr '\n' ' ')]"
+  printf '%s\n' "$v33_m" | grep -qF "no findings-ledger data yet" \
+    || v33_bad="$v33_bad [metrics on the raw trio read rows from a template]"
+  # The Tier pipe-list is not a tier: one real finding row makes metrics print its tier line.
+  printf '%s\n' '| F1 | 4-plan-review | bob | High | fixed (plan r2) | x |' >> "$v33_raw/.mozart/plans/active/$v33_slug.ledger.md"
+  v33_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v33_raw" 2>&1)
+  printf '%s\n' "$v33_m" | grep -qxF "Campaigns: 1 (1 UNTIERED)" \
+    || v33_bad="$v33_bad [the template Tier pipe-list was classified as a tier: $(printf '%s' "$v33_m" | grep -m1 '^Campaigns:')]"
+else
+  v33_bad="$v33_bad [the raw trio could not be built -- a template is missing or unreadable]"
+fi
+# Control 1: drop the last column from the conductor header only.
+v33_mut="$v33_tmp/mut1"
+if v33_build "$v33_mut"; then
+  awk '/^\| id \| kind \| claim/ { sub(/ \| written-to \|[ ]*$/, " |") } { print }' \
+    "$gate_root/agents/TEMPLATE-CONDUCTOR.md" > "$v33_mut/.mozart/plans/active/$v33_slug.conductor.md"
+  [ "$(v33_count "$(v33_lint "$v33_mut")" '^LINT \[conductor-row\]')" -ge 1 ] \
+    || v33_bad="$v33_bad [control failed: a conductor header missing a column did not produce conductor-row]"
+fi
+# Control 2: a real declaration with no file behind it.
+v33_mut="$v33_tmp/mut2"
+if v33_build "$v33_mut"; then
+  awk -v p=".mozart/plans/active/$v33_slug.ledger.md" '/^- Findings ledger: / { print "- Findings ledger: " p; next } { print }' \
+    "$gate_root/agents/TEMPLATE-STATE.md" > "$v33_mut/.mozart/plans/active/$v33_slug.state.md"
+  rm -f "$v33_mut/.mozart/plans/active/$v33_slug.ledger.md"
+  v33_l=$(v33_lint "$v33_mut")
+  printf '%s\n' "$v33_l" | grep -F 'LINT [split-layout]' | grep -qF 'findings-ledger-missing' \
+    || v33_bad="$v33_bad [control failed: a real Findings ledger declaration with no file did not produce findings-ledger-missing]"
+fi
+rm -rf "$v33_tmp"
+
+# No duplicate skeleton: the anchors and both table headers each live in exactly one
+# agents/*.md file, and it is the template. A copy left behind in STATE.md would be a
+# second skeleton that drifts, and V15 counts per target so it would not see it.
+v33_only() { # $1 = fixed string, $2 = file that must hold the only copy
+  local files
+  files=$(grep -lF -- "$1" "$gate_root"/agents/*.md 2>/dev/null | sed 's#.*/##' | tr '\n' ' ')
+  [ "$files" = "$2 " ] || v33_bad="$v33_bad [skeleton line '$1' is in: ${files:-nowhere} (want only $2)]"
+}
+v33_only '**Last updated**: <ISO timestamp>' TEMPLATE-STATE.md
+v33_only '| id | stage | lens | severity | disposition | note |' TEMPLATE-LEDGER.md
+v33_only '| id | kind | claim | links | source | control (command -> observed) | written-to |' TEMPLATE-CONDUCTOR.md
+for v33_h in '^## Paths$' '^## Stage progress$' '^## Iteration counters$'; do
+  [ "$(grep -c "$v33_h" "$gate_root/agents/STATE.md")" = "0" ] \
+    || v33_bad="$v33_bad [agents/STATE.md still carries a skeleton heading matching $v33_h]"
+done
+report "V33_templates" "$([ -z "$v33_bad" ] && echo 0 || echo 1)" \
+  "${v33_bad:-raw TEMPLATE-STATE/LEDGER/CONDUCTOR copies: no split-layout, no conductor-row, metrics exit 2, Tier pipe-list not a tier; both controls fire; each skeleton line lives only in its template}"
+
+# ---------------------------------------------------------------------------
+# V33_layout_prose - the split layout is written down once, and the sites that list
+# a campaign's artifacts or the state_md5 key say so (phase 3)
+# ---------------------------------------------------------------------------
+v34_bad=""
+# Closeout covers the siblings, in the two bullets that name state-file artifacts.
+for v34_pat in 'reachable from HEAD' 'Paths block lists the ACTUAL artifact paths'; do
+  v34_line=$(grep -m1 -F -- "$v34_pat" "$gate_root/agents/DELIVER.md")
+  [ -n "$v34_line" ] || { v34_bad="$v34_bad [DELIVER closeout bullet absent: $v34_pat]"; continue; }
+  for v34_sib in .ledger.md .conductor.md; do
+    printf '%s' "$v34_line" | grep -qF -- "$v34_sib" \
+      || v34_bad="$v34_bad [DELIVER closeout bullet '$v34_pat' does not name $v34_sib]"
+  done
+done
+# Resume rule present once; category count word agrees with the list.
+[ "$(grep -c 'never split on resume' "$gate_root/agents/STATE.md")" = "1" ] \
+  || v34_bad="$v34_bad [agents/STATE.md must state 'never split on resume' exactly once]"
+v34_sent=$(grep -m1 -F 'finding categories:' "$gate_root/agents/STATE.md")
+v34_word=$(printf '%s' "$v34_sent" | sed -n 's/.* \([a-z][a-z]*\) finding categories:.*/\1/p')
+case "$v34_word" in fifteen) v34_want=15 ;; sixteen) v34_want=16 ;; seventeen) v34_want=17 ;; eighteen) v34_want=18 ;; *) v34_want=-1 ;; esac
+v34_list=${v34_sent#*finding categories:}
+v34_list=${v34_list%%. \*\**}
+v34_have=$(printf '%s' "$v34_list" | grep -o '`[a-z0-9-]*`' | grep -c .)
+[ "$v34_want" = "$v34_have" ] \
+  || v34_bad="$v34_bad [STATE category sentence says '$v34_word' ($v34_want) but lists $v34_have backticked categories]"
+[ "$v34_word" = "sixteen" ] || v34_bad="$v34_bad [STATE category sentence says '$v34_word', want sixteen after phase 3]"
+printf '%s' "$v34_list" | grep -qF '`split-layout`' || v34_bad="$v34_bad [STATE category sentence omits split-layout]"
+# state_md5: no 'state-file hash' wording left; the order is defined once, in docs/EVAL.md.
+v34_old=$(grep -ciE 'state-file hash' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" | awk -F: '{ s += $NF } END { print s + 0 }')
+[ "$v34_old" = "0" ] || v34_bad="$v34_bad [$v34_old 'state-file hash' line(s) left in agents/EVAL.md and commands/mozart-eval.md]"
+[ "$(grep -c '\.ledger\.md' "$gate_root/docs/EVAL.md")" -ge 1 ] || v34_bad="$v34_bad [docs/EVAL.md does not name .ledger.md]"
+[ "$(grep -c 'in that order' "$gate_root/docs/EVAL.md")" = "1" ] || v34_bad="$v34_bad [docs/EVAL.md must define the state_md5 concatenation order exactly once]"
+for v34_f in agents/EVAL.md commands/mozart-eval.md docs/EVAL.md; do
+  grep -q 'state_md5' "$gate_root/$v34_f" || v34_bad="$v34_bad [$v34_f does not name state_md5]"
+done
+v34_fields=$(grep -ohE 'state_[a-z0-9_]+' "$gate_root/agents/EVAL.md" "$gate_root/commands/mozart-eval.md" "$gate_root/docs/EVAL.md" | sort -u | tr '\n' ' ')
+[ "$v34_fields" = "state_md5 " ] || v34_bad="$v34_bad [state_ field names in the EVAL files: $v34_fields (want only state_md5)]"
+# The bug-report template points at the sibling files.
+grep -F 'state.md' "$gate_root/.github/ISSUE_TEMPLATE/bug_report.md" | grep -qF 'ledger' \
+  || v34_bad="$v34_bad [bug_report.md's state-file line does not mention the ledger sibling]"
+# The lint column list in docs/EVAL.md carries the new category.
+grep -F '| Repo | Total |' "$gate_root/docs/EVAL.md" | grep -qF 'split-layout' \
+  || v34_bad="$v34_bad [docs/EVAL.md lint table has no split-layout column]"
+report "V33_layout_prose" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
+  "${v34_bad:-closeout names both siblings in both bullets; 'never split on resume' once; category sentence says $v34_word and lists $v34_have; no 'state-file hash' wording; state_md5 order defined once; bug-report and lint-table sites updated}"
+
+# ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
 # EXISTS; these prove the pointers into it still RESOLVE, which conservation is
 # structurally blind to. python3 missing is a FAIL, never a skip.
 # ---------------------------------------------------------------------------
 v18_script="$gate_root/scripts/check-manual-bundle.py"
 if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v18_script" ]; then
-  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence V24_docs; do
+  for v18_g in V18_index V19_anchors V20_pointers V21_refs V22_frontmatter V23_absence V24_docs V26_ondemand; do
     report "$v18_g" 1 "scripts/check-manual-bundle.py unavailable (FAIL, not skip)"
   done
 else
@@ -2651,8 +2820,8 @@ else
   done <<EOF_V18
 $v18_out
 EOF_V18
-  [ "$v18_seen" -eq 7 ] || report "V18_population" 1 \
-    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 7"
+  [ "$v18_seen" -eq 8 ] || report "V18_population" 1 \
+    "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 8"
 fi
 
 echo

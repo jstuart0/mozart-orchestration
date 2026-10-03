@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase-6 gates for the carved manual bundle (2026-09-19-deliver-mozart-md-carve).
 
-Six checks that conservation cannot make, because conservation proves text still
+Seven checks that conservation cannot make, because conservation proves text still
 EXISTS and is blind to whether the pointers into it still resolve:
 
   INDEX        agents/INDEX.md names every content destination, marks PIPELINE.md and
@@ -16,6 +16,10 @@ EXISTS and is blind to whether the pointers into it still resolve:
                agent under Claude Code's discovery.
   ABSENCE      Pattern 2 - carve-map.tsv's absence table is populated and every row
                names an idiom and a disposition.
+  ON_DEMAND    (V26) the template files that sit in agents/ beside the manual but are
+               NOT manual members: present, cited by name by the file that uses them,
+               never routed through a D2 pointer, never loaded as agents, listed in both
+               required-file lists, and absent from the persona.
 
 Read-only. Exit 0 iff every check passes.
 """
@@ -45,6 +49,21 @@ WEAK_KNOWN_DANGLING = {
     "Project creation, fallback only",
 }
 
+# Files in agents/ that the manual's own text tells you to copy, not to read as
+# procedure. A new CLASS, not manual members: MANUAL stays 14, so V20 (every member
+# named by a D2 pointer) and V22 (exactly 14 tested) are untouched. Each maps to the
+# one file that cites it by backticked name. Decision 3 of 2026-10-03-deliver-eval-
+# efficiency-fixes: they are never named in the D2 pointer form, because V21 would then
+# look for a heading inside a file that is not in its heading set, and never named in
+# agents/mozart.md, because the persona must not carry a path to a file it does not read.
+ON_DEMAND = {
+    "TEMPLATE-STATE.md": "STATE.md",
+    "TEMPLATE-LEDGER.md": "STATE.md",
+    "TEMPLATE-CONDUCTOR.md": "STATE.md",
+}
+ON_DEMAND_FLOOR = 3          # 5 after phase 6 adds TEMPLATE-FLOW.md and TEMPLATE-REPORT.md
+ON_DEMAND_NAMED = ("TEMPLATE-STATE.md", "STATE.md")
+
 HEAD_RE = re.compile(r"^#{2,6} (.+)$")
 PLEAD_RE = re.compile(r"\*\*[^*]+\*\* — read `[^`]+\.md`")
 FILE_RE  = re.compile(r"`([A-Za-z][A-Za-z0-9/._-]*\.md)`")
@@ -72,6 +91,73 @@ def headings(text):
     return hs
 
 
+def ondemand_problems(texts, od, contrib, wf):
+    """Everything wrong with the on-demand class, given file texts (name -> text).
+
+    Pure over its arguments so the self-test below can run it on mutated copies.
+    `texts` maps an agents/ file name to its text, and must hold every manual file,
+    mozart.md, and each ON_DEMAND file (None when absent)."""
+    bad = []
+    if len(od) < ON_DEMAND_FLOOR:
+        bad.append(f"ON_DEMAND has {len(od)} entr(ies), floor {ON_DEMAND_FLOOR}")
+    if od.get(ON_DEMAND_NAMED[0]) != ON_DEMAND_NAMED[1]:
+        bad.append(f"named member absent: {ON_DEMAND_NAMED[0]} -> {ON_DEMAND_NAMED[1]}")
+    # List parsers carry a population floor: an empty parse of a required-file list
+    # would make every membership test below pass for the wrong reason.
+    tok = re.compile(r"agents/[A-Za-z][A-Za-z0-9-]*\.md")
+    for label, text in (("CONTRIBUTING.md", contrib), ("validate-plugin.yml", wf)):
+        if len(set(tok.findall(text))) < len(MANUAL):
+            bad.append(f"{label}: parsed {len(set(tok.findall(text)))} agents/*.md name(s), floor {len(MANUAL)}")
+    for name, citer in sorted(od.items()):
+        t = texts.get(name)
+        if t is None:
+            bad.append(f"{name} is missing")
+            continue
+        if re.search(r"^name:", t, re.M):
+            bad.append(f"{name} carries `name:` frontmatter (it would register as an agent)")
+        c = texts.get(citer)
+        if c is None or f"`{name}`" not in c:
+            bad.append(f"{name} is not cited by backticked name in {citer}")
+        for label, text in (("CONTRIBUTING.md", contrib), ("validate-plugin.yml", wf)):
+            if f"agents/{name}" not in text:
+                bad.append(f"{label} does not list agents/{name}")
+    persona = texts.get("mozart.md") or ""
+    if "TEMPLATE-" in persona:
+        bad.append("agents/mozart.md names a TEMPLATE- file (the persona must not)")
+    for fname, t in sorted(texts.items()):
+        if not t or fname in od:
+            continue
+        for i, l in enumerate(t.split("\n"), 1):
+            if PLEAD_RE.search(l) and any(n in l for n in od):
+                bad.append(f"{fname}:{i} names an ON_DEMAND file in the D2 pointer form")
+    return bad
+
+
+def ondemand_selftest(texts, od, contrib, wf):
+    """Each mutation must make ondemand_problems report something. Returns the list
+    of mutations that were NOT caught, and the number tried."""
+    def mutate(fn):
+        t = dict(texts)
+        fn(t)
+        return t
+    first = sorted(od)[0]
+    cases = {
+        "persona gains a TEMPLATE- name": lambda t: t.__setitem__("mozart.md", (t["mozart.md"] or "") + " TEMPLATE-STATE.md"),
+        "a template gains name: frontmatter": lambda t: t.__setitem__(first, "name: x\n" + (t[first] or "")),
+        "a manual line uses the D2 pointer form": lambda t: t.__setitem__(
+            "STATE.md", (t["STATE.md"] or "") + f"\n**Foo** \u2014 read `{first}` (*Bar*)\n"),
+        "the citing file stops naming a template": lambda t: t.__setitem__(
+            od[first], (t[od[first]] or "").replace(f"`{first}`", "")),
+    }
+    missed = [n for n, fn in cases.items() if not ondemand_problems(mutate(fn), od, contrib, wf)]
+    # And the lists: a required-file list without a template must be reported.
+    if not ondemand_problems(texts, od, contrib.replace(f"agents/{first}", ""), wf):
+        missed.append("CONTRIBUTING.md stops listing a template")
+    if not ondemand_problems(texts, od, contrib, wf.replace(f"agents/{first}", "")):
+        missed.append("validate-plugin.yml stops listing a template")
+    return missed, len(cases) + 2
+
+
 def main():
     root = pathlib.Path(subprocess.run(["git","rev-parse","--show-toplevel"],
                         capture_output=True, text=True, check=True).stdout.strip())
@@ -84,7 +170,7 @@ def main():
 
     if missing:
         rep("V18_index", False, f"missing bundle files: {sorted(set(missing))}")
-        for n in ("V19_anchors","V20_pointers","V21_refs","V22_frontmatter","V23_absence"):
+        for n in ("V19_anchors","V20_pointers","V21_refs","V22_frontmatter","V23_absence","V24_docs","V26_ondemand"):
             rep(n, False, "bundle incomplete")
         return emit(results)
 
@@ -276,6 +362,21 @@ def main():
     rep("V23_absence", not bad,
         "; ".join(bad) or f"{len(rows)} Pattern-2 absence site(s) (floor 3), each naming a "
         f"known idiom, a non-empty disposition from {DISPOSITIONS}, and a rationale")
+
+    # --- ON_DEMAND (V26) ----------------------------------------------------
+    texts = dict(f)
+    for n in ON_DEMAND:
+        p = root / "agents" / n
+        texts[n] = p.read_text() if p.exists() else None
+    problems = ondemand_problems(texts, ON_DEMAND, contrib, wf)
+    missed, tried = ondemand_selftest(texts, ON_DEMAND, contrib, wf) if not problems else ([], 0)
+    if missed:
+        problems.append(f"self-test: mutation(s) not detected: {missed}")
+    rep("V26_ondemand", not problems,
+        "; ".join(problems) or f"{len(ON_DEMAND)} on-demand file(s) (floor {ON_DEMAND_FLOOR}), named member "
+        f"{ON_DEMAND_NAMED[0]} -> {ON_DEMAND_NAMED[1]}: each exists, has no `name:` frontmatter, is cited by "
+        f"name in its citing file and listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
+        f"and no D2 pointer line names one; {tried} self-test mutations each detected")
 
     return emit(results)
 
