@@ -22,6 +22,16 @@
 # verification); every run that sets it prints the override-visibility line
 # below before any `LINT` line, so an override can never be silent.
 #
+# Check M (split-layout) and the sibling files. A campaign's findings ledger and
+# conductor record may live in files beside the state file instead of inside it
+# (the sibling rule is in lib-campaign.sh). lint_conductor() hands both paths to
+# the awk, which reads them with getline in BEGIN, like the decisions log, and
+# feeds their lines to the SAME row handlers as in-file lines. A sibling wins
+# over an in-file copy of its section; the pair is reported (Check M) and the
+# in-file rows are ignored. Flow, Tier, stage ticks and the change ledger are
+# read from the state file only. Findings are always reported against the state
+# file's path, never a sibling's.
+#
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
 # re-check) — that stays a manual sweep at intake. See agents/STATE.md
 # (*State persistence (crash-resume)*), where probe 5 is defined.
@@ -211,8 +221,97 @@ BEGIN {
   }
 }
 
-# ---- state file (the only file given on the awk command line) -----------
-FNR == 1 {
+# ---- row handlers --------------------------------------------------------
+# Shared by the state file's own lines and by sibling lines, so a row parses the
+# same wherever it lives (escaped pipes, the width guard, header resolution).
+function conductor_line(raw,    n, c, i, rid, id, kind, claim, links, source, control, hdr, n_control) {
+  if (raw ~ /^- exempt:/) { conductor_exempt = trim(raw); return }
+  if (trim(raw) == "" || raw ~ /^## /) return
+  conductor_lines++
+  if (raw !~ /^\|/) return
+  conductor_is_table = 1
+  if (raw ~ /^\|[- |]+\|$/) return  # separator
+  n = split_cells(raw, c)
+  if (cr_header_ok == -1) {
+    cr_ncols = n
+    for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
+    idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
+    n_control = 0
+    for (i = 1; i <= n; i++) {
+      if (hdr[i] == "id") idx_id = i
+      else if (hdr[i] == "kind") idx_kind = i
+      else if (hdr[i] == "claim") idx_claim = i
+      else if (hdr[i] == "links") idx_links = i
+      else if (hdr[i] == "source") idx_source = i
+      else if (hdr[i] ~ /^control/) { idx_control = i; n_control++ }
+      else if (hdr[i] == "written-to") idx_written = i
+    }
+    # "control" is the one column resolved by prefix rather than exact
+    # name, so it is the one that can silently resolve twice if a header
+    # carries two control-prefixed columns; treat that as unresolved
+    # rather than quietly keeping the last match.
+    if (n_control > 1) idx_control = 0
+    cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
+    return
+  }
+  if (cr_header_ok == 0) return
+  # F48: a row whose width does not match the header's is shifted, so every
+  # cell index past the break addresses the wrong column. Report the row and
+  # skip it -- reading `control` out of a shifted row is how an empty control
+  # was accepted as filled.
+  # RECORDED, not emitted here: every Check K finding is gated on PD1's
+  # adoption boundary in END, and an emit from inside a record rule would
+  # bypass it -- flagging a pre-adoption file this check is not allowed to
+  # touch. Same reason Check L's cl_bad[] is deferred.
+  if (n != cr_ncols) {
+    rid = (n >= 2) ? trim(c[2]) : ""
+    if (rid == "") rid = "row"
+    cr_width_bad[rid] = "row has " (n - 1) " cells, header has " (cr_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
+    return
+  }
+  ncr++
+  id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
+  links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
+  cr_kind[id] = kind; cr_claim[id] = claim; cr_links[id] = links
+  cr_source[id] = source; cr_control[id] = control
+  cr_id_known[id] = 1
+  cr_placeholder[id] = (is_placeholder(claim) || is_placeholder(links)) ? 1 : 0
+}
+
+function findings_row(raw,    n, c, fid, fnote, fdisp) {
+  if (raw !~ /^\|/) return
+  if (raw ~ /\| *id *\|/) return
+  if (raw ~ /^\|[- |]+\|$/) return
+  # F48 residual, stated plainly: this table is read POSITIONALLY (no header
+  # resolution), so there is no width to compare a row against. `\|` is
+  # honoured; an unescaped pipe in a note cell still shifts this read. The
+  # conductor and change-ledger tables, which carry the checked claims, are
+  # width-guarded above.
+  n = split_cells(raw, c)
+  if (n < 7) return
+  fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
+  if (fid == "") return
+  f_id_known[fid] = 1
+  f_disp[fid] = fdisp
+  f_note[fid] = fnote
+}
+
+# True when a ## Paths line really declares a path: a <...> placeholder, "n/a"
+# and an empty value do not.
+function declares_path(line,    v) {
+  v = line
+  sub(/^- [^:]*:[ \t]*/, "", v)
+  gsub(/`/, "", v)
+  v = trim(v)
+  return !(v == "" || is_placeholder(v) || tolower(v) == "n/a")
+}
+
+# ---- sibling files, read via getline like the decisions log: not ARGV files
+# (the FNR==NR idiom and per-file resets break when a file has zero lines), and
+# nothing here depends on NR or FNR. State is initialised here, once, rather
+# than on the state file's first line, so lines loaded from a sibling survive
+# and a zero-byte state file still reaches END with its siblings read. --------
+BEGIN {
   section = ""
   flow = ""
   in_conductor = 0; conductor_lines = 0; conductor_is_table = 0; conductor_exempt = ""
@@ -220,14 +319,21 @@ FNR == 1 {
   ncr = 0
   in_change = 0; cl_header_ok = -1; ncl = 0
   in_findings = 0; nf = 0
+  in_paths = 0
   incident_stage3 = 0
-  delete ticked
-  delete cr_kind; delete cr_claim; delete cr_links; delete cr_source; delete cr_control
-  delete cr_placeholder; delete cr_id_known; delete cr_width_bad
-  delete cl_manifest; delete cl_id_known
-  delete f_disp; delete f_note; delete f_id_known
+  infile_conductor = 0; infile_findings = 0
+  declared_ledger = 0; declared_conductor = 0
+
+  led_st = load_sibling(ledger_file, "## Findings ledger", led_lines)
+  led_used = (led_st == "ok" || led_st == "stray")
+  if (led_used) for (i = 1; i <= led_lines[0]; i++) findings_row(led_lines[i])
+
+  con_st = load_sibling(conductor_file, "## Conductor record", con_lines)
+  con_used = (con_st == "ok" || con_st == "stray")
+  if (con_used) for (i = 1; i <= con_lines[0]; i++) conductor_line(con_lines[i])
 }
 
+# ---- state file (the only file given on the awk command line) -----------
 {
   raw = $0
   gsub(/\r/, "", raw)
@@ -238,8 +344,15 @@ raw ~ /^## / {
   in_conductor = (section == "## Conductor record")
   in_change = (section ~ /^## Change ledger/)
   in_findings = (section == "## Findings ledger")
+  in_paths = (section ~ /^## Paths/)
+  if (in_conductor) infile_conductor = 1
+  if (in_findings) infile_findings = 1
   next
 }
+
+# Check M input: the two declarations in ## Paths.
+in_paths && raw ~ /^- Findings ledger:/ { if (declares_path(raw)) declared_ledger = 1 }
+in_paths && raw ~ /^- Conductor record:/ { if (declares_path(raw)) declared_conductor = 1 }
 
 # F40: **Flow**: is not always the line's own field -- a combined header
 # ("**Shape**: ... | **Tier**: ... | **Flow**: OPERATE-FULL") puts it after
@@ -272,64 +385,11 @@ raw ~ /^- \[x\] Phase [0-9]+[a-z]?:/ {
   ticked["P" k] = 1
 }
 
-# ---- Conductor record section -------------------------------------------
-in_conductor && raw ~ /^- exempt:/ {
-  conductor_exempt = trim(raw)
-  next
-}
-
-in_conductor && trim(raw) != "" && raw !~ /^## / {
-  conductor_lines++
-  if (raw ~ /^\|/) {
-    conductor_is_table = 1
-    if (raw ~ /^\|[- |]+\|$/) next  # separator
-    n = split_cells(raw, c)
-    if (cr_header_ok == -1) {
-      cr_ncols = n
-      for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
-      idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
-      n_control = 0
-      for (i = 1; i <= n; i++) {
-        if (hdr[i] == "id") idx_id = i
-        else if (hdr[i] == "kind") idx_kind = i
-        else if (hdr[i] == "claim") idx_claim = i
-        else if (hdr[i] == "links") idx_links = i
-        else if (hdr[i] == "source") idx_source = i
-        else if (hdr[i] ~ /^control/) { idx_control = i; n_control++ }
-        else if (hdr[i] == "written-to") idx_written = i
-      }
-      # "control" is the one column resolved by prefix rather than exact
-      # name, so it is the one that can silently resolve twice if a header
-      # carries two control-prefixed columns; treat that as unresolved
-      # rather than quietly keeping the last match.
-      if (n_control > 1) idx_control = 0
-      cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
-      next
-    }
-    if (cr_header_ok == 0) next
-    # F48: a row whose width does not match the header's is shifted, so every
-    # cell index past the break addresses the wrong column. Report the row and
-    # skip it -- reading `control` out of a shifted row is how an empty control
-    # was accepted as filled.
-    # RECORDED, not emitted here: every Check K finding is gated on PD1's
-    # adoption boundary in END, and an emit from inside a record rule would
-    # bypass it -- flagging a pre-adoption file this check is not allowed to
-    # touch. Same reason Check L's cl_bad[] is deferred.
-    if (n != cr_ncols) {
-      rid = (n >= 2) ? trim(c[2]) : ""
-      if (rid == "") rid = "row"
-      cr_width_bad[rid] = "row has " (n - 1) " cells, header has " (cr_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
-      next
-    }
-    ncr++
-    id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
-    links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
-    cr_kind[id] = kind; cr_claim[id] = claim; cr_links[id] = links
-    cr_source[id] = source; cr_control[id] = control
-    cr_id_known[id] = 1
-    cr_placeholder[id] = (is_placeholder(claim) || is_placeholder(links)) ? 1 : 0
-  }
-}
+# ---- Conductor record and Findings ledger sections ------------------------
+# A section that has a sibling is read from the sibling; the in-file copy is
+# ignored (and reported by Check M in END).
+in_conductor && !con_used { conductor_line(raw); next }
+in_findings && !led_used { findings_row(raw); next }
 
 # ---- Change ledger section (Check L) -------------------------------------
 in_change && raw ~ /^\|/ {
@@ -403,26 +463,26 @@ in_change && raw ~ /^\|/ {
   }
 }
 
-# ---- Findings ledger section ----------------------------------------------
-in_findings && raw ~ /^\|/ {
-  if (raw ~ /\| *id *\|/) next
-  if (raw ~ /^\|[- |]+\|$/) next
-  # F48 residual, stated plainly: this table is read POSITIONALLY (no header
-  # resolution), so there is no width to compare a row against. `\|` is
-  # honoured; an unescaped pipe in a note cell still shifts this read. The
-  # conductor and change-ledger tables, which carry the checked claims, are
-  # width-guarded above.
-  n = split_cells(raw, c)
-  if (n < 7) next
-  fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
-  if (fid == "") next
-  f_id_known[fid] = 1
-  f_disp[fid] = fdisp
-  f_note[fid] = fnote
-}
-
 END {
   family = flow_family(flow)
+
+  # ---- Check M: split-layout. Not adoption-gated: a sibling that is missing,
+  # headingless or duplicated is wrong whenever the campaign was started, and
+  # none of these says anything about the conductor record's CONTENT. "Missing"
+  # tests the sibling DERIVED beside the state file (ledger_file/conductor_file
+  # come from the library's rule), never the path string Paths declares. ------
+  if (led_st == "noheading" || led_st == "stray")
+    emit("split-layout", "findings-ledger-noheading", "sibling ledger file has content outside a ## Findings ledger section (no such heading, or text ahead of it); that text is not read")
+  if (con_st == "noheading" || con_st == "stray")
+    emit("split-layout", "conductor-record-noheading", "sibling conductor file has content outside a ## Conductor record section (no such heading, or text ahead of it); that text is not read")
+  if (led_used && infile_findings)
+    emit("split-layout", "findings-ledger-duplicate", "## Findings ledger is in the state file and in the sibling ledger file; the sibling is read and the in-file section is ignored")
+  if (con_used && infile_conductor)
+    emit("split-layout", "conductor-record-duplicate", "## Conductor record is in the state file and in the sibling conductor file; the sibling is read and the in-file section is ignored")
+  if (declared_ledger && led_st == "missing")
+    emit("split-layout", "findings-ledger-missing", "Paths declares a findings ledger but the sibling ledger file beside the state file does not exist")
+  if (declared_conductor && con_st == "missing")
+    emit("split-layout", "conductor-record-missing", "Paths declares a conductor record but the sibling conductor file beside the state file does not exist")
 
   # ---- conductor-missing / exemption -------------------------------------
   # PD1 has TWO limbs: a campaign whose slug date is on or after the adoption
@@ -449,7 +509,9 @@ END {
   exempt_is_sole = (conductor_exempt != "" && conductor_lines == 0)
   if (post_by_date) {
     if (!header_present) {
-      emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
+      # One cause, one line: a conductor sibling with content but no heading
+      # has already been reported above, and is not also "missing".
+      if (con_st != "noheading") emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
       exit
     }
     if (exempt_is_sole && conductor_exempt != "- exempt: pre-adoption persona") {
@@ -588,7 +650,7 @@ CONDUCTOR_AWK_EOF
 
 lint_conductor() {
   local PLANS="$1"
-  local f slug slug_date slug_date_src dec cat key msg conductor_out
+  local f slug slug_date slug_date_src dec ledger_sib conductor_sib cat key msg conductor_out
   # F47: the legacy prefixless flat glob belongs here for the same reason it
   # belongs on C/D — the adoption gate is read from the SLUG DATE, not the
   # path, so a flat file classifies itself and a pre-adoption one exits early
@@ -612,6 +674,8 @@ lint_conductor() {
     [ -z "$slug_date" ] && slug_date="0000-00-00"
     dec="${f%.state.md}.decisions.md"
     [ -f "$dec" ] || dec=""
+    ledger_sib=$(campaign_sibling "$f" ledger)
+    conductor_sib=$(campaign_sibling "$f" conductor)
     # The awk runs to completion before any finding is emitted, so a program
     # that does not parse (a function defined twice, say) is an exit 3 here
     # and not an empty process substitution that lints clean.
@@ -623,6 +687,8 @@ lint_conductor() {
                   -v flows_operate="$CONDUCTOR_FLOWS_OPERATE" \
                   -v flows_incident="$CONDUCTOR_FLOWS_INCIDENT" \
                   -v decisions_file="$dec" \
+                  -v ledger_file="$ledger_sib" \
+                  -v conductor_file="$conductor_sib" \
                   "$CAMPAIGN_AWK_LIB"$'\n'"$CONDUCTOR_AWK" "$f") || {
       echo "mozart-lint: awk failed on $f" >&2
       exit 3

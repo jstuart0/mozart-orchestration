@@ -13,6 +13,15 @@
 # with zero catches might have a bad trigger, or might guard a path this
 # repo never exercises. Analysts decide; the script counts.
 #
+# A campaign's findings ledger and conductor record may live in files beside its
+# state file instead of inside it (the sibling rule is in lib-campaign.sh).
+# FILES stays the list of STATE files: at each state file's first line the awk
+# derives and reads its siblings with getline, feeds their lines to the same
+# row handlers as in-file lines, and keys every tally by the state file. A
+# sibling wins over an in-file copy of its section. A sibling with no state
+# file beside it is not a campaign and is never read. Tier, escapes and the
+# stage lists come from the state file only.
+#
 # Usage: mozart-metrics.sh [repo-root]     (default: current directory)
 # Exit:  0 = table printed, 2 = no state files / no ledger data found
 #
@@ -87,10 +96,81 @@ awk -v no_data_rc="$NO_DATA_RC" "$CAMPAIGN_AWK_LIB"'
 # of the line (`|` header and separator rows), which a trailing CR defeats.
 { sub(/\r$/, "") }
 
+# ---- row handlers, shared by in-file lines and sibling lines ----------------
+function ledger_row(line,    n, c, note, fid, stage, lens, sev, disp, key) {
+  if (line !~ /^\|/) return
+  if (line ~ /\| *id *\|/) return          # header
+  if (line ~ /^\|[- |]+\|$/) return        # separator
+  # Positional read, so there is no header width to compare against; `\|` is
+  # honoured, an unescaped pipe in a note cell still shifts it. Same residual
+  # the linter states at its own findings-ledger rule.
+  n = split_cells(line, c)
+  if (n < 7) return
+  note = trim(c[7])
+  if (note ~ /^<[^<>]*>$/) return          # template placeholder row: note cell wholly <...>
+  fid = trim(c[2]); stage = trim(c[3]); lens = trim(c[4]); sev = trim(c[5]); disp = trim(c[6])
+  if (stage == "" || sev == "") return
+  key = FILENAME SUBSEP fid
+  f_stage[key] = stage; f_lens[key] = lens; f_sev[key] = sev; f_disp[key] = disp; f_note[key] = note
+  f_file[key] = FILENAME
+  f_order[++f_n] = key
+}
+
+function conductor_line(line,    n, c, i, h, kind, ctl, src) {
+  if (line ~ /^- exempt:/) {
+    if (trim(line) == "- exempt: pre-adoption persona") exempt[FILENAME] = 1
+    return
+  }
+  if (line !~ /^\|/) return
+  if (line ~ /^\|[- |]+\|$/) return
+  n = split_cells(line, c)
+  if (!(FILENAME in cr_hdr_seen)) {
+    cr_ncols[FILENAME] = n
+    for (i = 1; i <= n; i++) {
+      h = normhdr(c[i])
+      if (h == "kind") idx_kind[FILENAME] = i
+      else if (h == "source") idx_source[FILENAME] = i
+      else if (h ~ /^control/) idx_control[FILENAME] = i
+    }
+    cr_hdr_seen[FILENAME] = 1
+    return
+  }
+  if (!(FILENAME in idx_kind) || !(FILENAME in idx_control) || !(FILENAME in idx_source)) return
+  # F48: a shifted row addresses the wrong columns. Do not tally it -- but do
+  # not drop it silently either: the count is printed in the conductor section
+  # so a corpus that stopped being countable says so instead of reading low.
+  if (n != cr_ncols[FILENAME]) { cr_malformed++; return }
+  kind = trim(c[idx_kind[FILENAME]])
+  ctl = trim(c[idx_control[FILENAME]])
+  src = trim(c[idx_source[FILENAME]])
+  if (kind == "check" || kind == "adjudication") {
+    ca_total++
+    if (kind == "check") kind_check++; else kind_adj++
+    if (ctl != "" && !is_placeholder(ctl)) ca_controlled++
+  } else if (kind == "fact") {
+    fact_total++
+    if (ctl == "" && tolower(src) ~ /unverified/) fact_unverified++
+  }
+}
+
 FNR == 1 {
   campaigns++
   tier[FILENAME] = "UNTIERED"
   section = ""
+  led_sib = 0; con_sib = 0
+  st = load_sibling(campaign_sibling_awk(FILENAME, "ledger"), "## Findings ledger", sib)
+  if (st == "noheading") sib_skipped++
+  if (st == "ok" || st == "stray") {
+    led_sib = 1
+    for (i = 1; i <= sib[0]; i++) ledger_row(sib[i])
+  }
+  st = load_sibling(campaign_sibling_awk(FILENAME, "conductor"), "## Conductor record", sib)
+  if (st == "noheading") sib_skipped++
+  if (st == "ok" || st == "stray") {
+    con_sib = 1
+    has_conductor[FILENAME] = 1
+    for (i = 1; i <= sib[0]; i++) conductor_line(sib[i])
+  }
 }
 
 # F40: the Tier field is not always the whole line -- a combined header
@@ -121,24 +201,7 @@ FNR == 1 {
 # accounting, which needs to resolve a reversing note against its target
 # WITHIN THE SAME FILE before any totals are tallied -- so all aggregation
 # moves to END, after every file has been read. ----------------------------
-section == "## Findings ledger" && /^\|/ {
-  line = $0
-  if (line ~ /\| *id *\|/) next          # header
-  if (line ~ /^\|[- |]+\|$/) next        # separator
-  # Positional read, so there is no header width to compare against; `\|` is
-  # honoured, an unescaped pipe in a note cell still shifts it. Same residual
-  # the linter states at its own findings-ledger rule.
-  n = split_cells(line, c)
-  if (n < 7) next
-  note = trim(c[7])
-  if (note ~ /^<[^<>]*>$/) next          # template placeholder row: note cell wholly <...>
-  fid = trim(c[2]); stage = trim(c[3]); lens = trim(c[4]); sev = trim(c[5]); disp = trim(c[6])
-  if (stage == "" || sev == "") next
-  key = FILENAME SUBSEP fid
-  f_stage[key] = stage; f_lens[key] = lens; f_sev[key] = sev; f_disp[key] = disp; f_note[key] = note
-  f_file[key] = FILENAME
-  f_order[++f_n] = key
-}
+section == "## Findings ledger" && !led_sib { ledger_row($0) }
 
 # --- Escapes ---------------------------------------------------------------
 section == "## Escapes" && /Traces-to:/ {
@@ -151,43 +214,9 @@ section == "## Escapes" && /Traces-to:/ {
 
 # --- Conductor record rows (PD9/PD11), parsed by header name so a bold or
 # backtick-quoted header still resolves -------------------------------------
-section == "## Conductor record" {
+section == "## Conductor record" && !con_sib {
   has_conductor[FILENAME] = 1
-}
-section == "## Conductor record" && /^- exempt:/ {
-  if (trim($0) == "- exempt: pre-adoption persona") exempt[FILENAME] = 1
-}
-section == "## Conductor record" && /^\|/ {
-  line = $0
-  if (line ~ /^\|[- |]+\|$/) next
-  n = split_cells(line, c)
-  if (!(FILENAME in cr_hdr_seen)) {
-    cr_ncols[FILENAME] = n
-    for (i = 1; i <= n; i++) {
-      h = normhdr(c[i])
-      if (h == "kind") idx_kind[FILENAME] = i
-      else if (h == "source") idx_source[FILENAME] = i
-      else if (h ~ /^control/) idx_control[FILENAME] = i
-    }
-    cr_hdr_seen[FILENAME] = 1
-    next
-  }
-  if (!(FILENAME in idx_kind) || !(FILENAME in idx_control) || !(FILENAME in idx_source)) next
-  # F48: a shifted row addresses the wrong columns. Do not tally it -- but do
-  # not drop it silently either: the count is printed in the conductor section
-  # so a corpus that stopped being countable says so instead of reading low.
-  if (n != cr_ncols[FILENAME]) { cr_malformed++; next }
-  kind = trim(c[idx_kind[FILENAME]])
-  ctl = trim(c[idx_control[FILENAME]])
-  src = trim(c[idx_source[FILENAME]])
-  if (kind == "check" || kind == "adjudication") {
-    ca_total++
-    if (kind == "check") kind_check++; else kind_adj++
-    if (ctl != "" && !is_placeholder(ctl)) ca_controlled++
-  } else if (kind == "fact") {
-    fact_total++
-    if (ctl == "" && tolower(src) ~ /unverified/) fact_unverified++
-  }
+  conductor_line($0)
 }
 
 END {
@@ -298,6 +327,7 @@ END {
   printf "  controlled check/adjudication rows: %d of %d; unverified facts: %d of %d\n", \
     ca_controlled, ca_total, fact_unverified, fact_total
   printf "  malformed conductor rows skipped (cell count != header): %d\n", cr_malformed
+  if (sib_skipped > 0) printf "  sibling files skipped (no section heading): %d\n", sib_skipped
   if (d == 0) {
     printf "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)\n"
   } else {

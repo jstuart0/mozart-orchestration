@@ -1394,7 +1394,9 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-unlinked\t2099-09-18-deliver-split-crlf\tF2')" \
     "$(printf 'conductor-unlinked\t2099-09-19-deliver-split-quoted\t5')" \
     "$(printf 'conductor-unlinked\t2099-05-25-deliver-split-preadopted\t9')" \
-    "$(printf 'conductor-unlinked\t2099-09-20-deliver-zerostate\tF2')"
+    "$(printf 'conductor-unlinked\t2099-09-20-deliver-zerostate\tF2')" \
+    "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-noheading')" \
+    "$(printf 'conductor-unlinked\t2099-09-25-deliver-split-noheadinfile\tF2')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1423,6 +1425,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     && arm_bad="$arm_bad [named-absent member present: Check M fired on pathsstale, whose derived sibling exists]"
   printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-unlinked\t2099-09-05-deliver-split-dupledger\tF2')" \
     && arm_bad="$arm_bad [named-absent member present: the in-file rejected row of dupledger was read though the sibling wins]"
+  printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-duplicate')" \
+    && arm_bad="$arm_bad [named-absent member present: a headingless ledger sibling was treated as usable and reported as a duplicate of the in-file section]"
   printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-missing\t2099-09-08-deliver-split-conductornohead\t-')" \
     && arm_bad="$arm_bad [named-absent member present: a headingless conductor sibling also yielded conductor-missing (one cause, one line)]"
   printf '%s\n' "$ov_triples" | grep -qxF "$(printf 'conductor-row\t2099-09-18-deliver-split-crlf\tCR1')" \
@@ -1511,9 +1515,9 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 77 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 77]"
-[ "$v11_ledger_floor" -ge 15 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 15]"
-[ "$v11_conductor_floor" -ge 23 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 23]"
+[ "$v11_floor" -ge 78 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 78]"
+[ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
+[ "$v11_conductor_floor" -ge 24 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 24]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 # Self-test: the widened comparison can fail. An ignored file planted in a
@@ -1628,7 +1632,7 @@ v10b_run_case() { # $1=case name, $2=floor, extra named members follow as $3..
     # checked on its own. Present: the seven layouts and the split, mixed and
     # single-file campaigns. Absent: everything that must not be read.
     lens_line=$(printf '%s\n' "$out" | grep '^  by lens:')
-    for tok in bob ruby tessa percy xander ian dexter hank nina jackson scott sarah; do
+    for tok in bob ruby tessa percy xander ian dexter hank nina jackson scott sarah infile; do
       printf '%s' "$lens_line" | grep -qE "(^| )$tok=1( |$)" || v10b_bad="$v10b_bad [metrics-split catches-by-lens token absent: $tok=1]"
     done
     for tok in shadow orphan zerostate nohead otto; do
@@ -1650,9 +1654,9 @@ v10b_run_case "metrics-conductor" 6 \
 v10b_run_case "metrics-vacuity" 1 \
   "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)"
 v10b_run_case "metrics-split" 15 \
-  "Campaigns: 15 (15 STANDARD)" \
-  "Confirmed catches (Critical/High, disposition=fixed): 12" \
-  "  sibling files skipped (no section heading): 2" \
+  "Campaigns: 16 (16 STANDARD)" \
+  "Confirmed catches (Critical/High, disposition=fixed): 13" \
+  "  sibling files skipped (no section heading): 3" \
   "Wrong-override rate: 1/1 rejected findings later reversed (100%)"
 
 report "V10b" "$([ -z "$v10b_bad" ] && echo 0 || echo 1)" \
@@ -2538,6 +2542,75 @@ printf '%s\n' "# x=\"\${f%.ledger.md}\"" > "$v30_tmp/plant-comment.sh"
 rm -rf "$v30_tmp"
 report "V30_lib" "$([ -z "$v30_bad" ] && echo 0 || echo 1)" \
   "${v30_bad:-library absent/empty exit 3 ($v30_runs runs), cwd/spaced paths, CRLF metrics equals LF, duplicate function not a clean run, sibling spellings agree, lint has $v30_lint_strips allow-listed .state.md strips, metrics $v30_metrics_strips}"
+
+# ---------------------------------------------------------------------------
+# V30_layout_agreement - one campaign, three layouts, one verdict (phase 2b)
+#
+# The same campaign is built three ways (everything in the state file; ledger
+# and conductor record in sibling files; ledger in the state file and conductor
+# record in a sibling) and run through lint and metrics. Each script must give
+# the same answer in all three layouts, and the answer must not be empty: a
+# layout the scripts silently failed to read would otherwise agree with itself
+# by reading nothing. The sibling rule exists in two spellings (shell for lint,
+# awk for metrics); this is the behavioural test that they point at the same file.
+# ---------------------------------------------------------------------------
+v32_bad=""
+v32_tmp=$(mktemp -d) || { v32_bad="$v32_bad [mktemp failed -- the layouts could not be built]"; v32_tmp=/nonexistent-v32; }
+v32_slug=2099-09-30-deliver-agree
+v32_cond=$(cat <<'V32_COND_EOF'
+## Conductor record
+| id | kind | claim | links | source | control (command -> observed) | written-to |
+|----|------|-------|-------|--------|-------------------------------|------------|
+| CR1 | check | codex on diff raised nothing open | 9 | bash t.sh 2026-09-01T00:00Z | bash t.sh -> exit 0 | n/a |
+| CR2 | adjudication | bob's F1 does not reproduce | F1 | bash repro.sh 2026-09-01T00:05Z | bash repro.sh -> no repro | n/a |
+| CR3 | fact | the upstream API is unversioned | - | doc unverified |  | n/a |
+V32_COND_EOF
+)
+v32_led=$(cat <<'V32_LED_EOF'
+## Findings ledger
+| id | stage | lens | severity | disposition | note |
+|----|-------|------|----------|-------------|------|
+| F1 | 4-plan-review | bob | Medium | rejected | claim does not reproduce |
+| F2 | 9-codex-r2 | hank | High | fixed (def5678) | reverses F1 - a third source showed it |
+| F3 | 4-plan-review | ruby | Medium | rejected | no adjudication row |
+V32_LED_EOF
+)
+v32_head() { printf '%s\n' "# Pipeline state: $v32_slug" '' '**Last updated**: 2026-09-17T00:00Z' \
+  '**Status**: CAMPAIGN COMPLETE — SHIPPED' '**Flow**: FULL' '**Tier**: STANDARD' '**Context**: BROWNFIELD' \
+  '**Mode**: AUTONOMOUS' '' '## Stage progress' '- [x] 2b. Constraints — skipped: no trigger' \
+  '- [x] 9. Codex on diff — 2026-09-02T00:00Z'; }
+for v32_layout in single split mixed; do
+  v32_dir="$v32_tmp/$v32_layout/.mozart/plans/finished"
+  mkdir -p "$v32_dir" || v32_bad="$v32_bad [mkdir failed]"
+  case "$v32_layout" in
+    single) { v32_head; printf '\n%s\n\n%s\n' "$v32_cond" "$v32_led"; } > "$v32_dir/$v32_slug.state.md" ;;
+    split)  v32_head > "$v32_dir/$v32_slug.state.md"
+            printf '# Conductor record\n\n%s\n' "$v32_cond" > "$v32_dir/$v32_slug.conductor.md"
+            printf '# Findings ledger\n\n%s\n' "$v32_led" > "$v32_dir/$v32_slug.ledger.md" ;;
+    mixed)  { v32_head; printf '\n%s\n' "$v32_led"; } > "$v32_dir/$v32_slug.state.md"
+            printf '# Conductor record\n\n%s\n' "$v32_cond" > "$v32_dir/$v32_slug.conductor.md" ;;
+  esac
+done
+v32_ref_lint=""; v32_ref_metrics=""
+for v32_layout in single split mixed; do
+  v32_l=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v32_tmp/$v32_layout" 2>&1 | sed "s|$v32_tmp/$v32_layout||g"; echo "rc=${PIPESTATUS[0]}")
+  v32_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v32_tmp/$v32_layout" 2>&1; echo "rc=$?")
+  if [ "$v32_layout" = single ]; then
+    v32_ref_lint=$v32_l; v32_ref_metrics=$v32_m
+    printf '%s\n' "$v32_l" | grep -qF "conductor-unlinked" && printf '%s\n' "$v32_l" | grep -qF "— F3:" \
+      || v32_bad="$v32_bad [single-file reference lint run did not report the unadjudicated F3: $(printf '%s' "$v32_l" | head -3)]"
+    printf '%s\n' "$v32_m" | grep -qxF "Wrong-override rate: 1/2 rejected findings later reversed (50%)" \
+      || v32_bad="$v32_bad [single-file reference metrics run lacks the wrong-override line]"
+    printf '%s\n' "$v32_m" | grep -qxF "Conductor rows: check=1 adjudication=1 fact=1" \
+      || v32_bad="$v32_bad [single-file reference metrics run lacks the conductor-rows line]"
+  else
+    [ "$v32_l" = "$v32_ref_lint" ] || v32_bad="$v32_bad [lint differs between the single-file and $v32_layout layouts]"
+    [ "$v32_m" = "$v32_ref_metrics" ] || v32_bad="$v32_bad [metrics differs between the single-file and $v32_layout layouts]"
+  fi
+done
+rm -rf "$v32_tmp"
+report "V30_layout_agreement" "$([ -z "$v32_bad" ] && echo 0 || echo 1)" \
+  "${v32_bad:-lint and metrics give the same verdict on one campaign built single-file, split and mixed (each verdict non-empty)}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

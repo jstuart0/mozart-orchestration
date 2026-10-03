@@ -1,15 +1,15 @@
-metrics	Campaigns: 15 (15 STANDARD)
-metrics	Confirmed catches (Critical/High, disposition=fixed): 12
-metrics	All dispositioned findings: 12 fixed, 1 rejected, 0 accepted-risk
-metrics	False-positive rate: 8% (1 of 13 findings rejected)
+metrics	Campaigns: 16 (16 STANDARD)
+metrics	Confirmed catches (Critical/High, disposition=fixed): 13
+metrics	All dispositioned findings: 13 fixed, 1 rejected, 0 accepted-risk
+metrics	False-positive rate: 7% (1 of 14 findings rejected)
 metrics	  rejected by lens: valerie=1/1
 metrics	Escapes (Traces-to links): 0
-metrics	Defect-removal efficiency: 12/12 = 100%
+metrics	Defect-removal efficiency: 13/13 = 100%
 metrics	Catches per campaign by tier: STANDARD=0.8
 metrics	Campaigns with a conductor record: 11 (0 exempt)
 metrics	Conductor rows: check=11 adjudication=1 fact=1
 metrics	  controlled check/adjudication rows: 12 of 12; unverified facts: 1 of 1
 metrics	  malformed conductor rows skipped (cell count != header): 1
-metrics	  sibling files skipped (no section heading): 2
+metrics	  sibling files skipped (no section heading): 3
 metrics	Wrong-override rate: 1/1 rejected findings later reversed (100%)
 metrics	  rejected (judgment): 0 of 1

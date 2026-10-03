@@ -199,11 +199,11 @@ LINT_CATEGORIES = frozenset({
 })
 OVERRIDE_DATE = "2099-06-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 77
+LINT_FIXTURE_FLOOR = 78
 # Sibling files get their own floors: a state-file floor cannot notice a split
 # fixture losing its ledger or conductor half.
-LINT_LEDGER_FLOOR = 15
-LINT_CONDUCTOR_FLOOR = 23
+LINT_LEDGER_FLOOR = 16
+LINT_CONDUCTOR_FLOOR = 24
 # F59: the path was parsed as \S+, so a corpus under a path containing a space
 # parsed ZERO triples while the linter it was checking emitted all of them
 # correctly — the harness carried the very defect F50 fixed in the shell
@@ -280,6 +280,9 @@ NAMED_PRESENT = (
     ("conductor-unlinked", "2099-09-19-deliver-split-quoted", "5"),
     ("conductor-unlinked", "2099-05-25-deliver-split-preadopted", "9"),
     ("conductor-unlinked", "2099-09-20-deliver-zerostate", "F2"),
+    # a headingless sibling is not usable: the in-file section is still read
+    ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-noheading"),
+    ("conductor-unlinked", "2099-09-25-deliver-split-noheadinfile", "F2"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -292,6 +295,7 @@ NAMED_ABSENT_TRIPLES = (
     ("conductor-missing", "2099-09-08-deliver-split-conductornohead", "-"),  # one cause, one line
     ("conductor-row", "2099-09-18-deliver-split-crlf", "CR1"),
     ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "9"),  # the CRLF sibling's CR1 was read
+    ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-duplicate"),  # headingless: not usable, not a duplicate
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the
@@ -335,7 +339,7 @@ SPACED_NAMED_MEMBER = ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1")
 # metrics-split: one lens per layout and campaign kind. The catches-by-lens line
 # is unordered, so each token is checked on its own (mirror of V10b).
 SPLIT_LENSES_PRESENT = ("bob", "ruby", "tessa", "percy", "xander", "ian", "dexter",
-                        "hank", "nina", "jackson", "scott", "sarah")
+                        "hank", "nina", "jackson", "scott", "sarah", "infile")
 SPLIT_LENSES_ABSENT = ("shadow", "orphan", "zerostate", "nohead", "otto")
 
 

@@ -13,6 +13,9 @@
 # derived in exactly one file:
 #   shell  campaign_sibling <state-file> <ledger|conductor>
 #   awk    campaign_sibling_awk(statefile, kind), in CAMPAIGN_AWK_LIB
+# The awk side also holds load_sibling(file, heading, lines), the one reader for
+# a sibling's content (getline, never an ARGV file), so lint and metrics classify
+# a sibling as missing, empty, headingless, stray or ok in the same way.
 # The sibling of state file F is F with `.state.md` replaced by `.ledger.md` or
 # `.conductor.md`, beside F. Neither script may spell that rule itself; gate
 # V30_lib counts the code lines that do.
@@ -61,6 +64,50 @@ function campaign_sibling_awk(statefile, kind,   base) {
   base = statefile
   sub(/\.state\.md$/, "", base)
   return base "." kind ".md"
+}
+# Reads a sibling file with getline and collects the lines under `heading`
+# (a "## ..." line, compared after trim) up to the next "## " heading into
+# lines[1..n], CR stripped, n in lines[0]. Never an ARGV file: a missing or
+# zero-byte file would leave the caller's FNR/NR logic with nothing to anchor
+# on, which is the trap the decisions-log read in the linter already avoids.
+# A "# " title line is a heading too, so a sibling that opens with a title
+# before its section is not stray text. Returns:
+#   "missing"    cannot be opened
+#   "empty"      readable, blank lines only
+#   "noheading"  has content, but `heading` never appears
+#   "stray"      `heading` appears, but text sits outside every heading ahead of it
+#   "ok"         `heading` appears, nothing stray
+# The caller reads the section for "ok" and "stray"; a section found in the
+# sibling is the one that counts, so an in-file copy of it is ignored.
+function load_sibling(file, heading, lines,   raw, rc, k, nonblank, in_sec, found, titled, stray, n) {
+  for (k in lines) delete lines[k]
+  lines[0] = 0
+  if (file == "") return "missing"
+  rc = (getline raw < file)
+  if (rc < 0) return "missing"
+  n = 0; nonblank = 0; in_sec = 0; found = 0; titled = 0; stray = 0
+  while (rc > 0) {
+    gsub(/\r/, "", raw)
+    if (trim(raw) != "") nonblank++
+    if (raw ~ /^## /) {
+      in_sec = (trim(raw) == heading)
+      if (in_sec) found = 1
+      titled = 1
+    } else if (raw ~ /^# /) {
+      in_sec = 0
+      titled = 1
+    } else if (in_sec) {
+      lines[++n] = raw
+    } else if (!titled && trim(raw) != "") {
+      stray = 1
+    }
+    rc = (getline raw < file)
+  }
+  close(file)
+  lines[0] = n
+  if (nonblank == 0) return "empty"
+  if (!found) return "noheading"
+  return stray ? "stray" : "ok"
 }
 BEGIN { SENT = sprintf("%c", 1) }
 CAMPAIGN_AWK_LIB_EOF
