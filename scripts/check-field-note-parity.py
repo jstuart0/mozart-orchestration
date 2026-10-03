@@ -335,9 +335,23 @@ def cmd_behaviour(corpus, scripts_roots):
     # V14 proves for the shell scripts alone. Built here rather than committed:
     # the point is the path, and a committed spaced directory would have to be
     # mirrored byte-for-byte into copilot's fixture tree for no added signal.
+    # Both lint runs read a copy stamped "now": lint's stale-active check goes by
+    # file mtime, so a corpus older than its threshold would emit extra lines
+    # that expected.tsv rightly does not record.
+    fresh_tmp = tempfile.mkdtemp()
+    fresh_lint = pathlib.Path(fresh_tmp) / "lint"
+    shutil.copytree(lint_root, fresh_lint)
+    for entry in [fresh_lint, *fresh_lint.rglob("*")]:
+        os.utime(entry)
+    source_files = sum(1 for p in lint_root.rglob("*") if p.is_file())
+    fresh_files = sum(1 for p in fresh_lint.rglob("*") if p.is_file())
+    if source_files != fresh_files:
+        print(f"FAIL  behaviour: fresh copy holds {fresh_files} file(s), corpus holds {source_files}")
+        return 1
+
     spaced_tmp = tempfile.mkdtemp()
     spaced_root = pathlib.Path(spaced_tmp) / "dir with a space"
-    shutil.copytree(lint_root, spaced_root / "lint")
+    shutil.copytree(fresh_lint, spaced_root / "lint")
     spaced_lint = spaced_root / "lint"
 
     overall_fail = 0
@@ -350,7 +364,7 @@ def cmd_behaviour(corpus, scripts_roots):
         port_fail = 0
         lint_script = root / "scripts" / "mozart-lint.sh"
 
-        proc_ov, err = run_script(lint_script, lint_root, {"MOZART_LINT_CONDUCTOR_SINCE": OVERRIDE_DATE})
+        proc_ov, err = run_script(lint_script, fresh_lint, {"MOZART_LINT_CONDUCTOR_SINCE": OVERRIDE_DATE})
         if err:
             print(f"FAIL  {port}  lint: {err}")
             overall_fail = 1
@@ -358,7 +372,7 @@ def cmd_behaviour(corpus, scripts_roots):
         triples_ov, override_present = parse_lint_output(proc_ov.stdout)
         emitted = sum(1 for l in proc_ov.stdout.splitlines() if l.startswith("LINT ["))
 
-        proc_no, err = run_script(lint_script, lint_root, {})
+        proc_no, err = run_script(lint_script, fresh_lint, {})
         if err:
             print(f"FAIL  {port}  lint (no override): {err}")
             overall_fail = 1
@@ -475,6 +489,7 @@ def cmd_behaviour(corpus, scripts_roots):
             overall_fail = 1
 
     shutil.rmtree(spaced_tmp, ignore_errors=True)
+    shutil.rmtree(fresh_tmp, ignore_errors=True)
     return overall_fail
 
 

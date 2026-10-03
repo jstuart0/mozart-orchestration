@@ -1300,8 +1300,23 @@ v11_expected_n=$(grep -c '^lint	' "$v11_expected" || true)
 # STALE_DAYS, and a checkout, an archive extract or a CI cache all stamp the
 # fixtures with whatever time they happen to have.
 v11_arm() { # $1 = arm label, $2 = corpus dir
-  local label="$1" dir="$2" arm_bad=""
+  local label="$1" src="$2" arm_bad="" dir
   v11_ov_out=""; v11_emitted=0
+  # Lint a copy stamped "now", so the verdict does not depend on the source's
+  # age. A copy that is missing files would lint "clean" and prove nothing, so
+  # the file count must match the source and any cp/touch failure fails the arm.
+  dir="$v11_scratch/fresh-${label// /-}"
+  if ! { mkdir -p "$dir" && cp -R "$src/." "$dir/" && find "$dir" -exec touch {} + ; }; then
+    v11_bad="$v11_bad [$label: could not copy and re-stamp the corpus]"
+    return
+  fi
+  local src_n dir_n
+  src_n=$(find "$src" -type f | wc -l | tr -d ' ')
+  dir_n=$(find "$dir" -type f | wc -l | tr -d ' ')
+  if [ "$src_n" -ne "$dir_n" ] || [ "$src_n" -lt 1 ]; then
+    v11_bad="$v11_bad [$label: fresh copy holds $dir_n file(s), source holds $src_n]"
+    return
+  fi
 
   v11_ov_out=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
   local ov_rc=$?
@@ -1419,9 +1434,11 @@ done
 printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]' | grep -qF "2099-07-01-deliver-clean.state.md" \
   && v11_bad="$v11_bad [named-absent member present: stale-active on the terminal fixture 2099-07-01-deliver-clean]"
 
-v11_arm "in-repo corpus" "$v11_corpus"
-v11_arm_a_emitted=$v11_emitted
-v11_arm "aged corpus copy" "$v11_aged"
+if [ -n "$v11_scratch" ]; then
+  v11_arm "in-repo corpus" "$v11_corpus"
+  v11_arm_a_emitted=$v11_emitted
+  v11_arm "aged corpus copy" "$v11_aged"
+fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
 [ "$v11_floor" -ge 48 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 48]"
@@ -1922,7 +1939,7 @@ v16_rows=$(printf '%s\n' "$v16_budgets" | grep -c .)
 [ "$v16_rows" -ge 19 ] || v16_bad="$v16_bad [budget table has $v16_rows row(s), floor 19 = 13 content destinations + INDEX.md + mozart.md + hank/dick/otto/nina]"
 printf '%s\n' "$v16_budgets" | grep -qxF "$(printf 'agents/mozart.md\t55000')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/mozart.md 55000]"
-printf '%s\n' "$v16_budgets" | grep -qE '^agents/DELIVER\.md\t' \
+printf '%s\n' "$v16_budgets" | grep -qF "$(printf 'agents/DELIVER.md\t')" \
   || v16_bad="$v16_bad [named member absent from the budget table: agents/DELIVER.md]"
 
 v16_checked=0
