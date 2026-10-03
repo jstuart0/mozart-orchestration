@@ -1,9 +1,9 @@
-# Pipeline state: 2099-07-16-deliver-kP
+# Pipeline state: 2099-10-23-phase-lenstoken
 
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
 **Flow**: FULL
-**Tier**: HEAVY
+**Tier**: HEAVY (surface: billing)
 **Context**: BROWNFIELD
 **Mode**: AUTONOMOUS
 
@@ -17,4 +17,6 @@
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
-| CR1 | check | phase 1 landed a working widget | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR1 | check | tessian: run; xander: run | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR2 | check | ian: run; xander: no trigger — docs only | P2 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR3 | check | ian: run; xander: run | - | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |

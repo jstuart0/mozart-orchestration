@@ -1403,7 +1403,23 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-unlinked\t2099-09-20-deliver-zerostate\tF2')" \
     "$(printf 'split-layout\t2099-09-25-deliver-split-noheadinfile\tfindings-ledger-noheading')" \
     "$(printf 'conductor-unlinked\t2099-09-25-deliver-split-noheadinfile\tF2')" \
-    "$(printf 'split-layout\t2099-09-26-deliver-split-conductorstray\tconductor-record-noheading')"
+    "$(printf 'split-layout\t2099-09-26-deliver-split-conductorstray\tconductor-record-noheading')" \
+    "$(printf 'conductor-unlinked\t2099-07-16-deliver-kP\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-05-phase-notier\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-06-phase-placeholder\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-07-phase-unfilled\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-08-phase-combinedheavy\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-10-phase-heavyfmt\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-12-phase-lower\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-13-phase-title\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-10-14-phase-heavyfirst\tP2')" \
+    "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
+    "$(printf 'conductor-row\t2099-10-16-phase-stdmalformed\tCR1')" \
+    "$(printf 'conductor-row\t2099-10-19-phase-lensbad\tCR2')" \
+    "$(printf 'conductor-row\t2099-10-21-phase-lensian\tCR1')" \
+    "$(printf 'conductor-row\t2099-10-22-phase-lensreason\tCR1')" \
+    "$(printf 'conductor-row\t2099-10-23-phase-lenstoken\tCR1')" \
+    "$(printf 'conductor-row\t2099-10-26-phase-widgets\tCR1')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1444,6 +1460,24 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     && arm_bad="$arm_bad [a LINT line names a sibling file as its path: findings are always reported against the state file]"
   printf '%s\n' "$ov_triples" | grep -q "	2099-07-27-operate-j	" \
     && arm_bad="$arm_bad [named-absent member present: missing-2b fired on OPERATE-family 2099-07-27-operate-j]"
+  # Phase rows are required on HEAVY only. Each of these carries a ticked,
+  # unlinked or lens-free Phase line and must stay silent for its own reason.
+  for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
+    2099-10-09-phase-combinedstd 2099-10-11-phase-stdfmt 2099-10-15-phase-stdfirst \
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated; do
+    printf '%s\n' "$ov_triples" | grep -q "	${quiet}	" \
+      && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
+  done
+  # 4.17: a HEAVY phase with no row at all is one cause, one line.
+  [ "$(printf '%s\n' "$ov_triples" | grep -c "	2099-10-10-phase-heavyfmt	")" -eq 1 ] \
+    || arm_bad="$arm_bad [heavyfmt (HEAVY, P2 has no row) did not produce exactly one triple]"
+  # 4.14: the phase-row message and the expected P<digit> rows are the same
+  # population, and the expected side has a floor so 1 = 1 cannot pass.
+  local p_msgs p_rows
+  p_msgs=$(printf '%s\n' "$v11_ov_out" | grep -c 'ticked Phase line has no linked conductor row' || true)
+  p_rows=$(awk -F'\t' '$1 == "lint" && $2 == "conductor-unlinked" && $4 ~ /^P[0-9]/' "$v11_expected" | grep -c . || true)
+  [ "$p_msgs" -eq "$p_rows" ] || arm_bad="$arm_bad [phase-row message count $p_msgs != $p_rows expected P<N> rows]"
+  [ "$p_rows" -ge 5 ] || arm_bad="$arm_bad [expected P<N> rows $p_rows < floor 5]"
   local slug
   for slug in 2000-01-01-deliver-legacy 2099-05-31-deliver-prebound 2000-01-03-deliver-legacy-ledger \
     2099-08-08-deliver-revisit-trigger 2099-08-09-deliver-revisit-when; do
@@ -1481,6 +1515,13 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-09-07-deliver-split-ledgernohead.state.md" "findings-ledger-noheading" "sibling ledger file has content outside a ## Findings ledger section"
   msg_check "2099-09-08-deliver-split-conductornohead.state.md" "conductor-record-noheading" "sibling conductor file has content outside a ## Conductor record section"
   msg_check "2099-09-26-deliver-split-conductorstray.state.md" "conductor-record-noheading" "sibling conductor file has content outside a ## Conductor record section (no such heading, or text ahead of it)"
+  msg_check "2099-07-16-deliver-kP.state.md" "P2" "ticked Phase line has no linked conductor row"
+  msg_check "2099-10-16-phase-stdmalformed.state.md" "CR1" "empty or placeholder control"
+  msg_check "2099-10-19-phase-lensbad.state.md" "CR2" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-10-21-phase-lensian.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-10-22-phase-lensreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-10-23-phase-lenstoken.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-10-26-phase-widgets.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
@@ -1529,7 +1570,7 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 79 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 79]"
+[ "$v11_floor" -ge 103 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 103]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
 [ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
@@ -1587,7 +1628,7 @@ v12_anchor_n=$(grep -cF 'The conductor record is where your own claims become ch
 v12_check_family() { # $1=family name, $2=prose row grep pattern, $3=lint keys var, $4=lint flows var
   local prow pkeys lkeys pflow_row
   prow=$(printf '%s\n' "$v12_rows" | grep -E "^\| $1 \|")
-  pkeys=$(printf '%s' "$prow" | awk -F'|' '{print $4}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/^P<N>$/P/' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
+  pkeys=$(printf '%s' "$prow" | awk -F'|' '{print $4}' | grep -oE '`[^`]+`' | tr -d '`' | sed -E 's/^P<N>:heavy$/P:heavy/' | tr '\n' ' ' | sed -E 's/ +$//; s/^ +//')
   lkeys=$(eval "printf '%s' \"\$$3\"")
   if [ "$(printf '%s\n' "$pkeys" | tr ' ' '\n' | sort -u)" != "$(printf '%s\n' "$lkeys" | tr ' ' '\n' | sort -u)" ]; then
     v12_bad="$v12_bad [$1 keys differ: prose={$pkeys} lint={$lkeys}]"
@@ -1604,6 +1645,11 @@ v12_check_family "INCIDENT" "" "CONDUCTOR_GATES_INCIDENT" "CONDUCTOR_FLOWS_INCID
 
 v12_deliver_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| DELIVER \|')
 printf '%s\n' "$v12_deliver_row" | grep -qF '`9`' || v12_bad="$v12_bad [DELIVER named member 9 absent from prose row]"
+printf '%s\n' "$v12_deliver_row" | grep -qF '`P<N>:heavy`' || v12_bad="$v12_bad [DELIVER named member P<N>:heavy absent from prose row]"
+[ "$CONDUCTOR_GATES_DELIVER" = "5 9 10 13 P:heavy" ] || v12_bad="$v12_bad [CONDUCTOR_GATES_DELIVER is '$CONDUCTOR_GATES_DELIVER', want exactly '5 9 10 13 P:heavy']"
+printf '%s\n' "$CONDUCTOR_GATES_DELIVER" | grep -qF 'P:heavy' || v12_bad="$v12_bad [lint constant lacks P:heavy]"
+[ "$CONDUCTOR_GATES_OPERATE" = "1:fact 4 6" ] && [ "$CONDUCTOR_GATES_INCIDENT" = "1 5" ] \
+  || v12_bad="$v12_bad [OPERATE or INCIDENT constant changed: '$CONDUCTOR_GATES_OPERATE' / '$CONDUCTOR_GATES_INCIDENT']"
 v12_operate_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| OPERATE \|')
 printf '%s\n' "$v12_operate_row" | grep -qF '`1:fact`' || v12_bad="$v12_bad [OPERATE named member 1:fact absent from prose row]"
 v12_incident_row=$(printf '%s\n' "$v12_rows" | grep -E '^\| INCIDENT \|')
@@ -2819,6 +2865,83 @@ grep -F '| Repo | Total |' "$gate_root/docs/EVAL.md" | grep -qF 'split-layout' \
   || v34_bad="$v34_bad [docs/EVAL.md lint table has no split-layout column]"
 report "V33_layout_prose" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
   "${v34_bad:-closeout names both siblings in both bullets; 'never split on resume' once; category sentence says $v34_word and lists $v34_have; no 'state-file hash' wording; state_md5 order defined once; bug-report and lint-table sites updated}"
+
+# ---------------------------------------------------------------------------
+# V34_phase_rows - one tier parse, two scripts, one verdict (phase 4)
+#
+# Phase rows (P<N>) are required on HEAVY only. The tier is read by one library
+# function for both scripts, first Tier line wins, a placeholder is not a value.
+# Each lint fixture below is copied alone into a scratch root and run through
+# BOTH scripts: lint must fire (or not) on the Phase line, and metrics must
+# bucket the campaign under the expected tier. An aggregate over the whole
+# corpus could not say which fixture produced which answer.
+# ---------------------------------------------------------------------------
+v34_bad=""
+v34_lib="$gate_root/scripts/lib-campaign.sh"
+v34_corpus="$gate_root/tests/fixtures/conductor/lint/.mozart/plans/active"
+v34_tmp=$(mktemp -d) || { v34_bad="$v34_bad [mktemp failed]"; v34_tmp=/nonexistent-v34; }
+v34_n=0
+v34_case() { # $1 = slug, $2 = 1 when lint must report the Phase line, $3 = metrics tier bucket
+  local slug="$1" want_fire="$2" want_bucket="$3" root lout mout fired bucket
+  root="$v34_tmp/$slug"
+  mkdir -p "$root/.mozart/plans/active" && cp "$v34_corpus/$slug.state.md" "$root/.mozart/plans/active/" \
+    || { v34_bad="$v34_bad [$slug: could not stage the fixture]"; return; }
+  lout=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$root" 2>&1)
+  fired=$(printf '%s\n' "$lout" | grep -c 'ticked Phase line has no linked conductor row' || true)
+  mout=$(bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1)
+  bucket=$(printf '%s\n' "$mout" | sed -n 's/^Campaigns: 1 (1 \(.*\))$/\1/p')
+  v34_n=$((v34_n + 1))
+  [ "$fired" = "$want_fire" ] || v34_bad="$v34_bad [$slug: lint reported the Phase line $fired time(s), want $want_fire]"
+  [ "$bucket" = "$want_bucket" ] || v34_bad="$v34_bad [$slug: metrics bucket '$bucket', want '$want_bucket']"
+}
+if [ -d "$v34_corpus" ]; then
+  v34_case 2099-07-16-deliver-kP 1 HEAVY
+  v34_case 2099-10-02-phase-standard 0 STANDARD
+  v34_case 2099-10-03-phase-light 0 LIGHT
+  v34_case 2099-10-04-phase-tiny 0 TINY
+  v34_case 2099-10-05-phase-notier 1 UNTIERED
+  v34_case 2099-10-06-phase-placeholder 1 UNTIERED
+  v34_case 2099-10-07-phase-unfilled 1 UNTIERED
+  v34_case 2099-10-08-phase-combinedheavy 1 HEAVY
+  v34_case 2099-10-09-phase-combinedstd 0 STANDARD
+  v34_case 2099-10-10-phase-heavyfmt 1 HEAVY
+  v34_case 2099-10-11-phase-stdfmt 0 STANDARD
+  v34_case 2099-10-12-phase-lower 1 UNTIERED
+  v34_case 2099-10-13-phase-title 1 UNTIERED
+  v34_case 2099-10-14-phase-heavyfirst 1 HEAVY
+  v34_case 2099-10-15-phase-stdfirst 0 STANDARD
+  v34_case 2099-10-16-phase-stdmalformed 0 STANDARD
+fi
+[ "$v34_n" -ge 16 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 16]"
+
+# The library function on its own: the cases that matter, including the two
+# that a naive parse gets wrong (the unfilled template and a lower-case value).
+v34_prog='BEGIN {
+  printf "[%s]", tier_of("**Tier**: HEAVY (surface: auth, secrets; escalated from STANDARD, D4)")
+  printf "[%s]", tier_of("**Tier**: TINY | LIGHT | STANDARD | HEAVY")
+  printf "[%s]", tier_of("**Tier**: <tier>")
+  printf "[%s]", tier_of("**Shape**: DELIVER | **Tier**: LIGHT | **Mode**: AUTONOMOUS")
+  printf "[%s]", tier_of("**Tier**: heavy")
+  printf "[%s]", tier_of("**Tier**: HEAVYWEIGHT")
+  printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
+  printf "[%s]", is_tier_line("**Tier**: STANDARD")
+  printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
+  printf "[%s]", tier_has_surface("**Tier**: HEAVY")
+}'
+v34_got=$( . "$v34_lib" 2>/dev/null; awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
+[ "$v34_got" = "[HEAVY][][][LIGHT][][][0][1][1][0]" ] \
+  || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface returned '$v34_got']"
+
+# Neither script spells the Tier field itself: the rule lives in the library.
+for v34_s in mozart-lint mozart-metrics; do
+  v34_spell=$(v30_code_lines "$gate_root/scripts/$v34_s.sh" | grep -cF '**Tier**' || true)
+  v34_spell_re=$(v30_code_lines "$gate_root/scripts/$v34_s.sh" | grep -cF 'Tier\*\*' || true)
+  [ "$v34_spell" -eq 0 ] && [ "$v34_spell_re" -eq 0 ] \
+    || v34_bad="$v34_bad [$v34_s.sh spells the Tier field in $((v34_spell + v34_spell_re)) code line(s): the parse lives in the library]"
+done
+rm -rf "$v34_tmp"
+report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics: Phase rows required on HEAVY and on a missing, placeholder or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses; library tier_of cases; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

@@ -71,3 +71,17 @@ lint	conductor-unlinked	2099-09-23-deliver-split-legacyroot	F2
 lint	split-layout	2099-09-25-deliver-split-noheadinfile	findings-ledger-noheading
 lint	conductor-unlinked	2099-09-25-deliver-split-noheadinfile	F2
 lint	split-layout	2099-09-26-deliver-split-conductorstray	conductor-record-noheading
+lint	conductor-unlinked	2099-10-05-phase-notier	P2
+lint	conductor-unlinked	2099-10-06-phase-placeholder	P2
+lint	conductor-unlinked	2099-10-07-phase-unfilled	P2
+lint	conductor-unlinked	2099-10-08-phase-combinedheavy	P2
+lint	conductor-unlinked	2099-10-10-phase-heavyfmt	P2
+lint	conductor-unlinked	2099-10-12-phase-lower	P2
+lint	conductor-unlinked	2099-10-13-phase-title	P2
+lint	conductor-unlinked	2099-10-14-phase-heavyfirst	P2
+lint	conductor-row	2099-10-16-phase-stdmalformed	CR1
+lint	conductor-row	2099-10-19-phase-lensbad	CR2
+lint	conductor-row	2099-10-21-phase-lensian	CR1
+lint	conductor-row	2099-10-22-phase-lensreason	CR1
+lint	conductor-row	2099-10-23-phase-lenstoken	CR1
+lint	conductor-row	2099-10-26-phase-widgets	CR1
