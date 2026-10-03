@@ -187,8 +187,11 @@ for ed in codex copilot local; do
     continue
   fi
   abs=$(cd -- "$path" && pwd)
-  echo "RUN $ed $abs (S3, lib, behaviour)"
-  [ "$ed" = local ] && echo "     (local ships no campaign scripts: S3 only)"
+  if [ "$ed" = local ]; then
+    echo "RUN $ed $abs (S3; ships no campaign scripts, so no lib or behaviour arm)"
+  else
+    echo "RUN $ed $abs (S3, lib, behaviour)"
+  fi
   ran=$((ran + 1))
   [ "$src_ok" = 1 ] || continue
   check_s3 "$ed" "$abs"
