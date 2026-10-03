@@ -1532,7 +1532,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-13-deliver-esc-dup\t2099-09-13-diagnose-dup2')" \
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-after')" \
     "$(printf 'escape-unrecorded\t2099-09-18-diagnose-dotted\t2099-09-18-diagnose-dotted')" \
-    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-extslug')"
+    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-extslug')" \
+    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrap2')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1555,7 +1556,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-backtick')" \
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-tilde')" \
     "$(printf 'escape-unrecorded\t2099-05-16-deliver-esc-fence\t2099-09-16-diagnose-fence-open')" \
-    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-external')"
+    "$(printf 'escape-unrecorded\t2099-05-23-deliver-esc-ext\t2099-09-23-diagnose-external')" \
+    "$(printf 'escape-unrecorded\t2099-05-27-deliver-esc-wrap\t2099-09-27-diagnose-wrapcarry')"
   do
     printf '%s\n' "$ov_triples" | grep -qxF "$member" \
       && arm_bad="$arm_bad [named-absent member present: ${member//$'\t'/ / }]"
@@ -1612,8 +1614,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
   msg_check "2099-05-02-deliver-esc-noneyet.state.md" "2099-09-02-diagnose-noneyet" "## Escapes block has no Traces-to: line naming 2099-09-02-diagnose-noneyet"
-  msg_check "2099-09-08-diagnose-nostate.md" "2099-09-08-diagnose-nostate" "which has no state file in this repo"
-  msg_check "2099-08-30-diagnose-nostate.postmortem.md" "2099-08-30-diagnose-nostate" "which has no state file in this repo"
+  msg_check "2099-09-08-diagnose-nostate.md" "2099-09-08-diagnose-nostate" "traces to 2099-05-08-deliver-esc-ghost, which has no state file in this repo"
+  msg_check "2099-08-30-diagnose-nostate.postmortem.md" "2099-08-30-diagnose-nostate" "traces to 2099-05-08-deliver-esc-ghosttwo, which has no state file in this repo"
   printf '%s\n' "$no_triples" | grep -qxF "$(printf 'conductor-missing\t2099-05-31-deliver-prebound\t-')" \
     || arm_bad="$arm_bad [override-control triple absent from the no-override run]"
   printf '%s\n' "$v11_ov_out" | grep -qxF 'conductor adoption date overridden: 2099-06-01' \
@@ -2186,7 +2188,7 @@ agents/mozart.md	55000
 agents/INDEX.md	4200
 agents/AUDIT.md	4700
 agents/CONTEXT-BUDGET.md	1800
-agents/DIAGNOSE.md	5500
+agents/DIAGNOSE.md	5566
 agents/EVAL.md	6300
 agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
@@ -2577,9 +2579,12 @@ printf "X=\$(cat <<'X_AWK_EOF'\n/a{2}/ { print }\nX_AWK_EOF\n)\n" > "$v27b_tmp/h
 printf "awk '{ print }'\n" > "$v27b_tmp/clean.sh"
 printf "X=\$(cat <<'X_AWK_EOF'\nfunction f(s, m) { return match(s, /x/, m) }\nX_AWK_EOF\n)\n" > "$v27b_tmp/heredoc3.sh"
 printf "X=\$(cat <<'X_PROG_EOF'\n/a{2}/ { print }\nX_PROG_EOF\n)\n" > "$v27b_tmp/heredoc-unnamed.sh"
-for v27b_plant in name interval match3 heredoc heredoc3; do
+printf "X=\$(cat <<'X_AWK_EOF' || true\n/a{2}/ { print }\nX_AWK_EOF\n)\n" > "$v27b_tmp/heredoc-ortrue.sh"
+printf "IFS= read -r -d '' X <<'X_AWK_EOF' || true\n{ print }\nX_AWK_EOF\ngrep -E 'a{2}' f\n" > "$v27b_tmp/heredoc-ortrue-after.sh"
+for v27b_plant in name interval match3 heredoc heredoc3 heredoc-ortrue; do
   [ -n "$(v27b_check "$v27b_tmp/$v27b_plant.sh")" ] || v27b_bad="$v27b_bad [self-test: planted $v27b_plant construct was not caught]"
 done
+[ -z "$(v27b_check "$v27b_tmp/heredoc-ortrue-after.sh")" ] || v27b_bad="$v27b_bad [self-test: a heredoc opener carrying || true was not closed at its delimiter -- the shell grep -E interval after it was scanned as awk]"
 [ -z "$(v27b_check "$v27b_tmp/clean.sh")" ] || v27b_bad="$v27b_bad [self-test: a clean awk line was flagged]"
 [ -z "$(v27b_check "$v27b_tmp/heredoc-unnamed.sh")" ] || v27b_bad="$v27b_bad [self-test: the documented limit changed -- a heredoc whose delimiter lacks AWK is now scanned; update the V27b comment]"
 rm -rf "$v27b_tmp"

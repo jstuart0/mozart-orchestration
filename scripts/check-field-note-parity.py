@@ -336,6 +336,7 @@ NAMED_PRESENT = (
     ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-after"),
     ("escape-unrecorded", "2099-09-18-diagnose-dotted", "2099-09-18-diagnose-dotted"),
     ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-extslug"),
+    ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrap2"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -369,6 +370,7 @@ NAMED_ABSENT_TRIPLES = (
     ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-tilde"),
     ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-open"),
     ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-external"),
+    ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrapcarry"),
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the

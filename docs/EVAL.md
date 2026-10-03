@@ -69,7 +69,7 @@ Source: each campaign's `## Findings ledger` — in `<slug>.ledger.md` beside th
 finding: stage, lens, severity, `fixed`/`rejected`/`rejected (judgment)`/
 `rejected (user)`/`accepted-risk`) and `## Escapes` block (`Traces-to:` links
 written when a later DIAGNOSE or audit finds a defect the campaign shipped).
-A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`.
+A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`. Keep a campaign that is named but is not the origin out of the label position: put its slug in prose after a non-slug token.
 
 **`## Degraded controls` is a separate block and is deliberately not counted here.**
 It records checks that ran at reduced strength (e.g. stage 12b with no secret

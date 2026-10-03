@@ -114,6 +114,7 @@ lint	escape-unrecorded	2099-05-13-deliver-esc-dup	2099-09-13-diagnose-dup2
 lint	escape-unrecorded	2099-05-16-deliver-esc-fence	2099-09-16-diagnose-fence-after
 lint	escape-unrecorded	2099-09-18-diagnose-dotted	2099-09-18-diagnose-dotted
 lint	escape-unrecorded	2099-05-23-deliver-esc-ext	2099-09-23-diagnose-extslug
+lint	escape-unrecorded	2099-05-27-deliver-esc-wrap	2099-09-27-diagnose-wrap2
 lint	conductor-unlinked	2099-10-11-phase-stdfmt	P2
 lint	conductor-unlinked	2099-10-31-phase-italicstd	P2
 lint	conductor-unlinked	2099-11-01-phase-underlight	P2
