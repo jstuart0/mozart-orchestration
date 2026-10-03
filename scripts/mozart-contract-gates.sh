@@ -1238,6 +1238,9 @@ v11_bad=""
 # library are therefore run here under a UTF-8 locale the machine is checked to
 # have (a missing one fails, it does not skip), and once under C. A multibyte
 # fixture run under whatever locale the caller exported passes by accident.
+# D12: the corpus predates the lens-record date, so every corpus run pins it after the last 2099-11 fixture and
+# before the 2099-12 ones that exercise the rule; V34 runs the default constant itself.
+gate_lens=2099-12-01
 gate_utf8=$(locale -a 2>/dev/null | grep -iE '\.utf-?8$' | grep -ixE 'en_US\.utf-?8' | head -1)
 [ -n "$gate_utf8" ] || gate_utf8=$(locale -a 2>/dev/null | grep -iE '\.utf-?8$' | head -1)
 [ -n "$gate_utf8" ] || v11_bad="$v11_bad [no UTF-8 locale in locale -a: the multibyte lint fixtures cannot be exercised]"
@@ -1349,10 +1352,10 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     return
   fi
 
-  v11_ov_out=$(LC_ALL="$gate_utf8" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  v11_ov_out=$(LC_ALL="$gate_utf8" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
   local ov_rc=$?
   local no_out
-  no_out=$(LC_ALL="$gate_utf8" bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  no_out=$(LC_ALL="$gate_utf8" MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
 
   local ov_triples no_triples
   ov_triples=$(printf '%s\n' "$v11_ov_out" | v11_extract "$v11_cats" | sort -u)
@@ -1440,12 +1443,24 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-10-22-phase-lensreason\tCR1')" \
     "$(printf 'conductor-row\t2099-10-23-phase-lenstoken\tCR1')" \
     "$(printf 'conductor-row\t2099-10-26-phase-widgets\tCR1')" \
+    "$(printf 'conductor-row\t2099-10-26-phase-widgets\tCR2')" \
     "$(printf 'conductor-row\t2099-11-10-phase-lenshyphen\tCR1')" \
     "$(printf 'conductor-row\t2099-11-11-phase-lensrunning\tCR1')" \
     "$(printf 'conductor-row\t2099-11-12-phase-lenswsreason\tCR1')" \
     "$(printf 'conductor-row\t2099-11-15-phase-lenscell\tCR1')" \
     "$(printf 'conductor-row\t2099-11-17-phase-heavyrepeat\tCR1')" \
-    "$(printf 'conductor-row\t2099-11-18-phase-xanderskip\tCR2')"
+    "$(printf 'conductor-row\t2099-11-18-phase-xanderskip\tCR2')" \
+    "$(printf 'conductor-row\t2099-11-19-phase-prebare\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-20-phase-escnorow\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-21-phase-rownoesc\tCR1')" \
+    "$(printf 'conductor-row\t2099-11-22-phase-passlinkwrong\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-01-phase-bareheavy\ttier')" \
+    "$(printf 'conductor-row\t2099-12-02-phase-emptysurface\ttier')" \
+    "$(printf 'conductor-row\t2099-12-03-phase-unlistedonly\ttier')" \
+    "$(printf 'conductor-row\t2099-12-04-phase-baredated\ttier')" \
+    "$(printf 'conductor-row\t2099-12-04-phase-baredated\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-07-phase-authcase\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-08-phase-semisecrets\tCR1')"
   do
     grep -qxF "$member" <<<"$ov_triples" || arm_bad="$arm_bad [named member absent: $member]"
   done
@@ -1491,7 +1506,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
     2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd 2099-11-16-phase-lensemdash \
-    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-11-19-phase-xanderpre; do
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-12-05-phase-datedok 2099-12-06-phase-mixedsurface 2099-12-09-phase-escok; do
     grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
@@ -1621,12 +1636,24 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-10-22-phase-lensreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-10-23-phase-lenstoken.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-10-26-phase-widgets.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-10-26-phase-widgets.state.md" "CR2" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-11-10-phase-lenshyphen.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-11-phase-lensrunning.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-12-phase-lenswsreason.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-15-phase-lenscell.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-17-phase-heavyrepeat.state.md" "CR1" "HEAVY phase row does not record ian and xander"
   msg_check "2099-11-18-phase-xanderskip.state.md" "CR2" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-11-19-phase-prebare.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-11-20-phase-escnorow.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-11-21-phase-rownoesc.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-11-22-phase-passlinkwrong.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-01-phase-bareheavy.state.md" "tier" "HEAVY tier line has no usable surface record"
+  msg_check "2099-12-02-phase-emptysurface.state.md" "tier" "HEAVY tier line has no usable surface record"
+  msg_check "2099-12-03-phase-unlistedonly.state.md" "tier" "HEAVY tier line has no usable surface record"
+  msg_check "2099-12-04-phase-baredated.state.md" "tier" "HEAVY tier line has no usable surface record"
+  msg_check "2099-12-04-phase-baredated.state.md" "CR1" "HEAVY phase row does not record ian and xander"
+  msg_check "2099-12-07-phase-authcase.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-08-phase-semisecrets.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR2" "row has 8 cells, header has 7"
   msg_check "2099-09-18-deliver-split-crlf.state.md" "CR3" "empty or placeholder control"
   msg_check "2099-05-03-deliver-esc-noheading.state.md" "2099-09-03-diagnose-noheading" "has no ## Escapes block"
@@ -1677,7 +1704,7 @@ if [ -n "$v11_scratch" ]; then
   v11_arm_a_emitted=$v11_emitted
   v11_arm "aged corpus copy" "$v11_aged"
   # Once under C: the same corpus, the same verdict count, no abort.
-  v11_c_out=$(LC_ALL=C MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v11_scratch/fresh-in-repo-corpus" 2>&1); v11_c_rc=$?
+  v11_c_out=$(LC_ALL=C MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$v11_scratch/fresh-in-repo-corpus" 2>&1); v11_c_rc=$?
   v11_c_n=$(grep -c '^LINT \[' <<<"$v11_c_out" || true)
   { [ "$v11_c_rc" -eq 1 ] && [ "$v11_c_n" -eq "$v11_expected_n" ]; } \
     || v11_bad="$v11_bad [LC_ALL=C: lint exited $v11_c_rc with $v11_c_n LINT line(s), want 1 and $v11_expected_n]"
@@ -2272,6 +2299,8 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # per-phase gate, the HEAVY-surface and otto/nina ineligibility sentence at the head of stage 4,
 # the surface-record wording in stage 8 and the codex r2 skip exclusion in stage 9 are reviewed
 # content, so agents/DELIVER.md 58775 -> 59522 (+747, headroom was 0), to the exact new size.
+# F63 (third fix commit): the one escalation-pass bullet in stage 8 is reviewed content, so agents/DELIVER.md
+# 59522 -> 59692 (+170, headroom was 0), to the exact new size.
 # agents/mozart.md gained under 800 bytes and stays under its 55000 ceiling, which is NOT raised.
 #
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
@@ -2301,7 +2330,7 @@ agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	59522
+agents/DELIVER.md	59692
 agents/hank.md	22300
 agents/dick.md	23751
 agents/otto.md	21700
@@ -2911,7 +2940,7 @@ for v32_layout in single split mixed; do
 done
 v32_ref_lint=""; v32_ref_metrics=""
 for v32_layout in single split mixed; do
-  v32_l=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$v32_tmp/$v32_layout" 2>&1 | sed "s|$v32_tmp/$v32_layout||g"; echo "rc=${PIPESTATUS[0]}")
+  v32_l=$(MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$v32_tmp/$v32_layout" 2>&1 | sed "s|$v32_tmp/$v32_layout||g"; echo "rc=${PIPESTATUS[0]}")
   v32_m=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v32_tmp/$v32_layout" 2>&1; echo "rc=$?")
   if [ "$v32_layout" = single ]; then
     v32_ref_lint=$v32_l; v32_ref_metrics=$v32_m
@@ -2964,7 +2993,7 @@ v33_build() { # $1 = root: raw copies of the three templates in active/
   cp "$gate_root/agents/TEMPLATE-LEDGER.md" "$1/.mozart/plans/active/$v33_slug.ledger.md" || return 1
   cp "$gate_root/agents/TEMPLATE-CONDUCTOR.md" "$1/.mozart/plans/active/$v33_slug.conductor.md" || return 1
 }
-v33_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
+v33_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
 v33_count() { printf '%s\n' "$1" | grep -c "$2" ; }
 v33_raw="$v33_tmp/raw"
 if v33_build "$v33_raw"; then
@@ -3138,6 +3167,7 @@ v34_lint="$gate_root/scripts/mozart-lint.sh"
 # Every case runs under the UTF-8 locale V11 resolved (see gate_utf8); the
 # multibyte cases run once more under C.
 v34_loc="$gate_utf8"
+v34_lens="$gate_lens"
 [ -n "$v34_loc" ] || v34_bad="$v34_bad [no UTF-8 locale in locale -a: the multibyte cases would run under the caller's locale and prove nothing]"
 # Lint exits 0 on a root with no finding and 1 on a root with findings; metrics
 # exits 0 on any root holding a state file. Both statuses are read beside the
@@ -3148,7 +3178,7 @@ v34_case() { # $1 = slug, $2 = 1 when lint must report the Phase line, $3 = metr
   root="$v34_tmp/$slug"
   mkdir -p "$root/.mozart/plans/active" && cp "$v34_corpus/$slug.state.md" "$root/.mozart/plans/active/" \
     || { v34_bad="$v34_bad [$slug: could not stage the fixture]"; return; }
-  lout=$(LC_ALL="$v34_loc" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$v34_lint" "$root" 2>&1); lrc=$?
+  lout=$(env LC_ALL="$v34_loc" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 ${v34_lens:+MOZART_LINT_LENS_SINCE=$v34_lens} bash "$v34_lint" "$root" 2>&1); lrc=$?
   fired=$(printf '%s\n' "$lout" | grep -c 'ticked Phase line has no linked conductor row' || true)
   mout=$(LC_ALL="$v34_loc" bash "$gate_root/scripts/mozart-metrics.sh" "$root" 2>&1); mrc=$?
   bucket=$(printf '%s\n' "$mout" | sed -n 's/^Campaigns: 1 (1 \(.*\))$/\1/p')
@@ -3194,15 +3224,52 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
   v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
   v34_case 2099-11-18-phase-xanderskip 0 HEAVY 1
-  v34_case 2099-11-19-phase-xanderpre 0 HEAVY 0
+  v34_case 2099-11-19-phase-prebare 0 HEAVY 1
+  v34_case 2099-11-20-phase-escnorow 0 HEAVY 1
+  v34_case 2099-11-21-phase-rownoesc 0 HEAVY 1
+  v34_case 2099-11-22-phase-passlinkwrong 0 HEAVY 1
+  v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc=C
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
   v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
   v34_case 2099-11-18-phase-xanderskip 0 HEAVY 1
-  v34_case 2099-11-19-phase-xanderpre 0 HEAVY 0
+  v34_case 2099-11-19-phase-prebare 0 HEAVY 1
+  v34_case 2099-11-20-phase-escnorow 0 HEAVY 1
+  v34_case 2099-11-21-phase-rownoesc 0 HEAVY 1
+  v34_case 2099-11-22-phase-passlinkwrong 0 HEAVY 1
+  v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc="$gate_utf8"
 fi
-[ "$v34_n" -ge 38 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 38]"
+[ "$v34_n" -ge 46 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 46]"
+
+# D12, the default lens-record date. The corpus runs above pin the date after the 2099-11 fixtures; these runs use
+# the constant itself. One fixture (a bare HEAVY tier line, a row with no lens fields) is copied under a slug dated
+# the day before the constant and the day of it: the first must stay silent, so no campaign dated before the change
+# gains a finding, and the second must report both rules. The override must move the boundary both ways and announce itself.
+v34_lens_def=$(grep -oE 'LENS_SINCE="\$\{MOZART_LINT_LENS_SINCE:-[0-9]{4}-[0-9]{2}-[0-9]{2}\}"' "$gate_root/scripts/mozart-lint.sh" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+[ "$v34_lens_def" = "2026-10-04" ] || v34_bad="$v34_bad [the lens-record date default is '$v34_lens_def', want 2026-10-04: the day after the change landed, so nothing dated 2026-10-03 or earlier gains a finding]"
+v34_bnd() { # $1 = slug date, rest = extra env assignments -> lint output and exit status, no lens date unless given
+  local d="$1" slug root; shift
+  slug="$d-phase-boundary"; root="$v34_tmp/b-$d-$#"
+  mkdir -p "$root/.mozart/plans/active" && sed "s/2099-12-04-phase-baredated/$slug/" "$v34_corpus/2099-12-04-phase-baredated.state.md" > "$root/.mozart/plans/active/$slug.state.md" \
+    || { printf 'STAGE-FAILED'; return; }
+  env -u MOZART_LINT_LENS_SINCE LC_ALL="$v34_loc" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 "$@" bash "$v34_lint" "$root" 2>&1
+  printf 'rc=%s\n' "$?"
+}
+if [ -f "$v34_corpus/2099-12-04-phase-baredated.state.md" ]; then
+  v34_b0=$(v34_bnd 2026-10-03)
+  grep -q 'rc=0$' <<<"$v34_b0" && ! grep -q '^LINT' <<<"$v34_b0" || v34_bad="$v34_bad [a campaign dated 2026-10-03 gained a finding under the default lens-record date: $(head -2 <<<"$v34_b0" | cut -c1-120 | tr '\n' ' ')]"
+  v34_b1=$(v34_bnd 2026-10-04)
+  { grep -q 'rc=1$' <<<"$v34_b1" && grep -q 'HEAVY tier line has no usable surface record' <<<"$v34_b1" && grep -q 'HEAVY phase row does not record ian and xander' <<<"$v34_b1"; } \
+    || v34_bad="$v34_bad [a campaign dated 2026-10-04 did not report both lens-record rules under the default date: $(head -2 <<<"$v34_b1" | cut -c1-120 | tr '\n' ' ')]"
+  v34_b2=$(v34_bnd 2026-10-04 MOZART_LINT_LENS_SINCE=2026-10-05)
+  { grep -q 'rc=0$' <<<"$v34_b2" && grep -qxF 'lens-record date overridden: 2026-10-05' <<<"$v34_b2"; } \
+    || v34_bad="$v34_bad [MOZART_LINT_LENS_SINCE=2026-10-05 did not exempt a 2026-10-04 campaign, or did not announce itself]"
+  v34_b3=$(v34_bnd 2026-10-03 MOZART_LINT_LENS_SINCE=2026-10-03)
+  grep -q 'rc=1$' <<<"$v34_b3" || v34_bad="$v34_bad [MOZART_LINT_LENS_SINCE=2026-10-03 did not bring a 2026-10-03 campaign under the rule]"
+else
+  v34_bad="$v34_bad [the dated lens-record fixture 2099-12-04-phase-baredated is missing]"
+fi
 
 # The helper can fail. A lint that crashes prints nothing and exits 3: without
 # the status check that reads as "fired 0 times", the answer a silent case wants.
@@ -3295,13 +3362,35 @@ BEGIN {
   printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra,auth)")
   printf "[%s]", tier_surface_wants_xander("**Shape**: DELIVER | **Tier**: HEAVY (surface: auth) | **Mode**: AUTONOMOUS")
   printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: )")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: Auth/Secrets.)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: `auth`)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; secrets)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing; maintainer confirmed HEAVY)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing, infra)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing, widgets)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing—x)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: “auth”)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: SECURITY.)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: billing)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: )")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: widgets)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: billing, widgets)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: Billing.)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: ; secrets)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface: infra/billing)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from STANDARD, D4)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from HEAVY, D4)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from LIGHT, D12)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from STANDARD D4)")
   printf "{%d}", n
 }'
-v34_want="[0][1][1][0][1][1][1][0][0][0][0][1][1][0]{56}"
+v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][]{56}"
 for v34_l in "$gate_utf8" C; do
   v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
   [ "$v34_got" = "$v34_want" ] \
-    || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface / tier_surface_wants_xander under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
+    || v34_bad="$v34_bad [library tier_of / is_tier_line / tier_has_surface / tier_surface_wants_xander / tier_surface_usable / tier_escalation_d under LC_ALL=$v34_l returned '$v34_got', want '$v34_want']"
 done
 
 # F59: the F46 guard above aborts only macOS awk (towc: multibyte conversion failure on a lone byte). Measured
@@ -3346,7 +3435,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 10 tier_surface_wants_xander cases (auth, secrets and security by whole word, the list ends at a semicolon or paren), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 19 tier_surface_wants_xander, 8 tier_surface_usable and 5 tier_escalation_d cases (case, punctuation, backticks, slashes, a word after a semicolon, an unlisted word failing safe, multibyte text beside a word), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)
@@ -3367,7 +3456,7 @@ v35_bad=""
 v35_repo=$(dirname "$(dirname "$gatefile")")
 v35_agree="$v35_repo/tests/fixtures/conductor/escapes-agree"
 v35_tmp=$(mktemp -d) || { v35_bad="$v35_bad [mktemp failed]"; v35_tmp=/nonexistent-v35; }
-v35_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
+v35_lint() { MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 MOZART_LINT_LENS_SINCE="$gate_lens" bash "$gate_root/scripts/mozart-lint.sh" "$1" 2>&1; }
 v35_pick() { # $1 = scratch name, then the letters of the origins to keep (state file and artifact)
   local dst="$v35_tmp/$1" k; shift
   mkdir -p "$dst/.mozart/plans/finished" "$dst/.mozart/investigations/finished" || return 1
@@ -3826,6 +3915,22 @@ v28_once "$v28_state" "xander's cumulative-diff pass on escalation covers it" "a
 v28_once "$v28_state" 'xander field must be `run`' "agents/STATE.md"
 v28_xan=$(cat agents/xander.md)
 v28_once "$v28_xan" 'cumulative diff since the base' "agents/xander.md"
+# F62/F63: the escalation pass has one record shape (a Tier line clause and a linked conductor row), named in the
+# rule's homes and read by the linter; the pre-escalation row form is accepted only against that record.
+v28_once "$v28_mz" 'uncommitted phase diff included' "mozart.md tier text"
+v28_once "$v28_mz" 'escalated from <TIER>, D<n>' "mozart.md tier text"
+v28_once "$v28_mz" 'xander: cumulative pass on escalation' "mozart.md tier text"
+v28_once "$v28_del_s8" 'xander reviews the cumulative diff since the base once' "DELIVER stage 8"
+v28_once "$v28_del_s8" 'uncommitted phase diff included' "DELIVER stage 8"
+v28_once "$v28_pipe_s8" 'uncommitted phase diff included' "PIPELINE stage 8"
+grep -qF 'uncommitted phase diff included' <<<"$v28_x_pip8" || v28_bad="$v28_bad [PIPELINE stage-8 xander row does not name the escalation pass with the uncommitted phase diff]"
+grep -F 'Your DELIVER stages' <<<"$v28_xan" | grep -qF 'uncommitted phase diff included' || v28_bad="$v28_bad [agents/xander.md stages line does not say the escalation pass includes the uncommitted phase diff]"
+v28_once "$v28_state" 'escalated from <TIER>, D<n>' "agents/STATE.md"
+v28_once "$v28_state" 'xander: cumulative pass on escalation' "agents/STATE.md"
+v28_once "$v28_state" 'dated 2026-10-04 or later' "agents/STATE.md"
+grep -qF 'xander: cumulative pass on escalation' scripts/mozart-lint.sh || v28_bad="$v28_bad [scripts/mozart-lint.sh no longer reads the claim 'xander: cumulative pass on escalation' the docs name]"
+grep -qF 'escalated from (TINY|LIGHT|STANDARD), D' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh no longer reads the Tier clause 'escalated from <TIER>, D<n>' the docs name]"
+v28_once "$v28_pipe_adj" 'STANDARD at minimum, and HEAVY when the work is on that surface' "PIPELINE tier adjustments"
 # F55: the xander-on-every-phase rule is pinned at every copy, not only in DELIVER stage 8.
 v28_once "$v28_pipe_s8" 'every phase when the surface is auth, secrets or security' "PIPELINE stage 8"
 grep -qF 'every phase when the surface is auth, secrets or security' <<<"$v28_x_pip8" \

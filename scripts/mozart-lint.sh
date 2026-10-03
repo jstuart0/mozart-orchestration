@@ -93,6 +93,11 @@ STALE_DAYS=7
 # PD1/PD3/PD24. CONDUCTOR_SINCE defaults to the merge date (log D2); the
 # fixture-hook override is documented above and asserted by gate V11.
 CONDUCTOR_SINCE="${MOZART_LINT_CONDUCTOR_SINCE:-2026-09-19}"
+# D12. The lens-record rules (a usable surface record on a HEAVY tier line, both lens fields on every
+# ticked phase row) apply to campaigns whose slug date is on or after this date. 2026-10-04 is the day
+# after the change landed (2026-10-03), so this campaign and everything earlier gains no finding. The
+# override is a fixture hook, announced like the adoption-date one.
+LENS_SINCE="${MOZART_LINT_LENS_SINCE:-2026-10-04}"
 CONDUCTOR_GATES_DELIVER="5 9 10 13 P:heavy"
 CONDUCTOR_GATES_OPERATE="1:fact 4 6"
 CONDUCTOR_GATES_INCIDENT="1 5"
@@ -102,6 +107,10 @@ CONDUCTOR_FLOWS_INCIDENT="INCIDENT MITIGATE-ONLY"
 
 if [ -n "${MOZART_LINT_CONDUCTOR_SINCE:-}" ]; then
   echo "conductor adoption date overridden: $MOZART_LINT_CONDUCTOR_SINCE"
+fi
+
+if [ -n "${MOZART_LINT_LENS_SINCE:-}" ]; then
+  echo "lens-record date overridden: $MOZART_LINT_LENS_SINCE"
 fi
 
 # Artifact roots, current first. A repo may have either, both, or neither.
@@ -212,9 +221,11 @@ function lens_recorded(claim, lens,   rest, p, pre, after, dash, reason) {
 }
 
 # True when claim records xander in the form a surface of auth, secrets or
-# security allows: "xander: run", or the one pre-escalation reason. Any other
-# "no trigger" reason is a skipped lens on a phase that needed it.
-function xander_every_phase_ok(claim,   rest, p, pre, after, dash) {
+# security allows: "xander: run", or, when esc_ok, the one pre-escalation reason.
+# Any other "no trigger" reason is a skipped lens on a phase that needed it, and
+# the pre-escalation reason without a recorded escalation and cumulative pass
+# (esc_ok = 0) is a bare phrase that excuses nothing.
+function xander_every_phase_ok(claim, esc_ok,   rest, p, pre, after, dash) {
   dash = "—"
   rest = claim
   while ((p = index(rest, "xander:")) > 0) {
@@ -227,7 +238,7 @@ function xander_every_phase_ok(claim,   rest, p, pre, after, dash) {
       after = trim(substr(after, 11))
       if (index(after, dash) != 1) continue
       after = trim(substr(after, length(dash) + 1))
-      if (index(after, "phase ran before escalation") == 1) return 1
+      if (esc_ok && index(after, "phase ran before escalation") == 1) return 1
     }
   }
   return 0
@@ -381,7 +392,7 @@ BEGIN {
   in_findings = 0; nf = 0
   in_paths = 0
   incident_stage3 = 0
-  tier_seen = 0; tier = ""; tier_surface = 0; tier_xander_every = 0
+  tier_seen = 0; tier = ""; tier_surface = 0; tier_xander_every = 0; tier_surface_ok = 0; tier_esc_d = ""
   infile_conductor = 0; infile_findings = 0
   declared_ledger = 0; declared_conductor = 0
 
@@ -433,6 +444,8 @@ is_tier_line(raw) && !tier_seen {
   tier = tier_of(raw)
   tier_surface = tier_has_surface(raw)
   tier_xander_every = tier_surface_wants_xander(raw)
+  tier_surface_ok = tier_surface_usable(raw)
+  tier_esc_d = tier_escalation_d(raw)
 }
 
 # Stage progress ticks (any family): "- [x] N[a-z]. "
@@ -613,6 +626,20 @@ END {
   else if (family == "INCIDENT") { gate_str = gates_incident }
   else { gate_str = "" }
 
+  # D12: the lens-record rules apply to campaigns dated on or after lens_since.
+  lens_dated = (slug_date >= lens_since)
+  if (family == "DELIVER" && tier == "HEAVY" && lens_dated && !tier_surface_ok)
+    emit("conductor-row", "tier", "HEAVY tier line has no usable surface record (write the Tier value as HEAVY (surface: <word>[, <word>…]) with at least one of auth, secrets, schema, migrations, infra, billing, security)")
+  # F62/F63: an escalation is evidenced by the Tier line (escalated from <TIER>, D<n>) AND a conductor
+  # row linked to that D<n> whose claim records xander's cumulative pass on escalation.
+  esc_ok = 0
+  if (tier_esc_d != "") {
+    for (id in cr_id_known) {
+      if (cr_placeholder[id] || cr_links[id] != "D" tier_esc_d) continue
+      if (index(cr_claim[id], "xander: cumulative pass on escalation") > 0) esc_ok = 1
+    }
+  }
+
   ngates = split(gate_str, gs, " ")
   for (g = 1; g <= ngates; g++) {
     gkey = gs[g]; want_fact = 0; heavy_only = 0
@@ -631,14 +658,14 @@ END {
             if (first_row == "" || id < first_row) first_row = id
             if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) {
               lens_ok = 1
-              if (xander_every_phase_ok(cr_claim[id])) xander_ok = 1
+              if (xander_every_phase_ok(cr_claim[id], esc_ok)) xander_ok = 1
             }
           }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
-          else if (heavy_only && tier == "HEAVY" && tier_surface && !lens_ok)
+          else if (heavy_only && tier == "HEAVY" && (tier_surface || lens_dated) && !lens_ok)
             emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
           else if (heavy_only && tier == "HEAVY" && tier_xander_every && !xander_ok)
-            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run, or on a phase that ran before the escalation, xander: no trigger — phase ran before escalation)")
+            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation)")
         }
       }
       continue
@@ -861,7 +888,7 @@ lint_conductor() {
     # The awk runs to completion before any finding is emitted, so a program
     # that does not parse (a function defined twice, say) is an exit 3 here
     # and not an empty process substitution that lints clean.
-    conductor_out=$(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" \
+    conductor_out=$(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" -v lens_since="$LENS_SINCE" \
                   -v gates_deliver="$CONDUCTOR_GATES_DELIVER" \
                   -v gates_operate="$CONDUCTOR_GATES_OPERATE" \
                   -v gates_incident="$CONDUCTOR_GATES_INCIDENT" \

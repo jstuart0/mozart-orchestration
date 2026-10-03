@@ -140,21 +140,71 @@ function tier_has_surface(line,   t) {
   t = substr(line, index(line, "**Tier**:") + 9)
   return (index(t, "(surface:") > 0)
 }
-# True when the "(surface:" record names auth, secrets or security as a whole
-# word: the surfaces on which xander runs every phase. The record ends at the
-# first ")" or ";" ("(surface: billing; maintainer says auth)" names billing).
-function tier_surface_wants_xander(line,   t, n, i, w, words) {
+# The "(surface:" record of a Tier line: the text after the label up to the
+# first ")". "" when the line has none or the record is empty; tier_has_surface
+# tells those apart.
+function tier_surface_record(line,   t, i) {
   t = substr(line, index(line, "**Tier**:") + 9)
   i = index(t, "(surface:")
-  if (i == 0) return 0
+  if (i == 0) return ""
   t = substr(t, i + 9)
-  sub(/[;)].*$/, "", t)
-  n = split(t, words, /[ \t,]+/)
+  sub(/\).*$/, "", t)
+  return t
+}
+# Splits one segment of a surface record into normalised tokens: punctuation,
+# backticks and "/" are separators, ASCII words are lower-cased. Whole strings
+# only, never a one-byte window, so multibyte text beside a word is harmless.
+function surface_tokens(seg, toks,   n, i, w, k, raw) {
+  gsub(/[`*"'.()\/:,]/, " ", seg)
+  n = split(seg, raw, /[ \t]+/)
+  k = 0
   for (i = 1; i <= n; i++) {
-    w = words[i]
-    if (w == "auth" || w == "secrets" || w == "security") return 1
+    w = raw[i]
+    if (w == "") continue
+    if (w ~ /^[A-Za-z]+$/) w = tolower(w)
+    toks[++k] = w
+  }
+  return k
+}
+function surface_word_listed(w) {
+  return (w == "auth" || w == "secrets" || w == "schema" || w == "migrations" || w == "infra" || w == "billing" || w == "security")
+}
+# True when the record names at least one listed word in its first segment (the
+# word list; free text may follow a ";"). An absent record, an empty one and one
+# of unlisted words only are not usable.
+function tier_surface_usable(line,   segs, k, toks, i) {
+  if (!tier_has_surface(line)) return 0
+  split(tier_surface_record(line), segs, ";")
+  k = surface_tokens(segs[1], toks)
+  for (i = 1; i <= k; i++) if (surface_word_listed(toks[i])) return 1
+  return 0
+}
+# True when xander must run every phase: the record names auth, secrets or
+# security anywhere in it, or its word list is empty or holds a word that is not
+# listed (the manual counts that as touching the surface on every phase, so a
+# miss must fail safe). "Auth", "auth/secrets", `auth` and "security." all count.
+# An absent record is not read here; the lint reports it on its own.
+function tier_surface_wants_xander(line,   segs, ns, s, k, toks, i) {
+  if (!tier_has_surface(line)) return 0
+  ns = split(tier_surface_record(line), segs, ";")
+  for (s = 1; s <= ns; s++) {
+    k = surface_tokens(segs[s], toks)
+    if (s == 1 && k == 0) return 1
+    for (i = 1; i <= k; i++) {
+      if (toks[i] == "auth" || toks[i] == "secrets" || toks[i] == "security") return 1
+      if (s == 1 && !surface_word_listed(toks[i])) return 1
+    }
   }
   return 0
+}
+# The decision number of an escalation the Tier line records, as the text
+# "escalated from <TINY|LIGHT|STANDARD>, D<n>", or "" when it records none.
+function tier_escalation_d(line,   t, e) {
+  t = substr(line, index(line, "**Tier**:") + 9)
+  if (!match(t, /escalated from (TINY|LIGHT|STANDARD), D[0-9]+/)) return ""
+  e = substr(t, RSTART, RLENGTH)
+  sub(/^.*, D/, "", e)
+  return e
 }
 # True when a line of a state file's ## Escapes block records an escape: it holds
 # "Traces-to:", is not a "(none yet)" line, and what follows the label is not a

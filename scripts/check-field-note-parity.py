@@ -199,6 +199,8 @@ LINT_CATEGORIES = frozenset({
     "escape-unrecorded",
 })
 OVERRIDE_DATE = "2099-06-01"
+# D12: the corpus predates the lens-record date; the 2099-12 fixtures exercise the rule.
+LENS_OVERRIDE = "2099-12-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
 LINT_FIXTURE_FLOOR = 105
 # Sibling files get their own floors: a state-file floor cannot notice a split
@@ -317,12 +319,24 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-10-22-phase-lensreason", "CR1"),
     ("conductor-row", "2099-10-23-phase-lenstoken", "CR1"),
     ("conductor-row", "2099-10-26-phase-widgets", "CR1"),
+    ("conductor-row", "2099-10-26-phase-widgets", "CR2"),
     ("conductor-row", "2099-11-10-phase-lenshyphen", "CR1"),
     ("conductor-row", "2099-11-11-phase-lensrunning", "CR1"),
     ("conductor-row", "2099-11-12-phase-lenswsreason", "CR1"),
     ("conductor-row", "2099-11-15-phase-lenscell", "CR1"),
     ("conductor-row", "2099-11-17-phase-heavyrepeat", "CR1"),
     ("conductor-row", "2099-11-18-phase-xanderskip", "CR2"),
+    ("conductor-row", "2099-11-19-phase-prebare", "CR1"),
+    ("conductor-row", "2099-11-20-phase-escnorow", "CR1"),
+    ("conductor-row", "2099-11-21-phase-rownoesc", "CR1"),
+    ("conductor-row", "2099-11-22-phase-passlinkwrong", "CR1"),
+    ("conductor-row", "2099-12-01-phase-bareheavy", "tier"),
+    ("conductor-row", "2099-12-02-phase-emptysurface", "tier"),
+    ("conductor-row", "2099-12-03-phase-unlistedonly", "tier"),
+    ("conductor-row", "2099-12-04-phase-baredated", "tier"),
+    ("conductor-row", "2099-12-04-phase-baredated", "CR1"),
+    ("conductor-row", "2099-12-07-phase-authcase", "CR1"),
+    ("conductor-row", "2099-12-08-phase-semisecrets", "CR1"),
     # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
     ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
     ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
@@ -409,12 +423,24 @@ NAMED_MESSAGES = (
     ("2099-10-22-phase-lensreason", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-10-23-phase-lenstoken", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-10-26-phase-widgets", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-26-phase-widgets", "CR2", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),  # an unlisted word fails safe: xander every phase
     ("2099-11-10-phase-lenshyphen", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-11-phase-lensrunning", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-12-phase-lenswsreason", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-15-phase-lenscell", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-17-phase-heavyrepeat", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-11-18-phase-xanderskip", "CR2", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-19-phase-prebare", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-20-phase-escnorow", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-21-phase-rownoesc", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-22-phase-passlinkwrong", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-01-phase-bareheavy", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-02-phase-emptysurface", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-03-phase-unlistedonly", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-04-phase-baredated", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-04-phase-baredated", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-12-07-phase-authcase", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-08-phase-semisecrets", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -435,8 +461,10 @@ NAMED_ABSENT_SLUGS = (
     "2099-10-30-phase-boldstd", "2099-11-06-phase-stdfree", "2099-11-08-phase-boldcombined",
     # an em dash before the lens name is not a letter: both lenses recorded
     "2099-11-16-phase-lensemdash",
-    # surface carries secrets, xander skipped with the one allowed reason: the pre-escalation form is silent
-    "2099-11-19-phase-xanderpre",
+    # dated lens rule and escalation evidence: a usable surface, a mixed or skipped-but-unneeded lens, the full escalation record
+    "2099-12-05-phase-datedok",
+    "2099-12-06-phase-mixedsurface",
+    "2099-12-09-phase-escok",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing
@@ -477,6 +505,7 @@ def utf8_locale():
 def run_script(script, root, env_overrides):
     env = dict(os.environ)
     env.pop("MOZART_LINT_CONDUCTOR_SINCE", None)
+    env["MOZART_LINT_LENS_SINCE"] = LENS_OVERRIDE
     env.update(env_overrides)
     env["LC_ALL"] = utf8_locale()
     if not script.exists():

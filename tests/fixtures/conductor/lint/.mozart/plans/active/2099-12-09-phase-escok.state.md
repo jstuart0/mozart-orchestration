@@ -1,4 +1,4 @@
-# Pipeline state: 2099-10-25-phase-escalated
+# Pipeline state: 2099-12-09-phase-escok
 
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
@@ -12,11 +12,9 @@
 
 ## Phase tracker (stage 7)
 - [x] Phase 1: build the widget — committed a1a1a1a
-- [x] Phase 2: wire the widget — committed b2b2b2b
 
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | ian: no trigger — phase ran before escalation; xander: no trigger — phase ran before escalation | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-| CR2 | check | ian: no trigger — phase ran before escalation; xander: no trigger — phase ran before escalation | P2 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-| CR3 | check | xander: cumulative pass on escalation (base to working tree): run | D4 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR2 | check | xander: cumulative pass on escalation (base to working tree): run | D4 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |

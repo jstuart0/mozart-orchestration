@@ -102,7 +102,7 @@ Support agents (tool specialists, not personas):
 
 ¹ Gated by the repo's `## Pull requests` stanza, not by tier — when enabled it runs on every tier, including TINY. It appears in this table because readers look here for "does this stage run for me?", not because it varies by tier; every other row does.
 
-On LIGHT, plan review is bob alone (tessa too when TDD is set), and bob flags any trigger term he sees in a LIGHT plan. A tripped stage-2b, xander, otto or nina trigger, or a HEAVY surface, means the campaign is STANDARD, not LIGHT. `EVERY-PHASE` (see `FLOWS.md`) spawns ian and xander at every phase of a HEAVY campaign.
+On LIGHT, plan review is bob alone (tessa too when TDD is set), and bob flags any trigger term he sees in a LIGHT plan. A tripped stage-2b, xander, otto or nina trigger means the campaign is STANDARD, not LIGHT; a HEAVY surface means STANDARD at minimum, and HEAVY when the work is on that surface. `EVERY-PHASE` (see `FLOWS.md`) spawns ian and xander at every phase of a HEAVY campaign.
 
 ### Reviewer triggers (stage 4 — internal review of the plan)
 
@@ -133,7 +133,7 @@ Deliberately **narrower** than the stage-4 and stage-8 xander triggers above —
 |---|---|
 | ian | public API, exported symbol, function signature, schema, shared utility, behavior contract; on HEAVY, also a phase that touches the recorded HEAVY surface |
 | librarian | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review. Skip on GREENFIELD |
-| xander | auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests; dependency manifest/lockfile diffs; CI/CD workflow changes; on HEAVY, also a phase that touches the recorded HEAVY surface (every phase when the surface is auth, secrets or security) |
+| xander | auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests; dependency manifest/lockfile diffs; CI/CD workflow changes; on HEAVY, also a phase that touches the recorded HEAVY surface (every phase when the surface is auth, secrets or security); once on escalation, over the cumulative diff since the base, uncommitted phase diff included |
 | tessa | test files modified; new logic or integration boundary with no test diff; mandatory in TDD flow |
 | percy | queries in loops / new query shapes (runs EXPLAIN), bundle-affecting frontend deps (measures delta), new caches, pagination of growing collections, budgeted endpoints |
 | otto | k8s manifests, Helm, infra YAML |

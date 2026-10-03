@@ -85,6 +85,7 @@ lint	conductor-row	2099-10-21-phase-lensian	CR1
 lint	conductor-row	2099-10-22-phase-lensreason	CR1
 lint	conductor-row	2099-10-23-phase-lenstoken	CR1
 lint	conductor-row	2099-10-26-phase-widgets	CR1
+lint	conductor-row	2099-10-26-phase-widgets	CR2
 lint	conductor-unlinked	2099-10-27-phase-quoted	P2
 lint	conductor-unlinked	2099-10-29-phase-boldheavy	P2
 lint	escape-unrecorded	2099-05-02-deliver-esc-noneyet	2099-09-02-diagnose-noneyet
@@ -131,4 +132,15 @@ lint	conductor-row	2099-11-12-phase-lenswsreason	CR1
 lint	conductor-row	2099-11-15-phase-lenscell	CR1
 lint	conductor-row	2099-11-17-phase-heavyrepeat	CR1
 lint	conductor-row	2099-11-18-phase-xanderskip	CR2
+lint	conductor-row	2099-11-19-phase-prebare	CR1
+lint	conductor-row	2099-11-20-phase-escnorow	CR1
+lint	conductor-row	2099-11-21-phase-rownoesc	CR1
+lint	conductor-row	2099-11-22-phase-passlinkwrong	CR1
+lint	conductor-row	2099-12-01-phase-bareheavy	tier
+lint	conductor-row	2099-12-02-phase-emptysurface	tier
+lint	conductor-row	2099-12-03-phase-unlistedonly	tier
+lint	conductor-row	2099-12-04-phase-baredated	tier
+lint	conductor-row	2099-12-04-phase-baredated	CR1
+lint	conductor-row	2099-12-07-phase-authcase	CR1
+lint	conductor-row	2099-12-08-phase-semisecrets	CR1
 lint	escape-unrecorded	2099-05-28-deliver-esc-mb	2099-09-28-diagnose-mbunrec

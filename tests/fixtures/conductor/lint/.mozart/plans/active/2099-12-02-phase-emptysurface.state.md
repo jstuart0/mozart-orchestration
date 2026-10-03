@@ -1,9 +1,9 @@
-# Pipeline state: 2099-11-19-phase-xanderpre
+# Pipeline state: 2099-12-02-phase-emptysurface
 
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
 **Flow**: FULL
-**Tier**: HEAVY (surface: billing, secrets)
+**Tier**: HEAVY (surface: )
 **Context**: BROWNFIELD
 **Mode**: AUTONOMOUS
 
@@ -12,10 +12,8 @@
 
 ## Phase tracker (stage 7)
 - [x] Phase 1: build the widget — committed a1a1a1a
-- [x] Phase 2: wire the widget — committed b2b2b2b
 
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | ian: run; xander: run | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-| CR2 | check | ian: run; xander: no trigger — phase ran before escalation | P2 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
