@@ -2355,6 +2355,9 @@ if [ -s "$v30_lib" ]; then
     done
   done
   [ "$v30_agree" -eq 6 ] || v30_bad="$v30_bad [sibling agreement: $v30_agree of 6 cases]"
+  v30_prog='BEGIN { printf "[%s][%s]", trim("  a b \r"), normhdr(" **Kind**`\r") }'
+  v30_trim=$( . "$v30_lib"; awk "$CAMPAIGN_AWK_LIB"$'\n'"$v30_prog" </dev/null )
+  [ "$v30_trim" = "[a b][kind]" ] || v30_bad="$v30_bad [library trim/normhdr do not strip a carriage return: '$v30_trim', want '[a b][kind]']"
   v30_non=$(bash -c '. "$1"; campaign_sibling "$2" ledger; echo "rc=$?"' _ "$v30_lib" "/p/not-a-state-file.md")
   [ "$v30_non" = "rc=1" ] || v30_bad="$v30_bad [campaign_sibling on a non-state path: '$v30_non', want empty output and rc=1]"
 else
