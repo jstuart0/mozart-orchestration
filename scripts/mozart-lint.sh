@@ -48,6 +48,21 @@
 
 set -u
 
+# The shared helpers live in lib-campaign.sh, found beside this script (the
+# path is absolutised from BASH_SOURCE, so it works from any cwd and from a
+# path containing a space). Missing, unreadable or empty is a loud exit 3,
+# never a run with undefined awk functions; exit 2 keeps meaning "nothing to
+# lint".
+CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
+CAMPAIGN_AWK_LIB=""
+if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
+  . "$CAMPAIGN_LIB"
+fi
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ]; then
+  echo "mozart-lint: scripts/lib-campaign.sh not found beside this script" >&2
+  exit 3
+fi
+
 ROOT="${1:-.}"
 FINDINGS=0
 STALE_DAYS=7
@@ -135,28 +150,6 @@ flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
 # PD11 before resolving id/kind/claim/links/source/control/written-to: strip
 # \r, strip * and backtick, trim, lowercase.
 CONDUCTOR_AWK=$(cat <<'CONDUCTOR_AWK_EOF'
-function trim(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-# F48. Markdown table rows were split on a RAW pipe, so a `source` cell
-# holding a shell pipeline shifted every later cell and the linter read the
-# next cell along as `control` — an empty control parsed as filled, and the
-# row passed clean. Two halves, both needed:
-#   (a) `\|` is honoured as an escaped pipe: it stays inside its cell, so a
-#       piped command is WRITABLE rather than merely banned by prose;
-#   (b) the caller compares each row's cell count against the header's and
-#       rejects a mismatch, so an UNESCAPED pipe fails loudly instead of
-#       parsing into a wrong answer.
-# A trailing delimiter is stripped first so `| a | b |` and `| a | b` count
-# the same — the count check tests column shift, not trailing-pipe style.
-function split_cells(line, arr,   t, i, n) {
-  t = line
-  sub(/\|[ \t]*$/, "", t)
-  gsub(/\\\|/, SENT, t)
-  n = split(t, arr, "|")
-  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
-  return n
-}
-function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
-function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
 function starts_with_tok(val, tok,   re) {
   re = "^" tok "([^A-Za-z0-9]|$)"
   return (val ~ re)
@@ -190,7 +183,6 @@ function leading_digits(s,    t) {
 # FNR==NR idiom breaks when the first file has zero lines, which a missing
 # decisions file — /dev/null — always does) --------------------------------
 BEGIN {
-  SENT = sprintf("%c", 1)
   cur_d = ""
   if (decisions_file != "" && decisions_file != "/dev/null") {
     while ((getline dline < decisions_file) > 0) {
@@ -595,7 +587,7 @@ CONDUCTOR_AWK_EOF
 
 lint_conductor() {
   local PLANS="$1"
-  local f slug slug_date slug_date_src dec cat key msg
+  local f slug slug_date slug_date_src dec cat key msg conductor_out
   # F47: the legacy prefixless flat glob belongs here for the same reason it
   # belongs on C/D — the adoption gate is read from the SLUG DATE, not the
   # path, so a flat file classifies itself and a pre-adoption one exits early
@@ -619,10 +611,10 @@ lint_conductor() {
     [ -z "$slug_date" ] && slug_date="0000-00-00"
     dec="${f%.state.md}.decisions.md"
     [ -f "$dec" ] || dec=""
-    while IFS=$'\t' read -r cat key msg; do
-      [ -z "$cat" ] && continue
-      finding "$cat" "$f — $key: $msg"
-    done < <(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" \
+    # The awk runs to completion before any finding is emitted, so a program
+    # that does not parse (a function defined twice, say) is an exit 3 here
+    # and not an empty process substitution that lints clean.
+    conductor_out=$(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" \
                   -v gates_deliver="$CONDUCTOR_GATES_DELIVER" \
                   -v gates_operate="$CONDUCTOR_GATES_OPERATE" \
                   -v gates_incident="$CONDUCTOR_GATES_INCIDENT" \
@@ -630,7 +622,14 @@ lint_conductor() {
                   -v flows_operate="$CONDUCTOR_FLOWS_OPERATE" \
                   -v flows_incident="$CONDUCTOR_FLOWS_INCIDENT" \
                   -v decisions_file="$dec" \
-                  "$CONDUCTOR_AWK" "$f")
+                  "$CAMPAIGN_AWK_LIB"$'\n'"$CONDUCTOR_AWK" "$f") || {
+      echo "mozart-lint: awk failed on $f" >&2
+      exit 3
+    }
+    while IFS=$'\t' read -r cat key msg; do
+      [ -z "$cat" ] && continue
+      finding "$cat" "$f — $key: $msg"
+    done <<< "$conductor_out"
   done
 }
 

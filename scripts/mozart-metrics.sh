@@ -22,6 +22,21 @@
 
 set -u
 
+# The shared helpers live in lib-campaign.sh, found beside this script (the
+# path is absolutised from BASH_SOURCE, so it works from any cwd and from a
+# path containing a space). Missing, unreadable or empty is a loud exit 3,
+# never a run with undefined awk functions; exit 2 keeps meaning "nothing to
+# aggregate".
+CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
+CAMPAIGN_AWK_LIB=""
+if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
+  . "$CAMPAIGN_LIB"
+fi
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ]; then
+  echo "mozart-metrics: scripts/lib-campaign.sh not found beside this script" >&2
+  exit 3
+fi
+
 ROOT="${1:-.}"
 
 # F50: roots and the file list are ARRAYS. They used to be whitespace-
@@ -61,26 +76,10 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   exit 2
 fi
 
-awk '
-function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
-function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
-# F48 -- identical rule to scripts/mozart-lint.sh: honour `\|` as an escaped
-# pipe, strip a trailing delimiter so trailing-pipe style does not change the
-# count, and let the caller reject a row whose width does not match its
-# header. Splitting on a raw pipe made a `source` cell holding a shell
-# pipeline shift every later cell, so an empty `control` was counted as
-# controlled -- the metric read higher than the evidence supported.
-function split_cells(line, arr,   t, i, n) {
-  t = line
-  sub(/\|[ \t]*$/, "", t)
-  gsub(/\\\|/, SENT, t)
-  n = split(t, arr, "|")
-  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
-  return n
-}
-
-BEGIN { SENT = sprintf("%c", 1) }
+awk "$CAMPAIGN_AWK_LIB"'
+# A CRLF state file reads as its LF twin: the row rules below anchor on the end
+# of the line (`|` header and separator rows), which a trailing CR defeats.
+{ sub(/\r$/, "") }
 
 FNR == 1 {
   campaigns++

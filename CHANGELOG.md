@@ -4,6 +4,27 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Changed — lint and metrics share `scripts/lib-campaign.sh`; metrics now reads CRLF state files
+
+`scripts/mozart-lint.sh` and `scripts/mozart-metrics.sh` each carried their own copy of the cell
+splitter, header normaliser, placeholder test and `trim`. They now source one library found beside
+them, which also holds the rule for a campaign's sibling files (`<slug>.ledger.md`,
+`<slug>.conductor.md`) in both a shell and an awk spelling, ready for the split layout. With the
+library missing or empty either script exits **3** with `<script>: scripts/lib-campaign.sh not
+found beside this script`; exit 2 still means "nothing to lint". Ship the library with the scripts.
+Lint also exits 3, rather than linting clean, if its awk program fails to run.
+
+**One intended behaviour change, two output differences, both in `mozart-metrics.sh`.** The library
+takes lint's `trim`, which strips a carriage return; metrics' own did not. Metrics over a CRLF
+state file therefore tallies instead of reading nothing. Visible as: a CRLF copy of
+`tests/fixtures/conductor/metrics-conductor` went from `no findings-ledger data yet` (exit 2) to the
+same table as the LF original; and over `tests/fixtures/conductor/lint`, whose one CRLF fixture
+(`2099-07-24-deliver-crlf`) used to form its own `STANDARD^M` tier bucket, the campaigns line goes
+from `48 (1 STANDARD^M | 47 STANDARD)` to `48 (48 STANDARD)`, campaigns with a conductor record
+40 to 41, and check rows 24 to 29. Every other output of both scripts is byte-identical. Metrics
+also drops a trailing CR from each input line before its row rules run, so a CRLF separator row is
+no longer miscounted as a finding.
+
 ### Added — nina, a cloud specialist who resolves provider assertions instead of recalling them
 
 `agents/nina.md` (33,350 B) is an eighteenth specialist. Her unit of review is **the

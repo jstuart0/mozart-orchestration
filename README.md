@@ -141,6 +141,7 @@ mozart-orchestration/
 │   └── README.md
 ├── scripts/
 │   ├── check-field-note-parity.py  # cross-port parity (pre-merge, not a CI gate)
+│   ├── lib-campaign.sh             # sourced by the linter and metrics: shared helpers (ship it with them)
 │   ├── mozart-contract-gates.sh    # persona-contract gates
 │   ├── mozart-lint.sh              # campaign-artifact linter
 │   └── mozart-metrics.sh           # campaign-artifact metrics aggregator
