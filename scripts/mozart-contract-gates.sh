@@ -2228,6 +2228,13 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # unreviewed edit fit. A third raise here is not the answer -- the next campaign
 # needing room in OPERATE.md carves it.
 #
+# Phase 8 of 2026-10-03-deliver-eval-efficiency-fixes: the 299-byte no-progress bullet
+# (300 with its newline) is reviewed content, so the raises are taken on the D21 rule, each to
+# the exact new size: agents/dick.md 23490 -> 23751 (+261, headroom was 39), agents/nina.md
+# 33750 -> 33862 (+112, headroom was 188) and agents/DELIVER.md 58747 -> 58775 (+28, headroom
+# was 73; the clause on the attempts-cap line is 28 bytes over it). agents/otto.md (21691 of
+# 21700), agents/hank.md and agents/CONTEXT-BUDGET.md fit and are not raised.
+#
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
 # with their own tooling — copilot via scripts/check_agents.py against the
 # table in its check.yml, local via the 30,000-char cap on MANIFEST.jsonc's
@@ -2255,11 +2262,11 @@ agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	58747
+agents/DELIVER.md	58775
 agents/hank.md	22300
-agents/dick.md	23490
+agents/dick.md	23751
 agents/otto.md	21700
-agents/nina.md	33750
+agents/nina.md	33862
 agents/TEMPLATE-STATE.md	4300
 agents/TEMPLATE-LEDGER.md	700
 agents/TEMPLATE-CONDUCTOR.md	900
@@ -3761,8 +3768,12 @@ v29_check_file() { # $1 = file, $2 = policy text
   n_sec=$(grep -cxF -- "$text" <<<"$sec" || true)
   [ "$n_all" = "1" ] || printf '[bullet occurs %s time(s) in the file, want 1]' "$n_all"
   [ "$n_sec" = "1" ] || printf '[bullet occurs %s time(s) inside the section, want 1]' "$n_sec"
-  n_items=$(grep -c '^- \*\*' <<<"$sec" || true)
-  [ "$n_items" = "4" ] || printf '[cadence list has %s item(s), want 4]' "$n_items"
+  # The list is the run of bullet lines that holds the policy bullet. Three
+  # originals plus this one, except hank's: his cadence is five items of his own
+  # (a named exception, asserted, not a loosened count).
+  n_items=$(awk -v t="$text" '/^- / { n++; if ($0 == t) hit = 1; next } { if (hit) { print n; done = 1; exit } n = 0 } END { if (hit && !done) print n }' <<<"$sec")
+  want_items=4; case "$f" in */hank.md) want_items=6 ;; esac
+  [ "$n_items" = "$want_items" ] || printf '[cadence list has %s item(s), want %s]' "${n_items:-0}" "$want_items"
   before=$(grep -xF -B1 -- "$text" <<<"$sec" | head -1)
   case "$before" in '- **On return**'*) : ;; *) printf '[bullet does not follow the On return bullet]' ;; esac
   after=$(grep -xF -A1 -- "$text" <<<"$sec" | sed -n 2p)

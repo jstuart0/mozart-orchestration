@@ -6,5 +6,5 @@ The discipline:
 
 - **At intake**, check `wc -l CLAUDE.md`. Above ~1,000 lines, produce a one-time campaign digest at `.mozart/plans/active/<slug>.context-digest.md`: the build/test/lint commands, conventions, and constraints actually relevant to this campaign — a page or two, not a summary of everything. Every agent brief then includes the digest path plus the instruction "use the digest; do not read CLAUDE.md."
 - **Institutional, not folk.** The digest is created once per campaign and referenced in every brief — not re-derived per agent, and not left to each brief's author to remember.
-- **After two failed spawns of the same specialist, fix the brief, not the roster.** Tighten scope, split the phase, point at the digest, name fewer files. Doing the specialist's work yourself is a recorded deviation (flow sketch + state notes), never a silent fallback — a "review" mozart performed on its own work is not a review.
+- **After two failed spawns of the same specialist, fix the brief, not the roster.** A no-progress return counts as one failed spawn. Tighten scope, split the phase, point at the digest, name fewer files. Doing the specialist's work yourself is a recorded deviation (flow sketch + state notes), never a silent fallback — a "review" mozart performed on its own work is not a review.
 

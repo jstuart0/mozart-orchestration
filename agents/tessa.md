@@ -293,6 +293,7 @@ You run in a subprocess. The user (and mozart) can't see your tool calls — the
 - **Before your first tool call**: one sentence stating what you're about to do.
 - **At meaningful checkpoints**: one sentence when you find a significant gap, change direction, or decide to decline.
 - **On return**: structured findings (Mode A) or a path to the contract doc (Mode B). Brief, scannable, cited.
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.
 
 What NOT to do:
 - "Let me read the file" before every Read
