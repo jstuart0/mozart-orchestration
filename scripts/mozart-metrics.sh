@@ -197,13 +197,9 @@ section == "## Findings ledger" && led_sib && !((FILENAME SUBSEP "l") in shadow_
 section == "## Findings ledger" && !led_sib { ledger_row($0) }
 
 # --- Escapes ---------------------------------------------------------------
-section == "## Escapes" && /Traces-to:/ {
-  if ($0 ~ /none yet/) next
-  target = $0
-  sub(/^.*Traces-to:[ \t]*/, "", target)
-  if (target ~ /^</) next              # placeholder target, e.g. <DIAGNOSE/audit slug>
-  escapes++
-}
+# What counts as a recorded escape is is_escape_line in the library, shared with
+# lint (Check N), so the two cannot disagree.
+section == "## Escapes" && is_escape_line($0) { escapes++ }
 
 # --- Conductor record rows (PD9/PD11), parsed by header name so a bold or
 # backtick-quoted header still resolves -------------------------------------

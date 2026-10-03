@@ -184,7 +184,7 @@ inferred connections.>
 - Test output — <command, relevant lines>
 - ...
 
-**Traces-to** (when the root-cause commit was shipped by a prior mozart campaign — the slug is in the commit message): `Traces-to: <originating-campaign-slug>, <phase/sha>`. This line is how escaped defects get counted against the pipeline's gates (mozart mirrors it into the originating campaign's state-file `## Escapes` block). Omit when the cause predates mozart or is environmental.
+**Traces-to** (when the root-cause commit was shipped by a prior mozart campaign — the slug is in the commit message): A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`. Omit when the cause predates mozart or is environmental.
 
 **Causal chain (root cause → symptom):**
 1. <step>

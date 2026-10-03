@@ -32,6 +32,18 @@
 # read from the state file only. Findings are always reported against the state
 # file's path, never a sibling's.
 #
+# Check N (escape-unrecorded). A DIAGNOSE investigation or INCIDENT post-mortem that
+# names the campaign a defect traces to ("Traces-to: <slug>", slug first) must find
+# that campaign's ## Escapes block recording it: a recorded-escape line (the library
+# rule, is_escape_line) naming the artifact's own slug as a whole token. Scanned:
+# investigations/**/*.md and incidents/*.postmortem.md beside each plans root. The
+# origin is looked up in every layout of both roots, aborted/ included. A finding is
+# reported against the origin state file, keyed by the discovering slug, or against
+# the artifact when the origin has no state file here; an origin that cannot be
+# recorded is written "Traces-to: external — <where or why>; <slug>" and is silent,
+# as are "none", "n/a", a ticket id and any line inside a fenced code block. Not
+# gated on the conductor adoption date.
+#
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
 # re-check) — that stays a manual sweep at intake. See agents/STATE.md
 # (*State persistence (crash-resume)*), where probe 5 is defined.
@@ -694,6 +706,102 @@ END {
 CONDUCTOR_AWK_EOF
 )
 
+# Check N programs. `read`, not $(cat <<EOF): bash 3.2 cannot parse a command
+# substitution whose body holds an unpaired backtick, and these match fences.
+# The claims program prints each origin slug an artifact names, once, outside fences.
+IFS= read -r -d '' ESCAPE_CLAIMS_AWK <<'ESCAPE_CLAIMS_AWK_EOF' || true
+# r is the text after one "Traces-to": an optional closing emphasis, an optional
+# parenthesis ("Traces-to (partial ...)"), the colon, then the slug directly.
+function claim_origin(r) {
+  sub(/^[*`_ \t]+/, "", r)
+  if (substr(r, 1, 1) == "(") {
+    if (index(r, ")") == 0) return ""
+    r = substr(r, index(r, ")") + 1)
+    sub(/^[*`_ \t]+/, "", r)
+  }
+  if (substr(r, 1, 1) != ":") return ""
+  r = substr(r, 2)
+  sub(/^[*`_ \t]+/, "", r)
+  if (!match(r, /^20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[a-z0-9][a-z0-9-]*/)) return ""
+  return substr(r, 1, RLENGTH)
+}
+{
+  gsub(/\r/, "")
+  if (fence == "") {
+    if ($0 ~ /^[ \t]*```/) { fence = "`"; next }
+    if ($0 ~ /^[ \t]*~~~/) { fence = "~"; next }
+  } else {
+    if (fence == "`" && $0 ~ /^[ \t]*```/) fence = ""
+    else if (fence == "~" && $0 ~ /^[ \t]*~~~/) fence = ""
+    next
+  }
+  rest = $0
+  while ((p = index(rest, "Traces-to")) > 0) {
+    rest = substr(rest, p + 9)
+    o = claim_origin(rest)
+    if (o != "" && !(o in seen)) { seen[o] = 1; print o }
+  }
+}
+ESCAPE_CLAIMS_AWK_EOF
+
+# The recorded program reads an origin state file and prints recorded, unrecorded
+# (a ## Escapes block with no line naming disc) or noheading (no such block).
+IFS= read -r -d '' ESCAPE_RECORDED_AWK <<'ESCAPE_RECORDED_AWK_EOF' || true
+# disc is a whole token when no slug character touches it on either side.
+function has_token(line, tok,   off, rest, p, pre, post) {
+  off = 0; rest = line
+  while ((p = index(rest, tok)) > 0) {
+    pre = (off + p > 1) ? substr(line, off + p - 1, 1) : ""
+    post = substr(line, off + p + length(tok), 1)
+    if (pre !~ /[a-z0-9-]/ && post !~ /[a-z0-9-]/) return 1
+    off += p
+    rest = substr(line, off + 1)
+  }
+  return 0
+}
+{ gsub(/\r/, "") }
+/^## / { section = trim($0); if (section == "## Escapes") heading = 1; next }
+section == "## Escapes" && is_escape_line($0) && has_token($0, disc) { recorded = 1 }
+END { print (recorded ? "recorded" : (heading ? "unrecorded" : "noheading")) }
+ESCAPE_RECORDED_AWK_EOF
+
+# Check N for one artifact root: base/investigations/**/*.md and base/incidents/*.postmortem.md.
+lint_escapes() {
+  local PLANS="$1" base art slug claims origin state verdict
+  base=$(dirname "$PLANS")
+  [ -d "$base/investigations" ] || [ -d "$base/incidents" ] || return 0
+  while IFS= read -r -d '' art; do
+    grep -q 'Traces-to' "$art" 2>/dev/null || continue
+    slug=$(basename "$art")
+    slug=${slug%%.*}
+    claims=$(awk "$ESCAPE_CLAIMS_AWK" "$art") || {
+      echo "mozart-lint: awk failed on $art" >&2
+      exit 3
+    }
+    while IFS= read -r origin; do
+      [ -n "$origin" ] || continue
+      [ "$origin" = "$slug" ] && continue
+      state=$(campaign_find_state "$origin" "${ROOTS[@]}") || state=""
+      if [ -z "$state" ]; then
+        finding "escape-unrecorded" "$art — $slug: traces to $origin, which has no state file in this repo (if it cannot be recorded here, write Traces-to: external — <where or why>; $origin)"
+        continue
+      fi
+      verdict=$(awk -v disc="$slug" "$CAMPAIGN_AWK_LIB"$'\n'"$ESCAPE_RECORDED_AWK" "$state") || {
+        echo "mozart-lint: awk failed on $state" >&2
+        exit 3
+      }
+      case "$verdict" in
+        recorded) ;;
+        noheading) finding "escape-unrecorded" "$state — $slug: a defect found in $art traces to this campaign, but it has no ## Escapes block (add one with a Traces-to: line naming $slug)" ;;
+        *) finding "escape-unrecorded" "$state — $slug: a defect found in $art traces to this campaign, but its ## Escapes block has no Traces-to: line naming $slug" ;;
+      esac
+    done <<< "$claims"
+  done < <(
+    { find "$base/investigations" -type f -name '*.md' -print0 2>/dev/null
+      find "$base/incidents" -maxdepth 1 -type f -name '*.postmortem.md' -print0 2>/dev/null; } | sort -zu
+  )
+}
+
 lint_conductor() {
   local PLANS="$1"
   local f slug slug_date slug_date_src dec ledger_sib conductor_sib cat key msg conductor_out
@@ -888,6 +996,9 @@ lint_root() {
 
   # --- Checks K/L: conductor record + mutation manifest -----------------
   lint_conductor "$PLANS"
+
+  # --- Check N: an investigation or post-mortem's origin records it -------
+  lint_escapes "$PLANS"
 }
 
 for plans in "${ROOTS[@]}"; do

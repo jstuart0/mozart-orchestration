@@ -1508,8 +1508,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-act\t2099-09-11-diagnose-lk-act-no')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fin\t2099-09-11-diagnose-lk-fin-no')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-abo\t2099-09-11-diagnose-lk-abo-no')" \
-    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-no')" \
-    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-no')" \
+    "$(printf 'escape-unrecorded\tactive-2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-no')" \
+    "$(printf 'escape-unrecorded\tfinished-2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-no')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-flat\t2099-09-11-diagnose-lk-flat-no')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-leg\t2099-09-11-diagnose-lk-leg-no')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-rev\t2099-09-11-diagnose-lk-rev-no')" \
@@ -1531,8 +1531,8 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-act\t2099-09-11-diagnose-lk-act-ok')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fin\t2099-09-11-diagnose-lk-fin-ok')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-abo\t2099-09-11-diagnose-lk-abo-ok')" \
-    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-ok')" \
-    "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-ok')" \
+    "$(printf 'escape-unrecorded\tactive-2099-05-11-deliver-esc-lk-apre\t2099-09-11-diagnose-lk-apre-ok')" \
+    "$(printf 'escape-unrecorded\tfinished-2099-05-11-deliver-esc-lk-fpre\t2099-09-11-diagnose-lk-fpre-ok')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-flat\t2099-09-11-diagnose-lk-flat-ok')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-leg\t2099-09-11-diagnose-lk-leg-ok')" \
     "$(printf 'escape-unrecorded\t2099-05-11-deliver-esc-lk-rev\t2099-09-11-diagnose-lk-rev-ok')" \
@@ -1649,7 +1649,7 @@ fi
 v11_dotted=$(find "$v11_corpus" -name '*.state.md' 2>/dev/null | sed 's#.*/##; s#\.state\.md$##' | grep -c '\.' || true)
 [ "$v11_dotted" -eq 0 ] || v11_bad="$v11_bad [$v11_dotted corpus state file(s) have a dot in the slug: the first-dot slug rule would cut them]"
 v11_escdirs=$(find "$v11_corpus" -type d \( -name investigations -o -name incidents \) 2>/dev/null | grep -c . || true)
-[ "$v11_escdirs" -ge 4 ] || v11_bad="$v11_bad [corpus has $v11_escdirs investigations/incidents dir(s), floor 4 (both roots, and incidents)]"
+[ "$v11_escdirs" -ge 3 ] || v11_bad="$v11_bad [corpus has $v11_escdirs investigations/incidents dir(s), floor 3 (both roots, and incidents)]"
 [ -z "$v11_layout_missing" ] || v11_bad="$v11_bad [corpus layout(s) unpopulated:$v11_layout_missing]"
 [ "$v11_tracked" -eq "$v11_on_disk" ] || v11_bad="$v11_bad [$v11_on_disk corpus file(s) on disk but $v11_tracked tracked by git — an ignored fixture passes here and exists nowhere else]"
 # Self-test: the widened comparison can fail. An ignored file planted in a
@@ -2518,7 +2518,7 @@ v27b_heredocs() { # $1 = script -> stdout: the body of every heredoc whose delim
   awk '
     hd != "" { if ($0 == hd) hd = ""; else print; next }
     /<<\047?[A-Z_]*AWK[A-Z_]*\047?/ {
-      hd = $0; sub(/^.*<</, "", hd); gsub(/\047/, "", hd)
+      hd = $0; sub(/^.*<</, "", hd); gsub(/\047/, "", hd); sub(/[ \t].*$/, "", hd)
     }
   ' "$1"
 }

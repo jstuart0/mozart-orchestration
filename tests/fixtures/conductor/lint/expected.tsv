@@ -104,8 +104,8 @@ lint	escape-unrecorded	2099-05-10-deliver-esc-section	2099-09-10-diagnose-sectio
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-act	2099-09-11-diagnose-lk-act-no
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-fin	2099-09-11-diagnose-lk-fin-no
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-abo	2099-09-11-diagnose-lk-abo-no
-lint	escape-unrecorded	2099-05-11-deliver-esc-lk-apre	2099-09-11-diagnose-lk-apre-no
-lint	escape-unrecorded	2099-05-11-deliver-esc-lk-fpre	2099-09-11-diagnose-lk-fpre-no
+lint	escape-unrecorded	active-2099-05-11-deliver-esc-lk-apre	2099-09-11-diagnose-lk-apre-no
+lint	escape-unrecorded	finished-2099-05-11-deliver-esc-lk-fpre	2099-09-11-diagnose-lk-fpre-no
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-flat	2099-09-11-diagnose-lk-flat-no
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-leg	2099-09-11-diagnose-lk-leg-no
 lint	escape-unrecorded	2099-05-11-deliver-esc-lk-rev	2099-09-11-diagnose-lk-rev-no

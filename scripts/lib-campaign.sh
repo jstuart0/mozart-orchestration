@@ -22,6 +22,11 @@
 # `.conductor.md`, beside F. Neither script may spell that rule itself; gate
 # V30_lib counts the code lines that do.
 #
+# Escapes have one rule, is_escape_line (awk): the line that records an escape in a
+# state file's ## Escapes block. Metrics counts those lines; lint (Check N) asks
+# whether the block holds one naming a discovering slug. Lookup of an origin
+# campaign's state file is campaign_find_state (shell), over every layout.
+#
 # CAMPAIGN_AWK_LIB is awk program text. Each script prepends it to its own
 # program: `awk "$CAMPAIGN_AWK_LIB"$'\n'"$PROGRAM"`. POSIX awk only (gate
 # V27b): no gawk extensions, no regex intervals, no three-argument match().
@@ -30,6 +35,25 @@ campaign_sibling() { # <state-file> <ledger|conductor> -> stdout; rc 1 when not 
   case "$1" in *.state.md) ;; *) return 1 ;; esac
   case "$2" in ledger|conductor) ;; *) return 1 ;; esac
   printf '%s.%s.md' "${1%.state.md}" "$2"
+}
+
+# campaign_find_state <slug> <plans-root>... -> stdout: the state file of campaign <slug>;
+# rc 1 when none is found. Roots are searched in the order given, and within a root
+# active/, finished/, aborted/, then the legacy active- and finished- prefixes, then the
+# flat prefixless file. Metrics scans aborted/ and lint's other checks do not; a campaign
+# that was abandoned can still have shipped a defect, so the lookup covers it.
+campaign_find_state() {
+  local slug="$1" root cand
+  shift
+  [ -n "$slug" ] || return 1
+  for root in "$@"; do
+    for cand in "$root/active/$slug.state.md" "$root/finished/$slug.state.md" \
+                "$root/aborted/$slug.state.md" "$root/active-$slug.state.md" \
+                "$root/finished-$slug.state.md" "$root/$slug.state.md"; do
+      if [ -f "$cand" ]; then printf '%s' "$cand"; return 0; fi
+    done
+  done
+  return 1
 }
 
 # `read` and not `$(cat <<EOF)`: bash 3.2 (stock macOS) cannot parse a command
@@ -89,6 +113,17 @@ function tier_of(line,   t, rest, tok) {
 function tier_has_surface(line,   t) {
   t = substr(line, index(line, "**Tier**:") + 9)
   return (index(t, "(surface:") > 0)
+}
+# True when a line of a state file's ## Escapes block records an escape: it holds
+# "Traces-to:", is not a "(none yet)" line, and what follows the label is not a
+# <...> placeholder. Text after the target ("n<3 affected") does not matter.
+function is_escape_line(line,   target) {
+  if (index(line, "Traces-to:") == 0) return 0
+  if (line ~ /none yet/) return 0
+  target = line
+  sub(/^.*Traces-to:[ \t]*/, "", target)
+  if (target ~ /^</) return 0
+  return 1
 }
 # Same rule as campaign_sibling above; "" when not derivable.
 function campaign_sibling_awk(statefile, kind,   base) {

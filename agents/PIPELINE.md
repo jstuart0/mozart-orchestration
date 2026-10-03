@@ -236,6 +236,7 @@ For responding to a **live outage** — service is down or badly degraded *right
 4. Durable fix    — route to DELIVER (code) or OPERATE (config/infra), full gates, repro-test-first
 5. Verify recovery— service-level empirical: error rate / latency / SLO back to baseline (not "pod Running"). IC calls all-clear
 6. Post-mortem    — scott: blameless timeline + root cause + action items → follow-up campaigns; Traces-to if it traces to a shipped campaign
+                    A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`.
                      └─ MITIGATE-ONLY: stop after stage 3 + 5; durable fix is a tracked follow-up
 ```
 
