@@ -2557,16 +2557,17 @@ report "V30_lib" "$([ -z "$v30_bad" ] && echo 0 || echo 1)" \
 v32_bad=""
 v32_tmp=$(mktemp -d) || { v32_bad="$v32_bad [mktemp failed -- the layouts could not be built]"; v32_tmp=/nonexistent-v32; }
 v32_slug=2099-09-30-deliver-agree
-v32_cond=$(cat <<'V32_COND_EOF'
+# `read`, not $(cat <<EOF): bash 3.2 cannot parse a command substitution whose
+# heredoc body holds an unpaired quote or backtick.
+IFS= read -r -d '' v32_cond <<'V32_COND_EOF' || true
 ## Conductor record
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | codex on diff raised nothing open | 9 | bash t.sh 2026-09-01T00:00Z | bash t.sh -> exit 0 | n/a |
-| CR2 | adjudication | bob's F1 does not reproduce | F1 | bash repro.sh 2026-09-01T00:05Z | bash repro.sh -> no repro | n/a |
+| CR2 | adjudication | the F1 claim does not reproduce | F1 | bash repro.sh 2026-09-01T00:05Z | bash repro.sh -> no repro | n/a |
 | CR3 | fact | the upstream API is unversioned | - | doc unverified |  | n/a |
 V32_COND_EOF
-)
-v32_led=$(cat <<'V32_LED_EOF'
+IFS= read -r -d '' v32_led <<'V32_LED_EOF' || true
 ## Findings ledger
 | id | stage | lens | severity | disposition | note |
 |----|-------|------|----------|-------------|------|
@@ -2574,7 +2575,6 @@ v32_led=$(cat <<'V32_LED_EOF'
 | F2 | 9-codex-r2 | hank | High | fixed (def5678) | reverses F1 - a third source showed it |
 | F3 | 4-plan-review | ruby | Medium | rejected | no adjudication row |
 V32_LED_EOF
-)
 v32_head() { printf '%s\n' "# Pipeline state: $v32_slug" '' '**Last updated**: 2026-09-17T00:00Z' \
   '**Status**: CAMPAIGN COMPLETE — SHIPPED' '**Flow**: FULL' '**Tier**: STANDARD' '**Context**: BROWNFIELD' \
   '**Mode**: AUTONOMOUS' '' '## Stage progress' '- [x] 2b. Constraints — skipped: no trigger' \
