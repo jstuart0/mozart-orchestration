@@ -301,7 +301,7 @@ function findings_row(raw,    n, c, fid, fnote, fdisp) {
 function declares_path(line,    v) {
   v = line
   sub(/^- [^:]*:[ \t]*/, "", v)
-  gsub(/`/, "", v)
+  gsub(BT, "", v)
   v = trim(v)
   return !(v == "" || is_placeholder(v) || tolower(v) == "n/a")
 }
@@ -312,6 +312,9 @@ function declares_path(line,    v) {
 # than on the state file's first line, so lines loaded from a sibling survive
 # and a zero-byte state file still reaches END with its siblings read. --------
 BEGIN {
+  # A literal backtick cannot sit in this heredoc: bash 3.2 cannot parse a
+  # command substitution holding an unpaired one.
+  BT = sprintf("%c", 96)
   section = ""
   flow = ""
   in_conductor = 0; conductor_lines = 0; conductor_is_table = 0; conductor_exempt = ""

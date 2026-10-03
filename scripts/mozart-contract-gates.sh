@@ -1501,11 +1501,17 @@ fi
 v11_raw_aged=$(bash "$gate_root/scripts/mozart-lint.sh" "$v11_aged" 2>&1)
 v11_stale_n=$(printf '%s\n' "$v11_raw_aged" | grep -c '^LINT \[stale-active\]' || true)
 [ "$v11_stale_n" -ge 40 ] || v11_bad="$v11_bad [raw lint of the aged corpus emitted $v11_stale_n stale-active line(s), floor 40 -- the aged arm is not aged]"
+# The stale-active lines go through a variable and a here-string, not a pipeline
+# ending in `grep -q`: this file runs under pipefail, and a `-q` that exits on
+# its first match hands the upstream grep a SIGPIPE once the output outgrows a
+# pipe write (about 14 KB here). That reads as "member absent" (a false FAIL) in
+# the first check and as "member absent" again, i.e. a false PASS, in the second.
+v11_stale_lines=$(printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]')
 for v11_stale_member in 2099-08-11-deliver-flat active-2099-08-12-deliver-prefix; do
-  printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]' | grep -qF "$v11_stale_member.state.md" \
+  grep -qF "$v11_stale_member.state.md" <<<"$v11_stale_lines" \
     || v11_bad="$v11_bad [named member absent: stale-active for $v11_stale_member in the aged corpus]"
 done
-printf '%s\n' "$v11_raw_aged" | grep '^LINT \[stale-active\]' | grep -qF "2099-07-01-deliver-clean.state.md" \
+grep -qF "2099-07-01-deliver-clean.state.md" <<<"$v11_stale_lines" \
   && v11_bad="$v11_bad [named-absent member present: stale-active on the terminal fixture 2099-07-01-deliver-clean]"
 
 if [ -n "$v11_scratch" ]; then
@@ -2518,6 +2524,16 @@ if [ -s "$v30_lib" ]; then
   [ "$v30_non" = "rc=1" ] || v30_bad="$v30_bad [campaign_sibling on a non-state path: '$v30_non', want empty output and rc=1]"
 else
   v30_bad="$v30_bad [scripts/lib-campaign.sh missing or empty -- sourcing and sibling arms could not run]"
+fi
+
+# The scripts themselves must parse under the system bash too: stock macOS ships
+# 3.2, which cannot parse a command substitution whose heredoc body holds an
+# unpaired backtick (lint keeps its awk in one). Syntax check only.
+if [ -x /bin/bash ]; then
+  for v30_s in mozart-lint mozart-metrics; do
+    v30_syn=$(/bin/bash -n "$gate_root/scripts/$v30_s.sh" 2>&1) \
+      || v30_bad="$v30_bad [$v30_s.sh does not parse under /bin/bash: $(printf '%s' "$v30_syn" | head -1)]"
+  done
 fi
 
 v30_code_lines() { grep -vE '^[[:space:]]*#' "$1"; }
