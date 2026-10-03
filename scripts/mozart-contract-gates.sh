@@ -2183,8 +2183,8 @@ v27_re="[ef]?grep( +(-[A-Za-z]+|--))* +['\"][^'\"]*${v27_esc}"
 v27_bad=""
 v27_files=("$gate_root"/scripts/*.sh)
 v27_scanned=${#v27_files[@]}
-[ "$v27_scanned" -ge 3 ] || v27_bad="$v27_bad [only $v27_scanned script(s) under scripts/*.sh, floor 3]"
-for v27_member in mozart-contract-gates.sh mozart-lint.sh; do
+[ "$v27_scanned" -ge 4 ] || v27_bad="$v27_bad [only $v27_scanned script(s) under scripts/*.sh, floor 4]"
+for v27_member in mozart-contract-gates.sh mozart-lint.sh lib-campaign.sh; do
   [ -f "$gate_root/scripts/$v27_member" ] || v27_bad="$v27_bad [named member absent from the scan: scripts/$v27_member]"
 done
 v27_hits=$(grep -nE "$v27_re" "${v27_files[@]}" 2>/dev/null || true)
@@ -2221,17 +2221,25 @@ v27b_programs() { # $1 = script -> stdout: the text of every single-quoted awk p
     }
   ' "$1"
 }
+v27b_heredocs() { # $1 = script -> stdout: the body of every heredoc whose delimiter names AWK
+  awk '
+    hd != "" { if ($0 == hd) hd = ""; else print; next }
+    /<<\047?[A-Z_]*AWK[A-Z_]*\047?/ {
+      hd = $0; sub(/^.*<</, "", hd); gsub(/\047/, "", hd)
+    }
+  ' "$1"
+}
 v27b_names='gensub\(|asorti?\(|strftime|systime|PROCINFO|IGNORECASE|BEGINFILE|ENDFILE'
 v27b_prog_re='match\([^,()]*,[^,()]*,|\{[0-9]+(,[0-9]*)?\}'
 v27b_check() { # $1 = script -> stdout: offending lines (empty when clean)
   grep -nE "$v27b_names" "$1"
-  v27b_programs "$1" | grep -E "$v27b_prog_re"
+  { v27b_programs "$1"; v27b_heredocs "$1"; } | grep -E "$v27b_prog_re"
 }
 v27b_bad=""
 v27b_progs=0
-for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-metrics.sh"; do
+for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-metrics.sh" "$gate_root/scripts/lib-campaign.sh"; do
   [ -f "$v27b_script" ] || { v27b_bad="$v27b_bad [named member absent: $v27b_script]"; continue; }
-  v27b_n=$(v27b_programs "$v27b_script" | grep -c . || true)
+  v27b_n=$({ v27b_programs "$v27b_script"; v27b_heredocs "$v27b_script"; } | grep -c . || true)
   [ "$v27b_n" -ge 1 ] || v27b_bad="$v27b_bad [no awk program extracted from $(basename "$v27b_script") -- the extractor is blind]"
   v27b_progs=$((v27b_progs + v27b_n))
   v27b_hit=$(v27b_check "$v27b_script")
@@ -2241,14 +2249,140 @@ v27b_tmp=$(mktemp -d)
 printf "awk 'BEGIN { print gensub(/a/, \"b\", \"g\") }'\n" > "$v27b_tmp/name.sh"
 printf "awk '/a{2}/ { print }'\n" > "$v27b_tmp/interval.sh"
 printf "awk '{ match(\$0, /x/, m) }'\n" > "$v27b_tmp/match3.sh"
+printf "X=\$(cat <<'X_AWK_EOF'\n/a{2}/ { print }\nX_AWK_EOF\n)\n" > "$v27b_tmp/heredoc.sh"
 printf "awk '{ print }'\n" > "$v27b_tmp/clean.sh"
-for v27b_plant in name interval match3; do
+for v27b_plant in name interval match3 heredoc; do
   [ -n "$(v27b_check "$v27b_tmp/$v27b_plant.sh")" ] || v27b_bad="$v27b_bad [self-test: planted $v27b_plant construct was not caught]"
 done
 [ -z "$(v27b_check "$v27b_tmp/clean.sh")" ] || v27b_bad="$v27b_bad [self-test: a clean awk line was flagged]"
 rm -rf "$v27b_tmp"
 report "V27b_portable_awk" "$([ -z "$v27b_bad" ] && echo 0 || echo 1)" \
-  "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across lint and metrics, planted self-tests caught}"
+  "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across lint, metrics and the library, planted self-tests caught}"
+
+# ---------------------------------------------------------------------------
+# V30_lib - scripts/lib-campaign.sh: the one place lint and metrics get their
+# shared awk helpers and the sibling-file rule (phase 2a)
+#
+# Real scripts, real scratch copies. Library absent or empty is exit 3 with a
+# named message (exit 2 stays "nothing to lint"); the library is found from
+# the script's own absolutised path (relative path, other cwd, spaced path);
+# sourcing it has no side effect; the two spellings of the sibling rule agree;
+# a function defined twice cannot pass as a clean run; metrics reads a CRLF
+# state file exactly as it reads the LF original. The derivation guard counts
+# code lines, so the scripts cannot grow a private copy of the rule.
+# ---------------------------------------------------------------------------
+v30_repo=$(dirname "$(dirname "$gatefile")")
+v30_corpus="$v30_repo/tests/fixtures/conductor/metrics-conductor"
+v30_lib="$gate_root/scripts/lib-campaign.sh"
+v30_bad=""
+v30_tmp=$(mktemp -d)
+v30_runs=0
+
+for v30_s in mozart-lint mozart-metrics; do
+  [ "$(grep -c 'lib-campaign\.sh' "$gate_root/scripts/$v30_s.sh")" -ge 1 ] || v30_bad="$v30_bad [$v30_s.sh does not name lib-campaign.sh]"
+done
+
+mkdir -p "$v30_tmp/absent/scripts" "$v30_tmp/empty/scripts"
+cp "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$v30_tmp/absent/scripts/" || v30_bad="$v30_bad [cp of the scripts failed]"
+cp "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$v30_tmp/empty/scripts/" || v30_bad="$v30_bad [cp of the scripts failed]"
+: > "$v30_tmp/empty/scripts/lib-campaign.sh"
+for v30_state in absent empty; do
+  for v30_s in mozart-lint mozart-metrics; do
+    v30_out=$(bash "$v30_tmp/$v30_state/scripts/$v30_s.sh" "$v30_corpus" 2>&1); v30_rc=$?
+    v30_runs=$((v30_runs + 1))
+    [ "$v30_rc" -eq 3 ] || v30_bad="$v30_bad [$v30_s with the library $v30_state: exit $v30_rc, want 3]"
+    [ "$v30_out" = "$v30_s: scripts/lib-campaign.sh not found beside this script" ] \
+      || v30_bad="$v30_bad [$v30_s with the library $v30_state: wrong message: $(printf '%s' "$v30_out" | head -1)]"
+  done
+done
+[ "$v30_runs" -ge 4 ] || v30_bad="$v30_bad [absent/empty arm ran $v30_runs time(s), floor 4]"
+
+mkdir -p "$v30_tmp/noplans"
+for v30_s in mozart-lint mozart-metrics; do
+  bash "$gate_root/scripts/$v30_s.sh" "$v30_tmp/noplans" >/dev/null 2>&1; v30_rc=$?
+  [ "$v30_rc" -eq 2 ] || v30_bad="$v30_bad [CONTROL: $v30_s on a root with no plans dir: exit $v30_rc, want 2]"
+done
+
+mkdir -p "$v30_tmp/sp ace/scripts"
+cp "$gate_root"/scripts/*.sh "$v30_tmp/sp ace/scripts/" || v30_bad="$v30_bad [cp to the spaced path failed]"
+for v30_s in mozart-lint mozart-metrics; do
+  v30_ref=$(bash "$gate_root/scripts/$v30_s.sh" "$v30_corpus" 2>&1; echo "rc=$?")
+  v30_rel=$(cd "$v30_tmp/sp ace" && bash "scripts/$v30_s.sh" "$v30_corpus" 2>&1; echo "rc=$?")
+  v30_spc=$(cd / && bash "$v30_tmp/sp ace/scripts/$v30_s.sh" "$v30_corpus" 2>&1; echo "rc=$?")
+  case "$v30_ref" in *"not found beside"*|"") v30_bad="$v30_bad [$v30_s: the reference run did not run]" ;; esac
+  [ "$v30_rel" = "$v30_ref" ] || v30_bad="$v30_bad [$v30_s run by a relative path from another cwd differs from the reference run]"
+  [ "$v30_spc" = "$v30_ref" ] || v30_bad="$v30_bad [$v30_s run from a path containing a space differs from the reference run]"
+done
+
+mkdir -p "$v30_tmp/crlf"
+cp -R "$v30_corpus/." "$v30_tmp/crlf/" || v30_bad="$v30_bad [cp of the metrics-conductor corpus failed]"
+v30_crlf_n=0
+while IFS= read -r -d '' v30_f; do
+  awk '{ print $0 "\r" }' "$v30_f" > "$v30_f.crlf" && mv "$v30_f.crlf" "$v30_f" || v30_bad="$v30_bad [CRLF conversion failed]"
+  v30_crlf_n=$((v30_crlf_n + 1))
+done < <(find "$v30_tmp/crlf" -name '*.state.md' -print0)
+[ "$v30_crlf_n" -ge 1 ] || v30_bad="$v30_bad [no state file found to convert to CRLF]"
+v30_lf=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v30_corpus" 2>&1; echo "rc=$?")
+v30_cr=$(bash "$gate_root/scripts/mozart-metrics.sh" "$v30_tmp/crlf" 2>&1; echo "rc=$?")
+printf '%s\n' "$v30_lf" | grep -qxF '== mozart pipeline economics ==' || v30_bad="$v30_bad [the LF metrics run printed no table]"
+[ "$v30_cr" = "$v30_lf" ] || v30_bad="$v30_bad [metrics on a CRLF copy of metrics-conductor differs from the LF original]"
+
+if [ -s "$v30_lib" ]; then
+  mkdir -p "$v30_tmp/dup/scripts"
+  cp "$gate_root"/scripts/mozart-lint.sh "$gate_root"/scripts/mozart-metrics.sh "$v30_tmp/dup/scripts/"
+  awk '{ print } /^CAMPAIGN_AWK_LIB=/ { print "function trim(s) { return s }" }' "$v30_lib" > "$v30_tmp/dup/scripts/lib-campaign.sh"
+  [ "$(grep -c '^function trim(s) { return s }$' "$v30_tmp/dup/scripts/lib-campaign.sh")" -eq 1 ] || v30_bad="$v30_bad [the duplicate-function plant did not land]"
+  for v30_s in mozart-lint mozart-metrics; do
+    v30_out=$(bash "$v30_tmp/dup/scripts/$v30_s.sh" "$v30_corpus" 2>/dev/null); v30_rc=$?
+    [ "$v30_rc" -ne 0 ] && { [ "$v30_s" != mozart-lint ] || [ "$v30_rc" -ne 1 ]; } || v30_bad="$v30_bad [$v30_s with a function defined twice: exit $v30_rc passes as a normal run]"
+    printf '%s\n' "$v30_out" | grep -qE 'pipeline economics|^LINT ' && v30_bad="$v30_bad [$v30_s printed results with a function defined twice]"
+  done
+fi
+
+if [ -s "$v30_lib" ]; then
+  v30_src=$(bash -c 'a=$-; . "$1"; . "$1"; [ "$a" = "$-" ] && echo same-flags' _ "$v30_lib" 2>&1)
+  v30_srcu=$(bash -uc 'a=$-; . "$1"; . "$1"; [ "$a" = "$-" ] && echo same-flags' _ "$v30_lib" 2>&1)
+  [ "$v30_src" = "same-flags" ] || v30_bad="$v30_bad [sourcing the library printed output or changed shell flags: $v30_src]"
+  [ "$v30_srcu" = "same-flags" ] || v30_bad="$v30_bad [sourcing the library under set -u printed output or changed shell flags: $v30_srcu]"
+  v30_agree=0
+  for v30_case in "/a b/p/x.state.md" "x.state.md" "/p/2026-10-03-s.state.md"; do
+    for v30_kind in ledger conductor; do
+      v30_sh=$(bash -c '. "$1"; campaign_sibling "$2" "$3"' _ "$v30_lib" "$v30_case" "$v30_kind")
+      v30_aw=$(bash -c '. "$1"; awk "$CAMPAIGN_AWK_LIB"$'"'"'\nBEGIN { printf "%s", campaign_sibling_awk(ARGV[1], ARGV[2]) }'"'"' "$2" "$3"' _ "$v30_lib" "$v30_case" "$v30_kind")
+      [ -n "$v30_sh" ] && [ "$v30_sh" = "$v30_aw" ] && [ "$v30_sh" = "${v30_case%.state.md}.$v30_kind.md" ] \
+        && v30_agree=$((v30_agree + 1)) \
+        || v30_bad="$v30_bad [sibling of '$v30_case' ($v30_kind): shell='$v30_sh' awk='$v30_aw']"
+    done
+  done
+  [ "$v30_agree" -eq 6 ] || v30_bad="$v30_bad [sibling agreement: $v30_agree of 6 cases]"
+  v30_non=$(bash -c '. "$1"; campaign_sibling "$2" ledger; echo "rc=$?"' _ "$v30_lib" "/p/not-a-state-file.md")
+  [ "$v30_non" = "rc=1" ] || v30_bad="$v30_bad [campaign_sibling on a non-state path: '$v30_non', want empty output and rc=1]"
+else
+  v30_bad="$v30_bad [scripts/lib-campaign.sh missing or empty -- sourcing and sibling arms could not run]"
+fi
+
+v30_code_lines() { grep -vE '^[[:space:]]*#' "$1"; }
+v30_sib_re='\.(ledger|conductor)\.md'
+v30_strip_re='basename[^|]*\.state\.md|%+\.state\.md|sub\(.*state\.md|sed .*state\.md|basename -s'
+for v30_s in mozart-lint mozart-metrics; do
+  v30_n=$(v30_code_lines "$gate_root/scripts/$v30_s.sh" | grep -cE "$v30_sib_re" || true)
+  [ "$v30_n" -eq 0 ] || v30_bad="$v30_bad [$v30_s.sh derives a sibling path in $v30_n code line(s): the rule lives in the library]"
+done
+v30_lint_strips=$(v30_code_lines "$gate_root/scripts/mozart-lint.sh" | grep -cE "$v30_strip_re" || true)
+v30_lint_basename=$(v30_code_lines "$gate_root/scripts/mozart-lint.sh" | grep -cE 'basename "\$f" \.state\.md' || true)
+v30_lint_percent=$(v30_code_lines "$gate_root/scripts/mozart-lint.sh" | grep -cF '${f%.state.md}.decisions.md' || true)
+v30_metrics_strips=$(v30_code_lines "$gate_root/scripts/mozart-metrics.sh" | grep -cE "$v30_strip_re" || true)
+{ [ "$v30_lint_strips" -eq 3 ] && [ "$v30_lint_basename" -eq 2 ] && [ "$v30_lint_percent" -eq 1 ]; } \
+  || v30_bad="$v30_bad [mozart-lint.sh .state.md strips: $v30_lint_strips total ($v30_lint_basename basename, $v30_lint_percent decisions-log), want exactly 3 (2, 1) -- a fourth is a new derivation]"
+[ "$v30_metrics_strips" -eq 0 ] || v30_bad="$v30_bad [mozart-metrics.sh strips .state.md in $v30_metrics_strips code line(s), want 0]"
+printf '%s\n' "x=\"\${f%.ledger.md}\"" > "$v30_tmp/plant-code.sh"
+printf '%s\n' "# x=\"\${f%.ledger.md}\"" > "$v30_tmp/plant-comment.sh"
+[ "$(v30_code_lines "$v30_tmp/plant-code.sh" | grep -cE "$v30_sib_re" || true)" -eq 1 ] || v30_bad="$v30_bad [self-test: a sibling derivation in a code line was not caught]"
+[ "$(v30_code_lines "$v30_tmp/plant-comment.sh" | grep -cE "$v30_sib_re" || true)" -eq 0 ] || v30_bad="$v30_bad [self-test: a comment line was flagged]"
+
+rm -rf "$v30_tmp"
+report "V30_lib" "$([ -z "$v30_bad" ] && echo 0 || echo 1)" \
+  "${v30_bad:-library absent/empty exit 3 ($v30_runs runs), cwd/spaced paths, CRLF metrics equals LF, duplicate function not a clean run, sibling spellings agree, lint has $v30_lint_strips allow-listed .state.md strips, metrics $v30_metrics_strips}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
