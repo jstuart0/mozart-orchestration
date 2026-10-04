@@ -3477,9 +3477,20 @@ BEGIN {
   printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2) run")
   printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through 2): run")
   printf "[%s]", escalation_pass_through("ian: run; xander: cumulative pass on escalation (through P10b): run; more")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; Auth-flow)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; Auth0)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; Secrets-Manager)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; Security2)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; Crédentials)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing; Maintainer Confirmed HEAVY)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: Billing, INFRA)")
+  printf "[%s]", escalation_pass_through("notxander: cumulative pass on escalation (through P99): run")
+  printf "[%s]", escalation_pass_through("x-xander: cumulative pass on escalation (through P99): run")
+  printf "[%s]", escalation_pass_through("ian: run; xander: cumulative pass on escalation (through P7): run")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P7): run")
   printf "{%d}", n
 }'
-v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][][1][1][1][1][0][1][1][1][1][1][1][1][0][0][0][12][4][200][201][202][300][1202][P2][P2a][][][P2][][][][P10b]{56}"
+v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][][1][1][1][1][0][1][1][1][1][1][1][1][0][0][0][12][4][200][201][202][300][1202][P2][P2a][][][P2][][][][P10b][1][1][1][1][0][0][0][][P99][P7][P7]{56}"
 for v34_l in "$gate_utf8" C; do
   v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
   [ "$v34_got" = "$v34_want" ] \
@@ -4054,6 +4065,21 @@ v28_claim=$(grep -o 'xander: cumulative pass on escalation (through P<k>): run' 
 v28_thr=$(awk -v c="$v28_claim" "$v28_lib"$'\n''BEGIN { printf "%s", escalation_pass_through(c) }' </dev/null 2>&1)
 [ "$v28_thr" = "P3" ] || v28_bad="$v28_bad [the claim form STATE.md documents ('$v28_claim') is not read by the library's escalation_pass_through (got '$v28_thr')]"
 v28_once "$v28_state" 'dated 2026-10-04 or later' "agents/STATE.md"
+# F74: README states the same LIGHT ineligibility as agents/mozart.md, in its tier-table row and its tier paragraph.
+v28_rd_row=$(grep -F '| **LIGHT** |' README.md)
+v28_rd_par=$(grep -F 'A security-relevant change' README.md)
+for v28_p in 'no otto or nina trigger' 'no dependency manifest, lockfile or CI change' 'no security or other HEAVY surface'; do
+  v28_once "$v28_rd_row" "$v28_p" "README.md LIGHT row"
+done
+for v28_p in 'an otto or nina trigger' 'a dependency manifest, lockfile or CI change' 'is never LIGHT'; do
+  v28_once "$v28_rd_par" "$v28_p" "README.md tier paragraph"
+done
+[ "$(printf '%s\n' "$v28_rd_row" | grep -c .)" = "1" ] && [ "$(printf '%s\n' "$v28_rd_par" | grep -c .)" = "1" ] || v28_bad="$v28_bad [README.md must hold exactly one LIGHT table row and one tier paragraph sentence]"
+# F76: docs/EVAL.md names the residue this campaign created in its sampled-residue paragraph (## Findings).
+v28_ev=$(v28_sec docs/EVAL.md '^## Findings' '^## ')
+for v28_p in '`external — …` origins in `Traces-to` lines' 'the escalation pass row' 'a dishonest `xander: run` or `through P<k>`' 'a lowered tier, a surface record that omits a word that applies, or free text after `;`'; do
+  v28_once "$v28_ev" "$v28_p" "docs/EVAL.md Findings paragraph"
+done
 grep -qF 'escalation_pass_through(cr_claim[id])' scripts/mozart-lint.sh || v28_bad="$v28_bad [scripts/mozart-lint.sh no longer reads the escalation-pass claim through the library's escalation_pass_through]"
 grep -qF 'escalated from (TINY|LIGHT|STANDARD), D' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh no longer reads the Tier clause 'escalated from <TIER>, D<n>' the docs name]"
 v28_once "$v28_pipe_adj" 'STANDARD at minimum, and HEAVY when the work is on that surface' "PIPELINE tier adjustments"

@@ -83,11 +83,11 @@ Bug-shaped DELIVER on STANDARD/HEAVY auto-promotes to DIAGNOSE first. A DIAGNOSE
 | Tier | What it adjusts |
 |---|---|
 | **TINY** | Skip research, plan-review fan-out, mid-build specialists. Brief jackson directly → verify → commit |
-| **LIGHT** | Small change, known cause, no security or other HEAVY surface: skip research, constraints and codex r1; short plan reviewed by bob alone; mid-build specialists on triggers; codex r2 runs |
+| **LIGHT** | Small change, known cause, no security or other HEAVY surface, no otto or nina trigger, no dependency manifest, lockfile or CI change: skip research, constraints and codex r1; short plan reviewed by bob alone; mid-build specialists on triggers; codex r2 runs |
 | **STANDARD** | Default — full DELIVER pipeline |
 | **HEAVY** | STANDARD + ian and xander mid-build (both on phase 1, then on triggers and the recorded HEAVY surface) + mandatory codex r2 on the final diff |
 
-Mozart classifies tier at intake based on surface area (auth, schema, migrations, infra, security-critical → HEAVY). A security-relevant change, or one on a HEAVY surface, is never LIGHT, and a tier only ever goes up.
+Mozart classifies tier at intake based on surface area (auth, schema, migrations, infra, security-critical → HEAVY). A security-relevant change, one on a HEAVY surface, an otto or nina trigger, or a dependency manifest, lockfile or CI change is never LIGHT, and a tier only ever goes up.
 
 ## Project context
 

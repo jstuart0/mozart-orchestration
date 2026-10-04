@@ -122,7 +122,7 @@ For each verification target the previous report named:
 
 ## Findings
 
-Ranked, evidence-cited (file paths, slugs, metrics). Same severity discipline as everywhere else. Includes the residue the linter can't mechanize: derived claims (absence, count, success, "the specialist is wrong") in Status notes, flow traces, or final reports with no conductor row; every `rejected (judgment)` note, sampled for a dispute a command could have settled after all (F33); and OPERATE/INCIDENT change-ledger manifest cells sampled for unredacted secret-bearing values Check L's shape check can't see (F36).
+Ranked, evidence-cited (file paths, slugs, metrics). Same severity discipline as everywhere else. Includes the residue the linter can't mechanize: derived claims (absence, count, success, "the specialist is wrong") in Status notes, flow traces, or final reports with no conductor row; every `rejected (judgment)` note, sampled for a dispute a command could have settled after all (F33); OPERATE/INCIDENT change-ledger manifest cells sampled for unredacted secret-bearing values Check L's shape check can't see (F36); `external — …` origins in `Traces-to` lines (sampled for an origin that did have a state file); HEAVY lens records and the escalation pass row (sampled for a dishonest `xander: run` or `through P<k>`); and Tier lines (sampled for a lowered tier, a surface record that omits a word that applies, or free text after `;` that hides one).
 
 ## Fixes shipped / proposed
 

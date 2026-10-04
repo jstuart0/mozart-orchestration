@@ -152,7 +152,8 @@ function tier_surface_record(line,   t, i) {
   return t
 }
 # Splits one segment of a surface record into normalised tokens: punctuation,
-# backticks and "/" are separators, ASCII words are lower-cased. Whole strings
+# backticks and "/" are separators and every token is lower-cased, digits and
+# hyphens included ("Auth-flow", "Auth0"). Whole strings
 # only, never a one-byte window, so multibyte text beside a word is harmless.
 function surface_tokens(seg, toks,   n, i, w, k, raw) {
   gsub(/[`*"'.()\/:,]/, " ", seg)
@@ -161,7 +162,7 @@ function surface_tokens(seg, toks,   n, i, w, k, raw) {
   for (i = 1; i <= n; i++) {
     w = raw[i]
     if (w == "") continue
-    if (w ~ /^[A-Za-z]+$/) w = tolower(w)
+    w = tolower(w)
     toks[++k] = w
   }
   return k
@@ -219,7 +220,7 @@ function phase_order(k,   n, suf) {
 # The phase an escalation-pass claim covers, as "P<k>", or "" when the claim is not
 # the one fixed form "xander: cumulative pass on escalation (through P<k>): run".
 function escalation_pass_through(claim,   c) {
-  if (!match(claim, /xander: cumulative pass on escalation \(through P[0-9]+[a-z]?\): run([^A-Za-z0-9]|$)/)) return ""
+  if (!match(claim, /(^|[^A-Za-z0-9_])xander: cumulative pass on escalation \(through P[0-9]+[a-z]?\): run([^A-Za-z0-9]|$)/)) return ""
   c = substr(claim, RSTART, RLENGTH)
   sub(/^.*\(through /, "", c)
   sub(/\).*$/, "", c)
