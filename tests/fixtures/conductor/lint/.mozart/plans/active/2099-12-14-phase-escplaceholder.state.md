@@ -1,4 +1,4 @@
-# Pipeline state: 2099-11-22-phase-passlinkwrong
+# Pipeline state: 2099-12-14-phase-escplaceholder
 
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
@@ -17,4 +17,4 @@
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | ian: no trigger — phase ran before escalation; xander: no trigger — phase ran before escalation | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-| CR2 | check | xander: cumulative pass on escalation (through P1): run | D5 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR2 | check | <xander: cumulative pass on escalation (through P1): run> | D4 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |

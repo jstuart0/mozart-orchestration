@@ -179,23 +179,51 @@ function tier_surface_usable(line,   segs, k, toks, i) {
   for (i = 1; i <= k; i++) if (surface_word_listed(toks[i])) return 1
   return 0
 }
-# True when xander must run every phase: the record names auth, secrets or
-# security anywhere in it, or its word list is empty or holds a word that is not
-# listed (the manual counts that as touching the surface on every phase, so a
-# miss must fail safe). "Auth", "auth/secrets", `auth` and "security." all count.
-# An absent record is not read here; the lint reports it on its own.
-function tier_surface_wants_xander(line,   segs, ns, s, k, toks, i) {
+# True when xander must run every phase. Fail safe by construction: the first
+# segment (the word list) is always read, so an empty record, "(surface:)" and
+# "(surface: )" alike, wants xander, as does a word that is not listed (the manual
+# counts that as touching the surface on every phase). Any token anywhere that is
+# auth, secrets or security wants it, and so does a token after a ";" that begins
+# auth, secret or security ("authentication", "secret", "auth-flow", "auth+secrets"):
+# free text there is read for those prefixes, and other free text ("credentials",
+# "maintainer confirmed HEAVY") is accepted as free text. A second "(surface:" on the
+# line is anomalous and wants it too. Case, punctuation, backticks and "/" are
+# normalised away. An absent record is not read here; the lint reports it itself.
+function tier_surface_wants_xander(line,   t, rest, segs, ns, s, k, toks, i) {
   if (!tier_has_surface(line)) return 0
+  t = substr(line, index(line, "**Tier**:") + 9)
+  rest = substr(t, index(t, "(surface:") + 9)
+  if (index(rest, "(surface:") > 0) return 1
   ns = split(tier_surface_record(line), segs, ";")
-  for (s = 1; s <= ns; s++) {
+  k = surface_tokens(segs[1], toks)
+  if (k == 0) return 1
+  for (i = 1; i <= k; i++) {
+    if (toks[i] == "auth" || toks[i] == "secrets" || toks[i] == "security") return 1
+    if (!surface_word_listed(toks[i])) return 1
+  }
+  for (s = 2; s <= ns; s++) {
     k = surface_tokens(segs[s], toks)
-    if (s == 1 && k == 0) return 1
-    for (i = 1; i <= k; i++) {
-      if (toks[i] == "auth" || toks[i] == "secrets" || toks[i] == "security") return 1
-      if (s == 1 && !surface_word_listed(toks[i])) return 1
-    }
+    for (i = 1; i <= k; i++) if (toks[i] ~ /^(auth|secret|security)/) return 1
   }
   return 0
+}
+# Phase keys order by number, then by sub-phase letter: P2 < P2a < P2b < P3, so
+# "through P2" does not cover P2a and "through P2b" covers P2, P2a and P2b.
+function phase_order(k,   n, suf) {
+  sub(/^P/, "", k)
+  n = k + 0
+  suf = k
+  sub(/^[0-9]+/, "", suf)
+  return n * 100 + (suf == "" ? 0 : index("abcdefghijklmnopqrstuvwxyz", suf))
+}
+# The phase an escalation-pass claim covers, as "P<k>", or "" when the claim is not
+# the one fixed form "xander: cumulative pass on escalation (through P<k>): run".
+function escalation_pass_through(claim,   c) {
+  if (!match(claim, /xander: cumulative pass on escalation \(through P[0-9]+[a-z]?\): run([^A-Za-z0-9]|$)/)) return ""
+  c = substr(claim, RSTART, RLENGTH)
+  sub(/^.*\(through /, "", c)
+  sub(/\).*$/, "", c)
+  return c
 }
 # The decision number of an escalation the Tier line records, as the text
 # "escalated from <TINY|LIGHT|STANDARD>, D<n>", or "" when it records none.

@@ -143,7 +143,7 @@ Run on the slice **before committing** when triggered. **HEAVY tier**:
 - **Phase 1**: ian and xander both run.
 - **From phase 2**: each runs when its trigger below matches or the phase touches the recorded HEAVY surface. **When the recorded surface includes `auth`, `secrets` or `security`, xander is spawned on every phase**; only ian is trigger-gated.
 - **The surface record is required**: `**Tier**: HEAVY (surface: <word>[, <word>…])`, words from `auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`. Record every listed word that applies; any term in xander's stage-8 row maps to `security`. **An absent, empty or unlisted word counts as touching the surface on every phase**, so both lenses are spawned on every phase.
-- **On escalation** xander reviews the cumulative diff since the base once, uncommitted phase diff included, before further implementation (the record is in `STATE.md`).
+- **On escalation** xander reviews the cumulative diff since the base once, uncommitted phase diff included, before further implementation; the record is the Tier line `escalated from <TIER>, D<n>` and a row linked to `D<n>` claiming `xander: cumulative pass on escalation (through P<k>): run` (`STATE.md`).
 - **Record both lenses on the phase's `P<N>` conductor row** (`ian:` and `xander:`, each `run` or `no trigger — <why>`; the form is in `STATE.md`).
 - **`EVERY-PHASE`** (see `FLOWS.md`) spawns both at every phase of a HEAVY campaign, whatever the triggers and the recorded surface say.
 

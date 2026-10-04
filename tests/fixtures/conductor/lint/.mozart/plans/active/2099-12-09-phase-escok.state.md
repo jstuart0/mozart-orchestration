@@ -17,4 +17,4 @@
 | id | kind | claim | links | source | control (command -> observed) | written-to |
 |----|------|-------|-------|--------|-------------------------------|------------|
 | CR1 | check | ian: no trigger — phase ran before escalation; xander: no trigger — phase ran before escalation | P1 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
-| CR2 | check | xander: cumulative pass on escalation (base to working tree): run | D4 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |
+| CR2 | check | xander: cumulative pass on escalation (through P1): run | D4 | `bash test.sh` 2026-09-16T00:00Z | `bash test.sh` -> exit 0 | n/a |

@@ -161,13 +161,13 @@ flow_of() {
 flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
   local val="$1" tok
   for tok in $CONDUCTOR_FLOWS_DELIVER; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo DELIVER; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo DELIVER; return; }
   done
   for tok in $CONDUCTOR_FLOWS_OPERATE; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo OPERATE; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo OPERATE; return; }
   done
   for tok in $CONDUCTOR_FLOWS_INCIDENT; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo INCIDENT; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo INCIDENT; return; }
   done
   echo ""
 }
@@ -630,13 +630,15 @@ END {
   lens_dated = (slug_date >= lens_since)
   if (family == "DELIVER" && tier == "HEAVY" && lens_dated && !tier_surface_ok)
     emit("conductor-row", "tier", "HEAVY tier line has no usable surface record (write the Tier value as HEAVY (surface: <word>[, <word>…]) with at least one of auth, secrets, schema, migrations, infra, billing, security)")
-  # F62/F63: an escalation is evidenced by the Tier line (escalated from <TIER>, D<n>) AND a conductor
-  # row linked to that D<n> whose claim records xander's cumulative pass on escalation.
-  esc_ok = 0
+  # F62/F63/F65: an escalation is evidenced by the Tier line (escalated from <TIER>, D<n>) AND a conductor
+  # row linked to exactly that D<n> whose claim is "xander: cumulative pass on escalation (through P<k>): run".
+  # The pre-escalation exemption covers phase rows up to P<k> only (phase_order), never later ones.
+  esc_through = -1
   if (tier_esc_d != "") {
     for (id in cr_id_known) {
       if (cr_placeholder[id] || cr_links[id] != "D" tier_esc_d) continue
-      if (index(cr_claim[id], "xander: cumulative pass on escalation") > 0) esc_ok = 1
+      t_through = escalation_pass_through(cr_claim[id])
+      if (t_through != "" && phase_order(t_through) > esc_through) esc_through = phase_order(t_through)
     }
   }
 
@@ -658,14 +660,14 @@ END {
             if (first_row == "" || id < first_row) first_row = id
             if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) {
               lens_ok = 1
-              if (xander_every_phase_ok(cr_claim[id], esc_ok)) xander_ok = 1
+              if (xander_every_phase_ok(cr_claim[id], esc_through >= 0 && phase_order(pk) <= esc_through)) xander_ok = 1
             }
           }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
           else if (heavy_only && tier == "HEAVY" && (tier_surface || lens_dated) && !lens_ok)
             emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
           else if (heavy_only && tier == "HEAVY" && tier_xander_every && !xander_ok)
-            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation)")
+            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation (through P<k>): run, with P<k> at or after this phase)")
         }
       }
       continue

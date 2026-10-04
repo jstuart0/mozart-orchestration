@@ -136,6 +136,15 @@ lint	conductor-row	2099-11-19-phase-prebare	CR1
 lint	conductor-row	2099-11-20-phase-escnorow	CR1
 lint	conductor-row	2099-11-21-phase-rownoesc	CR1
 lint	conductor-row	2099-11-22-phase-passlinkwrong	CR1
+lint	conductor-row	2099-12-10-phase-escnoclaim	CR1
+lint	conductor-row	2099-12-11-phase-escdocsreason	CR1
+lint	conductor-row	2099-12-12-phase-escseereason	CR1
+lint	conductor-row	2099-12-13-phase-escprefixlink	CR1
+lint	conductor-row	2099-12-14-phase-escplaceholder	CR1
+lint	conductor-row	2099-12-15-phase-escnotrun	CR1
+lint	conductor-row	2099-12-17-phase-escoldform	CR1
+lint	conductor-row	2099-12-16-phase-escafterk	CR3
+lint	conductor-row	2099-12-18-phase-escorder	CR4
 lint	conductor-row	2099-12-01-phase-bareheavy	tier
 lint	conductor-row	2099-12-02-phase-emptysurface	tier
 lint	conductor-row	2099-12-03-phase-unlistedonly	tier

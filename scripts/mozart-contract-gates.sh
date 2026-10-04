@@ -1375,6 +1375,23 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   [ "$v11_emitted" -eq "$v11_expected_n" ] || arm_bad="$arm_bad [corpus emitted $v11_emitted LINT line(s), expected.tsv records $v11_expected_n — a fixture is firing a category nothing accounts for]"
   [ "$triple_n" -eq "$v11_expected_n" ] || arm_bad="$arm_bad [$triple_n distinct triples vs $v11_expected_n expected rows]"
   [ "$ov_triples" = "$v11_expected_triples" ] || arm_bad="$arm_bad [K/L triples not set-equal to expected.tsv]"
+  # D12: six HEAVY fixtures dated before 2099-12 are silent on the lens-record rules only because the corpus pins
+  # the lens date to $gate_lens. With the pin removed (the default 2026-10-04 applies to every 2099 slug) the run
+  # must add exactly these 11 triples and lose none, so the pin is a checked fact and not a silent assumption.
+  local unp_out unp_triples unp_extra unp_lost unp_want
+  unp_out=$(env -u MOZART_LINT_LENS_SINCE LC_ALL="$gate_utf8" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01 bash "$gate_root/scripts/mozart-lint.sh" "$dir" 2>&1)
+  unp_triples=$(printf '%s\n' "$unp_out" | v11_extract "$v11_cats" | sort -u)
+  unp_extra=$(comm -13 <(printf '%s\n' "$ov_triples") <(printf '%s\n' "$unp_triples"))
+  unp_lost=$(comm -23 <(printf '%s\n' "$ov_triples") <(printf '%s\n' "$unp_triples"))
+  unp_want=$(printf '%s\n' \
+    "$(printf 'conductor-row\t2099-07-16-deliver-kP\tCR1')" "$(printf 'conductor-row\t2099-07-16-deliver-kP\ttier')" \
+    "$(printf 'conductor-row\t2099-10-08-phase-combinedheavy\tCR1')" "$(printf 'conductor-row\t2099-10-08-phase-combinedheavy\ttier')" \
+    "$(printf 'conductor-row\t2099-10-14-phase-heavyfirst\tCR1')" "$(printf 'conductor-row\t2099-10-14-phase-heavyfirst\ttier')" \
+    "$(printf 'conductor-row\t2099-10-20-phase-lenspre\tCR1')" "$(printf 'conductor-row\t2099-10-20-phase-lenspre\tCR2')" "$(printf 'conductor-row\t2099-10-20-phase-lenspre\ttier')" \
+    "$(printf 'conductor-row\t2099-10-26-phase-widgets\ttier')" "$(printf 'conductor-row\t2099-10-29-phase-boldheavy\ttier')" | sort)
+  [ "$(grep -c . <<<"$unp_want")" -eq 11 ] || arm_bad="$arm_bad [the pin-dependence list holds $(grep -c . <<<"$unp_want") members, want 11]"
+  { [ "$unp_extra" = "$unp_want" ] && [ -z "$unp_lost" ]; } \
+    || arm_bad="$arm_bad [removing the lens-date pin did not add exactly the 11 named lens-rule triples (added: $(printf '%s' "$unp_extra" | tr '\t\n' ' /' | cut -c1-200); lost: $(printf '%s' "$unp_lost" | tr '\t\n' ' /' | cut -c1-80))]"
   local member
   for member in \
     "$(printf 'conductor-unlinked\t2099-07-02-deliver-k9\t9')" \
@@ -1454,6 +1471,15 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-11-20-phase-escnorow\tCR1')" \
     "$(printf 'conductor-row\t2099-11-21-phase-rownoesc\tCR1')" \
     "$(printf 'conductor-row\t2099-11-22-phase-passlinkwrong\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-10-phase-escnoclaim\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-11-phase-escdocsreason\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-12-phase-escseereason\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-13-phase-escprefixlink\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-14-phase-escplaceholder\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-15-phase-escnotrun\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-17-phase-escoldform\tCR1')" \
+    "$(printf 'conductor-row\t2099-12-16-phase-escafterk\tCR3')" \
+    "$(printf 'conductor-row\t2099-12-18-phase-escorder\tCR4')" \
     "$(printf 'conductor-row\t2099-12-01-phase-bareheavy\ttier')" \
     "$(printf 'conductor-row\t2099-12-02-phase-emptysurface\ttier')" \
     "$(printf 'conductor-row\t2099-12-03-phase-unlistedonly\ttier')" \
@@ -1506,7 +1532,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
     2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd 2099-11-16-phase-lensemdash \
-    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-12-05-phase-datedok 2099-12-06-phase-mixedsurface 2099-12-09-phase-escok; do
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-12-05-phase-datedok 2099-12-06-phase-mixedsurface 2099-12-09-phase-escok 2099-12-19-phase-escorderok; do
     grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
@@ -1647,6 +1673,15 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-11-20-phase-escnorow.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-11-21-phase-rownoesc.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-11-22-phase-passlinkwrong.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-10-phase-escnoclaim.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-11-phase-escdocsreason.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-12-phase-escseereason.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-13-phase-escprefixlink.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-14-phase-escplaceholder.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-15-phase-escnotrun.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-17-phase-escoldform.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-16-phase-escafterk.state.md" "CR3" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-18-phase-escorder.state.md" "CR4" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-12-01-phase-bareheavy.state.md" "tier" "HEAVY tier line has no usable surface record"
   msg_check "2099-12-02-phase-emptysurface.state.md" "tier" "HEAVY tier line has no usable surface record"
   msg_check "2099-12-03-phase-unlistedonly.state.md" "tier" "HEAVY tier line has no usable surface record"
@@ -1711,7 +1746,7 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 105 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 105]"
+[ "$v11_floor" -ge 171 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 171: a lint fixture was lost]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
 [ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
 # The slug rule is "basename up to the first dot" (Check N, and all three extractors). That reads a
@@ -1760,6 +1795,9 @@ unset v11_big
 # two-stage pipe whose first grep reads to the end and feeds a quiet grep is a smaller race (one small write)
 # but is converted too, so the rule has no "outside the scan" category left to argue about.
 # The one allowed hit is the deliberate 3 MB control above, which proves the hazard is real.
+# Scope: this reads only this gate file. scripts/mozart-lint.sh keeps no variable-fed pipe into an early-exiting
+# grep: its three flow-family tests were converted to here-strings (it has no pipefail, so they were safe, but the
+# ports copy that file and the convention is now uniform).
 v11_prod='(printf +(-- +)?("[^"]*"|'"'"'[^'"'"']*'"'"') +|echo +(-[a-zA-Z]+ +)?)("[^"]*"|\$[A-Za-z_{][A-Za-z0-9_}]*) *\| *'
 v11_pipe_pat1="${v11_prod}"'(grep( +-[^ ]+)* +(-[a-zA-Z]*[qm][a-zA-Z0-9]*|--quiet|--max-count)|head)([^A-Za-z0-9_-]|$)'
 v11_pipe_pat2="${v11_prod}"'grep[^|]*\| *grep( +-[^ ]+)* +(-[a-zA-Z]*q[a-zA-Z]*|--quiet)'
@@ -1794,6 +1832,8 @@ for v11_pl in "${v11_clean[@]}"; do
   [ "$(v11_pipe_count <<<"$v11_pl")" -eq 0 ] \
     || v11_bad="$v11_bad [pipe-into-quiet-grep scan flagged a clean line: $v11_pl]"
 done
+[ "${#v11_plants[@]}" -eq 11 ] && [ "${#v11_clean[@]}" -eq 6 ] \
+  || v11_bad="$v11_bad [the pipe scan holds ${#v11_plants[@]} plants and ${#v11_clean[@]} clean lines, want 11 and 6: a plant was deleted along with its pattern alternative]"
 v11_pipe_sites=$(v11_pipe_count < "$gatefile")
 [ "$v11_pipe_sites" -eq 1 ] && [ "$(grep -E -e "$v11_pipe_pat1" "$gatefile" | grep -c 'v11_big')" -eq 1 ] \
   || v11_bad="$v11_bad [$v11_pipe_sites line(s) of this file pipe a variable into an early-exiting grep or head; the only allowed one is the v11_big control: write grep -q ... <<<\"\$var\"]"
@@ -2301,6 +2341,8 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # content, so agents/DELIVER.md 58775 -> 59522 (+747, headroom was 0), to the exact new size.
 # F63 (third fix commit): the one escalation-pass bullet in stage 8 is reviewed content, so agents/DELIVER.md
 # 59522 -> 59692 (+170, headroom was 0), to the exact new size.
+# Final round: the escalation record's claim form named in stage 8 (F65): agents/DELIVER.md 59692 -> 59830
+# (+138, headroom was 0), to the exact new size.
 # agents/mozart.md gained under 800 bytes and stays under its 55000 ceiling, which is NOT raised.
 #
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
@@ -2330,7 +2372,7 @@ agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	59692
+agents/DELIVER.md	59830
 agents/hank.md	22300
 agents/dick.md	23751
 agents/otto.md	21700
@@ -3228,6 +3270,16 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-11-20-phase-escnorow 0 HEAVY 1
   v34_case 2099-11-21-phase-rownoesc 0 HEAVY 1
   v34_case 2099-11-22-phase-passlinkwrong 0 HEAVY 1
+  v34_case 2099-12-10-phase-escnoclaim 0 HEAVY 1
+  v34_case 2099-12-11-phase-escdocsreason 0 HEAVY 1
+  v34_case 2099-12-12-phase-escseereason 0 HEAVY 1
+  v34_case 2099-12-13-phase-escprefixlink 0 HEAVY 1
+  v34_case 2099-12-14-phase-escplaceholder 0 HEAVY 1
+  v34_case 2099-12-15-phase-escnotrun 0 HEAVY 1
+  v34_case 2099-12-17-phase-escoldform 0 HEAVY 1
+  v34_case 2099-12-16-phase-escafterk 0 HEAVY 1
+  v34_case 2099-12-18-phase-escorder 0 HEAVY 1
+  v34_case 2099-12-19-phase-escorderok 0 HEAVY 0
   v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc=C
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
@@ -3237,10 +3289,20 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-11-20-phase-escnorow 0 HEAVY 1
   v34_case 2099-11-21-phase-rownoesc 0 HEAVY 1
   v34_case 2099-11-22-phase-passlinkwrong 0 HEAVY 1
+  v34_case 2099-12-10-phase-escnoclaim 0 HEAVY 1
+  v34_case 2099-12-11-phase-escdocsreason 0 HEAVY 1
+  v34_case 2099-12-12-phase-escseereason 0 HEAVY 1
+  v34_case 2099-12-13-phase-escprefixlink 0 HEAVY 1
+  v34_case 2099-12-14-phase-escplaceholder 0 HEAVY 1
+  v34_case 2099-12-15-phase-escnotrun 0 HEAVY 1
+  v34_case 2099-12-17-phase-escoldform 0 HEAVY 1
+  v34_case 2099-12-16-phase-escafterk 0 HEAVY 1
+  v34_case 2099-12-18-phase-escorder 0 HEAVY 1
+  v34_case 2099-12-19-phase-escorderok 0 HEAVY 0
   v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc="$gate_utf8"
 fi
-[ "$v34_n" -ge 46 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 46]"
+[ "$v34_n" -ge 66 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 66]"
 
 # D12, the default lens-record date. The corpus runs above pin the date after the 2099-11 fixtures; these runs use
 # the constant itself. One fixture (a bare HEAVY tier line, a row with no lens fields) is copied under a slug dated
@@ -3384,9 +3446,40 @@ BEGIN {
   printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from HEAVY, D4)")
   printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from LIGHT, D12)")
   printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from STANDARD D4)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface:)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: none)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: n/a)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra (auth))")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra)\r")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing) and (surface: auth)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing) (surface: infra)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; authentication)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; secret)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; auth-flow)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing; auth+secrets)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; security review)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: infra; credentials)")
+  printf "[%s]", tier_surface_wants_xander("**Tier**: HEAVY (surface: billing; maintainer confirmed HEAVY)")
+  printf "[%s]", tier_surface_usable("**Tier**: HEAVY (surface:)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from STANDARD, D12)")
+  printf "[%s]", tier_escalation_d("**Tier**: HEAVY (surface: auth; escalated from LIGHT, D4)")
+  printf "[%s]", phase_order("P2")
+  printf "[%s]", phase_order("P2a")
+  printf "[%s]", phase_order("P2b")
+  printf "[%s]", phase_order("P3")
+  printf "[%s]", phase_order("P12b")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2): run")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2a): run")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2): not run")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2): run.")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2): running")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P2) run")
+  printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through 2): run")
+  printf "[%s]", escalation_pass_through("ian: run; xander: cumulative pass on escalation (through P10b): run; more")
   printf "{%d}", n
 }'
-v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][]{56}"
+v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][][1][1][1][1][0][1][1][1][1][1][1][1][0][0][0][12][4][200][201][202][300][1202][P2][P2a][][][P2][][][][P10b]{56}"
 for v34_l in "$gate_utf8" C; do
   v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
   [ "$v34_got" = "$v34_want" ] \
@@ -3399,19 +3492,26 @@ done
 # is the guard that bites everywhere: no substr(..., 1) result is matched with ~ or !~ against a bracket
 # expression. Whole-prefix and whole-suffix windows (substr(s, 1, i - 1), substr(s, i + 5)) are legitimate and
 # stay clean; so do == and != against a string. The scan cannot see a one-char window written as substr(s, n)
-# or a byte first copied into a variable; those stay a review matter.
-v34_sub_re='substr[(][^()]*, *1 *[)] *!?~ *[^ ]*[[]'
+# or a byte first copied into a variable, or a window nested two parentheses deep (one level, as in
+# substr(s, length(s), 1), is read); those stay a review matter.
+v34_sub_re='substr[(]([^()]|[(][^()]*[)])*, *1 *[)] *!?~ *[^ ]*[[]'
 v34_sub_plants=(
   'if (i > 1 && substr(s, i - 1, 1) ~ /[A-Za-z0-9]/) continue'
   'if (substr(r, i + 5, 1) !~ /[a-z]/) return 0'
   'ok = substr(s, i, 1) ~ "^[A-Z]"'
+  'if (substr(s, length(s), 1) ~ /[a-z]/) continue'
+  'if (substr(s, index(s,"x")+1, 1) !~ /[0-9]/) return 0'
 )
 v34_sub_clean=(
   'if (substr(s, 1, i - 1) ~ /[A-Za-z0-9]$/) continue'
   'if (substr(s, i + 5) ~ /^[A-Za-z0-9]/) continue'
   'if (substr(r, 1, 1) == "(") {'
   'if (substr(r, 1, 1) != ":") return ""'
+  'if (substr(s, length(s) - 1) ~ /^[a-z]/) continue'
+  'if (substr(s, index(s,"x"), 10) ~ /[0-9]/) continue'
 )
+[ "${#v34_sub_plants[@]}" -eq 5 ] && [ "${#v34_sub_clean[@]}" -eq 6 ] \
+  || v34_bad="$v34_bad [the one-byte-window scan holds ${#v34_sub_plants[@]} plants and ${#v34_sub_clean[@]} clean lines, want 5 and 6: a plant was deleted]"
 for v34_pl in "${v34_sub_plants[@]}"; do
   grep -qE -- "$v34_sub_re" <<<"$v34_pl" || v34_bad="$v34_bad [one-byte-window scan did not flag a planted line: $v34_pl]"
 done
@@ -3435,7 +3535,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 19 tier_surface_wants_xander, 8 tier_surface_usable and 5 tier_escalation_d cases (case, punctuation, backticks, slashes, a word after a semicolon, an unlisted word failing safe, multibyte text beside a word), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 33 tier_surface_wants_xander, 8 tier_surface_usable and 5 tier_escalation_d, phase_order and escalation_pass_through cases (case, punctuation, backticks, slashes, a word after a semicolon, an unlisted word failing safe, multibyte text beside a word), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)
@@ -3622,7 +3722,7 @@ v28_cell() { # $1 = table text, $2 = first-cell prefix, $3 = column header -> th
     }'
 }
 v28_terms=$(cat <<'V28_TERMS_EOF'
-auth	[Aa]uth,
+auth	[Aa]uth([^a-z]|$)
 secrets	[Ss]ecrets
 untrusted input	[Uu]ntrusted input
 encryption	[Ee]ncryption
@@ -3642,7 +3742,7 @@ v28_occ() { # $1 = text, $2 = ERE -> occurrences (not lines) of it, case-insensi
 v28_has() { # $1 = text, $2 = fixed phrase -> true when it occurs, case-insensitive
   grep -qiF -- "$2" <<<"$1"
 }
-v28_hi_re='(take|choose|pick|go with|default to) the higher'
+v28_hi_re='((take|choose|pick|select|use|prefer|go with|opt for|default to|err toward|err on the side of|round up to) the higher|the higher (tier|one) (wins|applies))'
 v28_missing() { # $1 = text -> the union terms it lacks, one per line
   local name pat
   while IFS=$'\t' read -r name pat; do
@@ -3687,6 +3787,12 @@ for v28_p in 'Where any two tiers both fit, take the higher.' 'we choose the hig
   grep -qiE -- "$v28_hi_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: the general higher-tier ban did not match: $v28_p]"
 done
 grep -qiE -- "$v28_hi_re" <<<'the highest tier wins' && v28_bad="$v28_bad [self-test: the general higher-tier ban matched an unrelated sentence]"
+printf '%s\n' 'When unsure between SEV levels: choose the higher one. Also use the higher tier.' > "$v28_tmp/inc.txt"
+[ "$(sed 's/When unsure between SEV levels: choose the higher one//' "$v28_tmp/inc.txt" | grep -cEi -- "$v28_hi_re")" = "1" ] \
+  || v28_bad="$v28_bad [self-test: a general sentence appended beside the allowed INCIDENT sentence was cut away with it]"
+for v28_p in 'use the higher tier' 'prefer the higher' 'err toward the higher' 'round up to the higher' 'the higher tier wins' 'select the higher'; do
+  grep -qiE -- "$v28_hi_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: the general higher-tier ban did not match: $v28_p]"
+done
 v28_cell_plant=$(printf '%s\n' '| Stage | TINY | LIGHT | STANDARD |' '|---|---|---|---|' '| Codex r2 on diff (9) | skip | run | default-run |')
 [ "$(v28_cell "$v28_cell_plant" 'Codex r2' LIGHT)" = "run" ] || v28_bad="$v28_bad [self-test: the LIGHT cell of a planted table was not read as run]"
 [ "$(v28_cell "$v28_cell_plant" 'Codex r2' STANDARD)" = "default-run" ] || v28_bad="$v28_bad [self-test: the STANDARD cell of a planted table was not read as default-run]"
@@ -3774,14 +3880,27 @@ v28_list='`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `securi
 # INCIDENT's own sentence is about SEV levels, not DELIVER tiers; it is asserted present so the exclusion is a fact.
 [ "$(grep -cF 'When unsure between SEV levels: choose the higher one' agents/INCIDENT.md)" = "1" ] \
   || v28_bad="$v28_bad [control: agents/INCIDENT.md must keep its own SEV-level sentence exactly once]"
-v28_gen=$(grep -nEi 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md | grep -v '^agents/OPERATE\.md:' | grep -vF 'When unsure between SEV levels: choose the higher one')
+v28_cut() { # $1 = file -> its text with that file's own allowed sentence cut out, so what remains is scanned
+  case "$1" in
+    agents/INCIDENT.md) sed 's/When unsure between SEV levels: choose the higher one//' "$1" ;;
+    agents/PIPELINE.md) sed 's/When unsure, pick the higher\.//' "$1" ;;
+    agents/mozart.md)   sed 's/LIGHT and STANDARD, take the higher//' "$1" ;;
+    agents/OPERATE.md)  sed 's/When unsure between STANDARD and HEAVY: choose HEAVY\.//' "$1" ;;
+    *) cat "$1" ;;
+  esac
+}
+v28_cut_scan() { # $1 = ERE, rest = files -> file:line:text of every match left after each file's own sentence is cut out
+  local re="$1" f; shift
+  for f in "$@"; do v28_cut "$f" | grep -nEi -- "$re" | sed "s|^|$f:|"; done
+}
+v28_gen=$(v28_cut_scan 'unsure between[^.]*(choose|the) higher|when unsure[^.]*(^|[^A-Za-z])HEAVY([^A-Za-z]|$)' agents/*.md)
 [ -z "$v28_gen" ] || v28_bad="$v28_bad [a general 'when unsure, the higher' sentence returned: $(printf '%s' "$v28_gen" | cut -c1-80 | head -2 | tr '\n' ';')]"
 # F57: the sentence is banned in any form, in every doc a reader meets, not only the literal 'unsure between'. Two
 # SEV-level sentences are about incident severity, not DELIVER tiers; each is asserted present so the exclusion is a fact.
 v28_sevline=$(grep -F 'When unsure, pick the higher.' agents/PIPELINE.md)
 { [ "$(printf '%s\n' "$v28_sevline" | grep -c .)" = "1" ] && grep -qF 'SEV1' <<<"$v28_sevline"; } \
   || v28_bad="$v28_bad [control: agents/PIPELINE.md must keep its SEV-tiers sentence 'When unsure, pick the higher.' on exactly one line, the one naming SEV1]"
-v28_hi=$(grep -nEi -- "$v28_hi_re" $v28_docs INTEGRATION.md | grep -v '^agents/OPERATE\.md:' | grep -v '^agents/INCIDENT\.md:[0-9]*:When unsure between SEV levels: choose the higher one' | grep -v '^agents/PIPELINE\.md:[0-9]*:.*When unsure, pick the higher\.' | grep -v '^agents/mozart\.md:[0-9]*:.*LIGHT and STANDARD, take the higher')
+v28_hi=$(v28_cut_scan "$v28_hi_re" $v28_docs INTEGRATION.md)
 [ -z "$v28_hi" ] || v28_bad="$v28_bad [a general take-the-higher-tier sentence outside the one in mozart.md's tier text: $(printf '%s' "$v28_hi" | cut -c1-80 | head -2 | tr '\n' ';')]"
 [ "$(grep -cF 'LIGHT and STANDARD, take the higher' agents/mozart.md)" = "1" ] || v28_bad="$v28_bad [control: the one legitimate take-the-higher sentence is not on exactly one line of agents/mozart.md]"
 for v28_f in agents/mozart.md agents/PIPELINE.md; do
@@ -3919,16 +4038,23 @@ v28_once "$v28_xan" 'cumulative diff since the base' "agents/xander.md"
 # rule's homes and read by the linter; the pre-escalation row form is accepted only against that record.
 v28_once "$v28_mz" 'uncommitted phase diff included' "mozart.md tier text"
 v28_once "$v28_mz" 'escalated from <TIER>, D<n>' "mozart.md tier text"
-v28_once "$v28_mz" 'xander: cumulative pass on escalation' "mozart.md tier text"
+v28_once "$v28_mz" 'xander: cumulative pass on escalation (through P<k>): run' "mozart.md tier text"
 v28_once "$v28_del_s8" 'xander reviews the cumulative diff since the base once' "DELIVER stage 8"
 v28_once "$v28_del_s8" 'uncommitted phase diff included' "DELIVER stage 8"
 v28_once "$v28_pipe_s8" 'uncommitted phase diff included' "PIPELINE stage 8"
 grep -qF 'uncommitted phase diff included' <<<"$v28_x_pip8" || v28_bad="$v28_bad [PIPELINE stage-8 xander row does not name the escalation pass with the uncommitted phase diff]"
 grep -F 'Your DELIVER stages' <<<"$v28_xan" | grep -qF 'uncommitted phase diff included' || v28_bad="$v28_bad [agents/xander.md stages line does not say the escalation pass includes the uncommitted phase diff]"
 v28_once "$v28_state" 'escalated from <TIER>, D<n>' "agents/STATE.md"
-v28_once "$v28_state" 'xander: cumulative pass on escalation' "agents/STATE.md"
+v28_once "$v28_state" 'xander: cumulative pass on escalation (through P<k>): run' "agents/STATE.md"
+v28_once "$v28_state" 'P2` < `P2a` < `P2b` < `P3`' "agents/STATE.md"
+v28_once "$v28_state" 'this qualifies the paragraph above' "agents/STATE.md"
+v28_once "$v28_del_s8" 'xander: cumulative pass on escalation (through P<k>): run' "DELIVER stage 8"
+# The documented claim form is the one the linter reads: feed STATE.md's own form, with P<k> filled in, to the library.
+v28_claim=$(grep -o 'xander: cumulative pass on escalation (through P<k>): run' agents/STATE.md | head -1 | sed 's/P<k>/P3/')
+v28_thr=$(awk -v c="$v28_claim" "$v28_lib"$'\n''BEGIN { printf "%s", escalation_pass_through(c) }' </dev/null 2>&1)
+[ "$v28_thr" = "P3" ] || v28_bad="$v28_bad [the claim form STATE.md documents ('$v28_claim') is not read by the library's escalation_pass_through (got '$v28_thr')]"
 v28_once "$v28_state" 'dated 2026-10-04 or later' "agents/STATE.md"
-grep -qF 'xander: cumulative pass on escalation' scripts/mozart-lint.sh || v28_bad="$v28_bad [scripts/mozart-lint.sh no longer reads the claim 'xander: cumulative pass on escalation' the docs name]"
+grep -qF 'escalation_pass_through(cr_claim[id])' scripts/mozart-lint.sh || v28_bad="$v28_bad [scripts/mozart-lint.sh no longer reads the escalation-pass claim through the library's escalation_pass_through]"
 grep -qF 'escalated from (TINY|LIGHT|STANDARD), D' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh no longer reads the Tier clause 'escalated from <TIER>, D<n>' the docs name]"
 v28_once "$v28_pipe_adj" 'STANDARD at minimum, and HEAVY when the work is on that surface' "PIPELINE tier adjustments"
 # F55: the xander-on-every-phase rule is pinned at every copy, not only in DELIVER stage 8.

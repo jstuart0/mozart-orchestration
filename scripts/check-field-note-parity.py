@@ -202,11 +202,11 @@ OVERRIDE_DATE = "2099-06-01"
 # D12: the corpus predates the lens-record date; the 2099-12 fixtures exercise the rule.
 LENS_OVERRIDE = "2099-12-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 105
+LINT_FIXTURE_FLOOR = 171
 # Sibling files get their own floors: a state-file floor cannot notice a split
 # fixture losing its ledger or conductor half.
 LINT_LEDGER_FLOOR = 16
-LINT_CONDUCTOR_FLOOR = 24
+LINT_CONDUCTOR_FLOOR = 25
 # F59: the path was parsed as \S+, so a corpus under a path containing a space
 # parsed ZERO triples while the linter it was checking emitted all of them
 # correctly — the harness carried the very defect F50 fixed in the shell
@@ -330,6 +330,15 @@ NAMED_PRESENT = (
     ("conductor-row", "2099-11-20-phase-escnorow", "CR1"),
     ("conductor-row", "2099-11-21-phase-rownoesc", "CR1"),
     ("conductor-row", "2099-11-22-phase-passlinkwrong", "CR1"),
+    ("conductor-row", "2099-12-10-phase-escnoclaim", "CR1"),
+    ("conductor-row", "2099-12-11-phase-escdocsreason", "CR1"),
+    ("conductor-row", "2099-12-12-phase-escseereason", "CR1"),
+    ("conductor-row", "2099-12-13-phase-escprefixlink", "CR1"),
+    ("conductor-row", "2099-12-14-phase-escplaceholder", "CR1"),
+    ("conductor-row", "2099-12-15-phase-escnotrun", "CR1"),
+    ("conductor-row", "2099-12-17-phase-escoldform", "CR1"),
+    ("conductor-row", "2099-12-16-phase-escafterk", "CR3"),
+    ("conductor-row", "2099-12-18-phase-escorder", "CR4"),
     ("conductor-row", "2099-12-01-phase-bareheavy", "tier"),
     ("conductor-row", "2099-12-02-phase-emptysurface", "tier"),
     ("conductor-row", "2099-12-03-phase-unlistedonly", "tier"),
@@ -434,6 +443,15 @@ NAMED_MESSAGES = (
     ("2099-11-20-phase-escnorow", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
     ("2099-11-21-phase-rownoesc", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
     ("2099-11-22-phase-passlinkwrong", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-10-phase-escnoclaim", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-11-phase-escdocsreason", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-12-phase-escseereason", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-13-phase-escprefixlink", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-14-phase-escplaceholder", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-15-phase-escnotrun", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-17-phase-escoldform", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-16-phase-escafterk", "CR3", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-18-phase-escorder", "CR4", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
     ("2099-12-01-phase-bareheavy", "tier", "HEAVY tier line has no usable surface record"),
     ("2099-12-02-phase-emptysurface", "tier", "HEAVY tier line has no usable surface record"),
     ("2099-12-03-phase-unlistedonly", "tier", "HEAVY tier line has no usable surface record"),
@@ -465,6 +483,7 @@ NAMED_ABSENT_SLUGS = (
     "2099-12-05-phase-datedok",
     "2099-12-06-phase-mixedsurface",
     "2099-12-09-phase-escok",
+    "2099-12-19-phase-escorderok",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing
