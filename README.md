@@ -142,6 +142,7 @@ mozart-orchestration/
 │   ├── EVAL.md                  # EVAL report template
 │   └── README.md
 ├── scripts/
+│   ├── check-editions.sh           # per-edition S3, shared library and lint/metrics checks over the three ports (pre-merge, not a CI gate)
 │   ├── check-field-note-parity.py  # cross-port parity (pre-merge, not a CI gate)
 │   ├── lib-campaign.sh             # sourced by the linter and metrics: shared helpers (ship it with them)
 │   ├── mozart-contract-gates.sh    # persona-contract gates
@@ -149,7 +150,8 @@ mozart-orchestration/
 │   └── mozart-metrics.sh           # campaign-artifact metrics aggregator
 ├── tests/
 │   ├── fixtures/                # committed corpus the linter/metrics gates run against
-│   └── parity/                  # frozen snippets the parity tool pins
+│   ├── parity/                  # frozen snippets the parity tool pins
+│   └── policy/                  # frozen policy text the gates pin (no-progress bullet, Traces-to grammar, nina's review-role skeleton)
 ├── .github/                     # created in v0.1.0 release
 │   ├── ISSUE_TEMPLATE/
 │   └── workflows/
