@@ -129,6 +129,7 @@ Before opening a pull request, confirm:
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`
 - Persona-contract gates pass: `bash scripts/mozart-contract-gates.sh` from the root of the checkout whose changes you are submitting — the campaign worktree, when there is one — after `bash -n scripts/mozart-contract-gates.sh`. The script gates the tree it lives in and takes that tree's root as an optional first argument, and it selects files via `git ls-files`, so untracked and gitignored markdown (a `.mozart/` campaign directory, for instance) is out of scope by construction rather than by an exclusion list. Run the syntax check first — a script that doesn't parse produces no gate results, and "no result" is not "no findings". **The gates live in that script and nowhere else**: every one of them scans markdown, so a gate pasted into a markdown file falls inside some gate's scope and passes on the strength of its own text. V0 fails if a gate body is ever mirrored into a scanned doc
+- Wording that states how a DELIVER tier is chosen is pinned line by line: `V28_tiers` scans the docs for it and holds a table of the allowed lines, each by file, checksum and byte length. Editing one of those lines on purpose means updating its row in the gate in the same change; a new line of that kind fails until it is added. `CHANGELOG.md` is excluded by name.
 
 ## Field-notes protocol
 

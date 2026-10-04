@@ -79,12 +79,15 @@ Each `P<N>` conductor row records `ian:` and `xander:` as `run` or `no trigger â
   no usable surface record; a ticked HEAVY phase row that does not record both lenses; a phase row
   on an `auth`, `secrets` or `security` surface that does not record `xander: run`; and a
   `phase ran before escalation` reason not backed by the Tier line's `escalated from <TIER>, D<n>`
-  and its cumulative-pass row, for any phase after `P<k>`. A tier line that already carries
-  `(surface:` is checked on any date.
+  and its cumulative-pass row, for any phase after `P<k>`. Once a tier line carries `(surface:`, the
+  both-lenses rule, the `xander: run` rule and the escalation-reason rule apply on any date. The
+  usable-surface requirement (at least one of the seven listed words) applies only from the lens
+  date: `HEAVY (surface: widgets)` on a campaign dated before it draws no finding.
 
-**`MOZART_LINT_LENS_SINCE`** sets the date on which the first two of those rules begin to apply
-to a HEAVY tier line that carries no `(surface:` (campaign slug date on or after the constant).
-The default is **2026-10-04**, so no campaign dated earlier gains a finding. It exists as a fixture
+**`MOZART_LINT_LENS_SINCE`** sets the date from which the usable-surface requirement applies, and
+from which the both-lenses rule also applies to a HEAVY tier line with no `(surface:` (campaign
+slug date on or after the constant). The default is **2026-10-04**, so a campaign dated earlier
+whose tier line carries no `(surface:` gains no finding. It exists as a fixture
 hook and a deployment dial, like `MOZART_LINT_CONDUCTOR_SINCE`: every run that sets it prints
 `lens-record date overridden: <value>` before any finding, so an override can never be silent.
 Set it to a later date to exempt more campaigns, or an earlier one to bring them under the rule.
