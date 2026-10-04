@@ -145,6 +145,7 @@ lint	conductor-row	2099-12-15-phase-escnotrun	CR1
 lint	conductor-row	2099-12-17-phase-escoldform	CR1
 lint	conductor-row	2099-12-16-phase-escafterk	CR3
 lint	conductor-row	2099-12-18-phase-escorder	CR4
+lint	conductor-row	2099-12-20-phase-esctwodigit	CR3
 lint	conductor-row	2099-12-01-phase-bareheavy	tier
 lint	conductor-row	2099-12-02-phase-emptysurface	tier
 lint	conductor-row	2099-12-03-phase-unlistedonly	tier

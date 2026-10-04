@@ -1480,6 +1480,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
     "$(printf 'conductor-row\t2099-12-17-phase-escoldform\tCR1')" \
     "$(printf 'conductor-row\t2099-12-16-phase-escafterk\tCR3')" \
     "$(printf 'conductor-row\t2099-12-18-phase-escorder\tCR4')" \
+    "$(printf 'conductor-row\t2099-12-20-phase-esctwodigit\tCR3')" \
     "$(printf 'conductor-row\t2099-12-01-phase-bareheavy\ttier')" \
     "$(printf 'conductor-row\t2099-12-02-phase-emptysurface\ttier')" \
     "$(printf 'conductor-row\t2099-12-03-phase-unlistedonly\ttier')" \
@@ -1532,7 +1533,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   for quiet in 2099-10-02-phase-standard 2099-10-03-phase-light 2099-10-04-phase-tiny \
     2099-10-09-phase-combinedstd 2099-10-15-phase-stdfirst \
     2099-11-06-phase-stdfree 2099-11-08-phase-boldcombined 2099-10-30-phase-boldstd 2099-11-16-phase-lensemdash \
-    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-12-05-phase-datedok 2099-12-06-phase-mixedsurface 2099-12-09-phase-escok 2099-12-19-phase-escorderok; do
+    2099-10-18-phase-lensok 2099-10-20-phase-lenspre 2099-10-24-phase-stdsurface 2099-10-25-phase-escalated 2099-10-28-phase-lowersurface 2099-12-05-phase-datedok 2099-12-06-phase-mixedsurface 2099-12-09-phase-escok 2099-12-19-phase-escorderok 2099-12-21-phase-esctwodigitok; do
     grep -q "	${quiet}	" <<<"$ov_triples" \
       && arm_bad="$arm_bad [named-absent member present: $quiet produced a triple]"
   done
@@ -1682,6 +1683,7 @@ v11_arm() { # $1 = arm label, $2 = corpus dir
   msg_check "2099-12-17-phase-escoldform.state.md" "CR1" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-12-16-phase-escafterk.state.md" "CR3" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-12-18-phase-escorder.state.md" "CR4" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
+  msg_check "2099-12-20-phase-esctwodigit.state.md" "CR3" "HEAVY phase row with surface auth, secrets or security does not record xander as run"
   msg_check "2099-12-01-phase-bareheavy.state.md" "tier" "HEAVY tier line has no usable surface record"
   msg_check "2099-12-02-phase-emptysurface.state.md" "tier" "HEAVY tier line has no usable surface record"
   msg_check "2099-12-03-phase-unlistedonly.state.md" "tier" "HEAVY tier line has no usable surface record"
@@ -1746,7 +1748,7 @@ if [ -n "$v11_scratch" ]; then
 fi
 [ -z "$v11_scratch" ] || rm -rf "$v11_scratch"
 
-[ "$v11_floor" -ge 171 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 171: a lint fixture was lost]"
+[ "$v11_floor" -ge 173 ] || v11_bad="$v11_bad [fixture floor $v11_floor < 173: a lint fixture was lost]"
 [ "$v11_ledger_floor" -ge 16 ] || v11_bad="$v11_bad [ledger sibling floor $v11_ledger_floor < 16]"
 [ "$v11_conductor_floor" -ge 25 ] || v11_bad="$v11_bad [conductor sibling floor $v11_conductor_floor < 25]"
 # The slug rule is "basename up to the first dot" (Check N, and all three extractors). That reads a
@@ -3279,6 +3281,8 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-12-17-phase-escoldform 0 HEAVY 1
   v34_case 2099-12-16-phase-escafterk 0 HEAVY 1
   v34_case 2099-12-18-phase-escorder 0 HEAVY 1
+  v34_case 2099-12-20-phase-esctwodigit 0 HEAVY 1
+  v34_case 2099-12-21-phase-esctwodigitok 0 HEAVY 0
   v34_case 2099-12-19-phase-escorderok 0 HEAVY 0
   v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc=C
@@ -3298,11 +3302,13 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-12-17-phase-escoldform 0 HEAVY 1
   v34_case 2099-12-16-phase-escafterk 0 HEAVY 1
   v34_case 2099-12-18-phase-escorder 0 HEAVY 1
+  v34_case 2099-12-20-phase-esctwodigit 0 HEAVY 1
+  v34_case 2099-12-21-phase-esctwodigitok 0 HEAVY 0
   v34_case 2099-12-19-phase-escorderok 0 HEAVY 0
   v34_case 2099-12-09-phase-escok 0 HEAVY 0
   v34_loc="$gate_utf8"
 fi
-[ "$v34_n" -ge 66 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 66]"
+[ "$v34_n" -ge 70 ] || v34_bad="$v34_bad [only $v34_n fixture(s) ran, floor 70]"
 
 # D12, the default lens-record date. The corpus runs above pin the date after the 2099-11 fixtures; these runs use
 # the constant itself. One fixture (a bare HEAVY tier line, a row with no lens fields) is copied under a slug dated
@@ -3913,6 +3919,67 @@ v28_sevline=$(grep -F 'When unsure, pick the higher.' agents/PIPELINE.md)
   || v28_bad="$v28_bad [control: agents/PIPELINE.md must keep its SEV-tiers sentence 'When unsure, pick the higher.' on exactly one line, the one naming SEV1]"
 v28_hi=$(v28_cut_scan "$v28_hi_re" $v28_docs INTEGRATION.md)
 [ -z "$v28_hi" ] || v28_bad="$v28_bad [a general take-the-higher-tier sentence outside the one in mozart.md's tier text: $(printf '%s' "$v28_hi" | cut -c1-80 | head -2 | tr '\n' ';')]"
+# F73: the verb list above only sees the phrasings someone thought of. The bare word is rarer than any verb list:
+# a line that says "higher" (or "stricter", "more cautious", "round up", "err toward", "err on the side"), or that
+# pairs an uncertainty phrase ("unsure", "in doubt", "both fit", "are close", "ties go") with a tier name or SEV in
+# one sentence, is a tier-choice rule until proven otherwise. Every such line in the docs is therefore listed below
+# WHOLE (file, cksum and byte length of the exact line), with what it is. A line that gains or loses a word, or a
+# clause appended after an allowed sentence, changes its cksum and fails here: editing one of these lines on purpose
+# means updating its row here on purpose, which is the intent. CHANGELOG.md is excluded by name (it quotes history,
+# including the removed tiebreak). The check cannot see a tier-choice rule that avoids every one of those words
+# ("prefer the safer tier", "the tier with more review wins"), one split across lines so that no single line holds
+# both halves of an uncertainty phrase and a tier name, a file outside the scanned set (agents/*.md, commands/*.md,
+# docs/*.md, README.md, INTEGRATION.md, CONTRIBUTING.md, SECURITY.md, PRIVACY.md, tracked files only), or a
+# rule hidden in a script's message text.
+v28_tier_t='(TINY|LIGHT|STANDARD|HEAVY|SEV)'
+v28_tier_u='(unsure|uncertain|in doubt|any doubt|both fit|are close|tiebreak|tie-break|ties go)'
+v28_tier_re="higher|stricter|more cautious|round up|err toward|err on the side|${v28_tier_u}[^.]*${v28_tier_t}|${v28_tier_t}[^.]*${v28_tier_u}"
+v28_tier_allowed=$(cat <<'V28_TIER_ALLOWED_EOF'
+INTEGRATION.md	2685477448	141	stricter reading of the every-phase flag, not a tier rule
+agents/DELIVER.md	1398215508	772	12b CI wait wording, not a tier rule
+agents/INCIDENT.md	1774561388	143	SEV-level rule incident severity, not DELIVER tiers
+agents/INTAKE.md	131050371	156	higher-stakes in an intake table row, not a tier rule
+agents/OPERATE.md	3807009027	179	OPERATE own STANDARD/HEAVY sentence
+agents/PIPELINE.md	418127979	264	SEV tiers line, incident severity
+agents/README.md	132093594	102	higher-level agents, roster table
+agents/WORKTREES.md	2965649099	269	higher-than-capacity wording in parallelism cap
+agents/ian.md	224804911	99	coverage risk wording
+agents/mozart.md	144801029	356	the one tier rule: When two tiers both fit
+agents/mozart.md	1069903660	699	escalation rule: stages the higher tier requires
+agents/tessa.md	2264529813	238	severity/cost wording
+agents/tessa.md	2712955872	215	severity/cost wording
+V28_TIER_ALLOWED_EOF
+)
+v28_line_key() { printf '%s\n' "$1" | cksum | tr ' ' '\t'; }  # -> "crc<TAB>length"
+v28_tier_flagged() { # files... -> "file<TAB>crc<TAB>length" for every line the regex flags
+  local f l
+  for f in "$@"; do
+    grep -Ei -- "$v28_tier_re" "$f" | while IFS= read -r l; do printf '%s\t%s\n' "$f" "$(v28_line_key "$l")"; done
+  done
+}
+v28_tier_files=$(git ls-files 'agents/*.md' 'commands/*.md' 'docs/*.md'; printf '%s\n' README.md INTEGRATION.md CONTRIBUTING.md SECURITY.md PRIVACY.md)
+[ "$(printf '%s\n' "$v28_tier_files" | grep -c .)" -ge 30 ] || v28_bad="$v28_bad [the tier-choice scan holds fewer than 30 files: it is scanning nothing]"
+v28_tier_got=$(v28_tier_flagged $v28_tier_files | sort)
+v28_tier_want=$(printf '%s\n' "$v28_tier_allowed" | cut -f1-3 | sort)
+[ "$(printf '%s\n' "$v28_tier_allowed" | grep -c .)" = "13" ] || v28_bad="$v28_bad [the allowed tier-choice table holds $(printf '%s\n' "$v28_tier_allowed" | grep -c .) rows, want 13]"
+v28_tier_new=$(comm -13 <(printf '%s\n' "$v28_tier_want") <(printf '%s\n' "$v28_tier_got") | cut -f1 | sort -u | tr '\n' ' ')
+v28_tier_gone=$(comm -23 <(printf '%s\n' "$v28_tier_want") <(printf '%s\n' "$v28_tier_got") | cut -f1 | sort -u | tr '\n' ' ')
+[ -z "$v28_tier_new" ] || v28_bad="$v28_bad [a line that states a tier-choice rule, or edits an allowed one, in: $v28_tier_new(update the allowed row on purpose if the edit is intended)]"
+[ -z "$v28_tier_gone" ] || v28_bad="$v28_bad [an allowed tier-choice line changed or vanished in: $v28_tier_gone(update its row on purpose)]"
+# Self-tests: the eight shapes the reviewer wrote must be flagged, the allowed sites must not be, and a clause appended to an
+# allowed sentence must change its key.
+for v28_p in 'When two tiers both fit, settle on the higher tier.' 'If the tiers are close, go higher.' 'Ties go to the higher tier.' \
+             'the higher takes precedence' 'When unsure, escalate to the higher tier.' 'When unsure between LIGHT and STANDARD: choose STANDARD.'; do
+  grep -qEi -- "$v28_tier_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: the tier-choice scan did not flag: $v28_p]"
+done
+v28_mz_rule=$(grep -F 'When two tiers both fit' agents/mozart.md)
+v28_inc_rule=$(grep -F 'When unsure between SEV levels' agents/INCIDENT.md)
+for v28_p in "$v28_mz_rule, and likewise for STANDARD and HEAVY." "$v28_inc_rule, and likewise for DELIVER tiers."; do
+  v28_k=$(printf 'agents/x.md\t%s' "$(v28_line_key "$v28_p")")
+  grep -qF -- "$(printf '%s' "$v28_k" | cut -f2-3)" <<<"$v28_tier_allowed" && v28_bad="$v28_bad [self-test: a clause appended to an allowed sentence kept its key: ${v28_p: -40}]"
+  grep -qEi -- "$v28_tier_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: an allowed sentence with a clause appended was not flagged: ${v28_p: -40}]"
+done
+grep -qEi -- "$v28_tier_re" <<<'The tier follows the surface; with none evident, STANDARD.' && v28_bad="$v28_bad [self-test: the tier-choice scan flagged a sentence with no uncertainty phrase]"
 [ "$(grep -cF 'LIGHT and STANDARD, take the higher' agents/mozart.md)" = "1" ] || v28_bad="$v28_bad [control: the one legitimate take-the-higher sentence is not on exactly one line of agents/mozart.md]"
 for v28_f in agents/mozart.md agents/PIPELINE.md; do
   [ "$(grep -cF 'an unknown-cause bug is not LIGHT' "$v28_f")" = "1" ] || v28_bad="$v28_bad [$v28_f must say 'an unknown-cause bug is not LIGHT' on exactly one line]"
