@@ -1,0 +1,1 @@
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.

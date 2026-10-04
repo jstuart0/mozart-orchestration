@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase-6 gates for the carved manual bundle (2026-09-19-deliver-mozart-md-carve).
 
-Six checks that conservation cannot make, because conservation proves text still
+Seven checks that conservation cannot make, because conservation proves text still
 EXISTS and is blind to whether the pointers into it still resolve:
 
   INDEX        agents/INDEX.md names every content destination, marks PIPELINE.md and
@@ -16,6 +16,10 @@ EXISTS and is blind to whether the pointers into it still resolve:
                agent under Claude Code's discovery.
   ABSENCE      Pattern 2 - carve-map.tsv's absence table is populated and every row
                names an idiom and a disposition.
+  ON_DEMAND    (V26) the template files that sit in agents/ beside the manual but are
+               NOT manual members: present, cited by name by the file that uses them,
+               never routed through a D2 pointer, never loaded as agents, listed in both
+               required-file lists, and absent from the persona.
 
 Read-only. Exit 0 iff every check passes.
 """
@@ -45,6 +49,23 @@ WEAK_KNOWN_DANGLING = {
     "Project creation, fallback only",
 }
 
+# Files in agents/ that the manual's own text tells you to copy, not to read as
+# procedure. A new CLASS, not manual members: MANUAL stays 14, so V20 (every member
+# named by a D2 pointer) and V22 (exactly 14 tested) are untouched. Each maps to the
+# one file that cites it by backticked name. Decision 3 of 2026-10-03-deliver-eval-
+# efficiency-fixes: they are never named in the D2 pointer form, because V21 would then
+# look for a heading inside a file that is not in its heading set, and never named in
+# agents/mozart.md, because the persona must not carry a path to a file it does not read.
+ON_DEMAND = {
+    "TEMPLATE-STATE.md": "STATE.md",
+    "TEMPLATE-LEDGER.md": "STATE.md",
+    "TEMPLATE-CONDUCTOR.md": "STATE.md",
+    "TEMPLATE-FLOW.md": "STATE.md",
+    "TEMPLATE-REPORT.md": "DELIVER.md",
+}
+ON_DEMAND_FLOOR = 5
+ON_DEMAND_NAMED = (("TEMPLATE-STATE.md", "STATE.md"), ("TEMPLATE-REPORT.md", "DELIVER.md"))
+
 HEAD_RE = re.compile(r"^#{2,6} (.+)$")
 PLEAD_RE = re.compile(r"\*\*[^*]+\*\* — read `[^`]+\.md`")
 FILE_RE  = re.compile(r"`([A-Za-z][A-Za-z0-9/._-]*\.md)`")
@@ -72,6 +93,138 @@ def headings(text):
     return hs
 
 
+def ondemand_problems(texts, od, contrib, wf):
+    """Everything wrong with the on-demand class, given file texts (name -> text).
+
+    Pure over its arguments so the self-test below can run it on mutated copies.
+    `texts` maps an agents/ file name to its text, and must hold every manual file,
+    mozart.md, and each ON_DEMAND file (None when absent)."""
+    bad = []
+    if len(od) < ON_DEMAND_FLOOR:
+        bad.append(f"ON_DEMAND has {len(od)} entr(ies), floor {ON_DEMAND_FLOOR}")
+    for nm, nciter in ON_DEMAND_NAMED:
+        if od.get(nm) != nciter:
+            bad.append(f"named member absent: {nm} -> {nciter}")
+    # List parsers carry a population floor: an empty parse of a required-file list
+    # would make every membership test below pass for the wrong reason.
+    tok = re.compile(r"agents/[A-Za-z][A-Za-z0-9-]*\.md")
+    for label, text in (("CONTRIBUTING.md", contrib), ("validate-plugin.yml", wf)):
+        if len(set(tok.findall(text))) < len(MANUAL):
+            bad.append(f"{label}: parsed {len(set(tok.findall(text)))} agents/*.md name(s), floor {len(MANUAL)}")
+    for name, citer in sorted(od.items()):
+        t = texts.get(name)
+        if t is None:
+            bad.append(f"{name} is missing")
+            continue
+        if re.search(r"^name:", t, re.M):
+            bad.append(f"{name} carries `name:` frontmatter (it would register as an agent)")
+        c = texts.get(citer)
+        if c is None or f"`{name}`" not in c:
+            bad.append(f"{name} is not cited by backticked name in {citer}")
+        else:
+            named_on = sum(1 for l in c.split("\n") if name in l)
+            if named_on != 1:
+                bad.append(f"{citer} names {name} on {named_on} lines, want exactly 1")
+        for label, text in (("CONTRIBUTING.md", contrib), ("validate-plugin.yml", wf)):
+            if f"agents/{name}" not in text:
+                bad.append(f"{label} does not list agents/{name}")
+    persona = texts.get("mozart.md") or ""
+    if "TEMPLATE-" in persona:
+        bad.append("agents/mozart.md names a TEMPLATE- file (the persona must not)")
+    for fname, t in sorted(texts.items()):
+        if not t or fname in od:
+            continue
+        for i, l in enumerate(t.split("\n"), 1):
+            if PLEAD_RE.search(l) and any(n in l for n in od):
+                bad.append(f"{fname}:{i} names an ON_DEMAND file in the D2 pointer form")
+    return bad
+
+
+def first_line_problems(agents_texts, od):
+    """A template's first line is its identity: it must occur as a whole line in
+    exactly one agents/*.md file (the template), so the skeleton cannot also live
+    on as text in a manual file. agents_texts maps every agents/*.md name to its text."""
+    bad = []
+    for name in sorted(od):
+        t = agents_texts.get(name)
+        if not t:
+            continue                      # absence is reported by ondemand_problems
+        first = t.split("\n", 1)[0]
+        n = sum(1 for body in agents_texts.values() if body
+                for l in body.split("\n") if l == first)
+        if n != 1:
+            bad.append(f"the first line of {name} ({first!r}) occurs {n} times across agents/*.md, want 1")
+    return bad
+
+
+EXAMPLE_CHECKED = ("TEMPLATE-FLOW.md", "TEMPLATE-REPORT.md")
+TICK_RE = re.compile(r"^\s*- \[[x-]\]", re.M)
+CLOCK_RE = re.compile(r"\b\d\d:\d\d:\d\d\b")
+
+
+def example_value_problems(template_texts, personas):
+    """A copied skeleton must be usable as copied: no persona name, ticked line or
+    clock time left in it as an example the conductor would have to notice and
+    remove. template_texts maps template name -> text; personas is the set of agent
+    names (mozart excluded: intake and report are always the conductor's)."""
+    bad = []
+    for name in EXAMPLE_CHECKED:
+        t = template_texts.get(name)
+        if not t:
+            continue
+        for p in sorted(personas):
+            if re.search(r"(?<![A-Za-z0-9-])" + re.escape(p) + r"(?![A-Za-z0-9-])", t, re.I):
+                bad.append(f"{name} names the agent {p!r} (an example value; show examples in the manual)")
+        if TICK_RE.search(t):
+            bad.append(f"{name} carries a ticked line")
+        if CLOCK_RE.search(t):
+            bad.append(f"{name} carries a literal clock time")
+    return bad
+
+
+def ondemand_selftest(texts, od, contrib, wf):
+    """Each mutation must make ondemand_problems report something. Returns the list
+    of mutations that were NOT caught, and the number tried."""
+    def mutate(fn):
+        t = dict(texts)
+        fn(t)
+        return t
+    first = sorted(od)[0]
+    cases = {
+        "persona gains a TEMPLATE- name": lambda t: t.__setitem__("mozart.md", (t["mozart.md"] or "") + " TEMPLATE-STATE.md"),
+        "a template gains name: frontmatter": lambda t: t.__setitem__(first, "name: x\n" + (t[first] or "")),
+        "a manual line uses the D2 pointer form": lambda t: t.__setitem__(
+            "STATE.md", (t["STATE.md"] or "") + f"\n**Foo** \u2014 read `{first}` (*Bar*)\n"),
+        "the citing file stops naming a template": lambda t: t.__setitem__(
+            od[first], (t[od[first]] or "").replace(f"`{first}`", "")),
+    }
+    missed = [n for n, fn in cases.items() if not ondemand_problems(mutate(fn), od, contrib, wf)]
+    # And the lists: a required-file list without a template must be reported.
+    if not ondemand_problems(texts, od, contrib.replace(f"agents/{first}", ""), wf):
+        missed.append("CONTRIBUTING.md stops listing a template")
+    if not ondemand_problems(texts, od, contrib, wf.replace(f"agents/{first}", "")):
+        missed.append("validate-plugin.yml stops listing a template")
+    # And the first-line rule: a manual file that carries a template's first line again.
+    dup = {k: v for k, v in texts.items() if v}
+    dup["STATE.md"] = dup["STATE.md"] + "\n" + (texts[first] or "").split("\n", 1)[0] + "\n"
+    if not first_line_problems(dup, od):
+        missed.append("a manual file repeats a template's first line")
+    # And the exactly-one-line rule: the citing file names a template on a second line.
+    two = dict(texts)
+    two[od[first]] = (texts[od[first]] or "") + f"\nsee also {first}\n"
+    if not ondemand_problems(two, od, contrib, wf):
+        missed.append("the citing file names a template on a second line")
+    # And the example-value rule, on a copy of each checked template.
+    for tname in EXAMPLE_CHECKED:
+        if tname not in od or not texts.get(tname):
+            continue
+        for label, extra in (("an agent name", "\n- **sarah**: example\n"), ("a clock time", "\n- **14:02:10** done\n"),
+                             ("a ticked line", "\n- [x] 1. Intake\n")):
+            if not example_value_problems({tname: texts[tname] + extra}, {"sarah", "harry"}):
+                missed.append(f"{tname} gains {label} and the example-value rule does not notice")
+    return missed, len(cases) + 4 + 3 * sum(1 for t in EXAMPLE_CHECKED if t in od and texts.get(t))
+
+
 def main():
     root = pathlib.Path(subprocess.run(["git","rev-parse","--show-toplevel"],
                         capture_output=True, text=True, check=True).stdout.strip())
@@ -84,7 +237,7 @@ def main():
 
     if missing:
         rep("V18_index", False, f"missing bundle files: {sorted(set(missing))}")
-        for n in ("V19_anchors","V20_pointers","V21_refs","V22_frontmatter","V23_absence"):
+        for n in ("V19_anchors","V20_pointers","V21_refs","V22_frontmatter","V23_absence","V24_docs","V26_ondemand"):
             rep(n, False, "bundle incomplete")
         return emit(results)
 
@@ -276,6 +429,31 @@ def main():
     rep("V23_absence", not bad,
         "; ".join(bad) or f"{len(rows)} Pattern-2 absence site(s) (floor 3), each naming a "
         f"known idiom, a non-empty disposition from {DISPOSITIONS}, and a rationale")
+
+    # --- ON_DEMAND (V26) ----------------------------------------------------
+    texts = dict(f)
+    for n in ON_DEMAND:
+        p = root / "agents" / n
+        texts[n] = p.read_text() if p.exists() else None
+    problems = ondemand_problems(texts, ON_DEMAND, contrib, wf)
+    personas = set()
+    for q in (root / "agents").glob("*.md"):
+        m = re.search(r"^name: *(\S+)", q.read_text(), re.M)
+        if m and m.group(1) != "mozart":
+            personas.add(m.group(1))
+    if len(personas) < 17 or "sarah" not in personas:
+        problems.append(f"persona derivation found {len(personas)} names (floor 17, named member sarah)")
+    problems += example_value_problems({n: texts.get(n) for n in EXAMPLE_CHECKED}, personas)
+    problems += first_line_problems(
+        {q.name: q.read_text() for q in (root / "agents").glob("*.md")}, ON_DEMAND)
+    missed, tried = ondemand_selftest(texts, ON_DEMAND, contrib, wf) if not problems else ([], 0)
+    if missed:
+        problems.append(f"self-test: mutation(s) not detected: {missed}")
+    rep("V26_ondemand", not problems,
+        "; ".join(problems) or f"{len(ON_DEMAND)} on-demand file(s) (floor {ON_DEMAND_FLOOR}), named member "
+        f"{' and '.join(a + ' -> ' + b for a, b in ON_DEMAND_NAMED)}: each exists, has no `name:` frontmatter, is cited by "
+        f"name on exactly one line of its citing file, has a first line found nowhere else in agents/*.md (the flow and report skeletons also carry no agent name, tick or clock time), and is listed in CONTRIBUTING.md and validate-plugin.yml; the persona names none "
+        f"and no D2 pointer line names one; {tried} self-test mutations each detected")
 
     return emit(results)
 

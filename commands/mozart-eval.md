@@ -23,7 +23,7 @@ The single source of truth is the bundled **`agents/EVAL.md`** (the *EVAL pipeli
 - If the user named repos (as arguments or in conversation), use those.
 - Otherwise, ask which project directories to evaluate — do not assume a directory layout or scan the filesystem for candidates uninvited.
 - **First run (no ledger)**: this is the baseline run — full inventory of each named repo's campaign artifacts, no delta to compute. Say so, and give a rough cost expectation before fanning out.
-- **Subsequent runs**: compute the delta from the ledger (new slugs, changed state-file hashes) and scope the deep reads to it. Unchanged campaigns are only revisited under a lens the ledger shows was never applied to them.
+- **Subsequent runs**: compute the delta from the ledger (new slugs, changed `state_md5` values — the state file plus its sibling ledger and conductor files) and scope the deep reads to it. Unchanged campaigns are only revisited under a lens the ledger shows was never applied to them.
 
 ### 4. Run the stages
 

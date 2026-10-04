@@ -13,6 +13,15 @@
 # with zero catches might have a bad trigger, or might guard a path this
 # repo never exercises. Analysts decide; the script counts.
 #
+# A campaign's findings ledger and conductor record may live in files beside its
+# state file instead of inside it (the sibling rule is in lib-campaign.sh).
+# FILES stays the list of STATE files: at each state file's first line the awk
+# derives and reads its siblings with getline, feeds their lines to the same
+# row handlers as in-file lines, and keys every tally by the state file. A
+# sibling wins over an in-file copy of its section. A sibling with no state
+# file beside it is not a campaign and is never read. Tier, escapes and the
+# stage lists come from the state file only.
+#
 # Usage: mozart-metrics.sh [repo-root]     (default: current directory)
 # Exit:  0 = table printed, 2 = no state files / no ledger data found
 #
@@ -21,6 +30,22 @@
 # plans/finished/) plus the legacy prefix + prefixless flat layouts.
 
 set -u
+
+# The shared helpers live in lib-campaign.sh, found beside this script (the
+# path is absolutised from BASH_SOURCE, so it works from any cwd and from a
+# path containing a space). Missing, unreadable, empty or truncated (no end sentinel) is a loud exit 3,
+# never a run with undefined awk functions; exit 2 keeps meaning "nothing to
+# aggregate".
+CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
+CAMPAIGN_AWK_LIB=""
+CAMPAIGN_LIB_END=""
+if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
+  . "$CAMPAIGN_LIB" 2>/dev/null
+fi
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ] || [ "${CAMPAIGN_LIB_END:-}" != 1 ]; then
+  echo "mozart-metrics: scripts/lib-campaign.sh not found beside this script" >&2
+  exit 3
+fi
 
 ROOT="${1:-.}"
 
@@ -61,100 +86,43 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   exit 2
 fi
 
-awk '
-function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
-function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
-# F48 -- identical rule to scripts/mozart-lint.sh: honour `\|` as an escaped
-# pipe, strip a trailing delimiter so trailing-pipe style does not change the
-# count, and let the caller reject a row whose width does not match its
-# header. Splitting on a raw pipe made a `source` cell holding a shell
-# pipeline shift every later cell, so an empty `control` was counted as
-# controlled -- the metric read higher than the evidence supported.
-function split_cells(line, arr,   t, i, n) {
-  t = line
-  sub(/\|[ \t]*$/, "", t)
-  gsub(/\\\|/, SENT, t)
-  n = split(t, arr, "|")
-  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
-  return n
-}
+# awk exits 2 itself when it cannot parse its program or open a file, which is
+# the code this script uses for "nothing to aggregate". The program therefore
+# reports "no data" with a private code, and anything else non-zero is a
+# failure (exit 3, as for a missing library), not an empty result.
+NO_DATA_RC=7
+awk -v no_data_rc="$NO_DATA_RC" "$CAMPAIGN_AWK_LIB"'
+# A CRLF state file reads as its LF twin: the row rules below anchor on the end
+# of the line (`|` header and separator rows), which a trailing CR defeats.
+{ sub(/\r$/, "") }
 
-BEGIN { SENT = sprintf("%c", 1) }
-
-FNR == 1 {
-  campaigns++
-  tier[FILENAME] = "UNTIERED"
-  section = ""
-}
-
-# F40: the Tier field is not always the whole line -- a combined header
-# ("**Shape**: ... | **Tier**: HEAVY | **Mode**: ... | **Flow**: ...") puts
-# it after other fields on the same line, and a real tier value there is
-# ALSO followed by more fields on the same line -- the same shape as the
-# templates own "TINY | STANDARD | HEAVY" placeholder list this rule has
-# always had to reject. Distinguish them by what follows the first pipe:
-# another bold field name means a combined header (take the value before
-# it); anything else means the templates pipe-listed options (skip, stays
-# UNTIERED, as before).
-/\*\*Tier\*\*:/ {
-  t = $0; sub(/^.*\*\*Tier\*\*:[ \t]*/, "", t)
-  if (t ~ /\|/) {
-    rest = t; sub(/^[^|]*\|[ \t]*/, "", rest)
-    if (rest ~ /^\*\*[A-Za-z]/) {
-      sub(/[ \t]*\|.*$/, "", t)
-      tier[FILENAME] = trim(t)
-    }
-  } else {
-    tier[FILENAME] = trim(t)
-  }
-}
-
-/^## /      { section = trim($0) }
-
-# --- Findings ledger rows: stored per (file, id) for PD13 reversal
-# accounting, which needs to resolve a reversing note against its target
-# WITHIN THE SAME FILE before any totals are tallied -- so all aggregation
-# moves to END, after every file has been read. ----------------------------
-section == "## Findings ledger" && /^\|/ {
-  line = $0
-  if (line ~ /\| *id *\|/) next          # header
-  if (line ~ /^\|[- |]+\|$/) next        # separator
+# ---- row handlers, shared by in-file lines and sibling lines ----------------
+function ledger_row(line,    n, c, note, fid, stage, lens, sev, disp, key) {
+  if (line !~ /^\|/) return
+  if (line ~ /\| *id *\|/) return          # header
+  if (line ~ /^\|[- |]+\|$/) return        # separator
   # Positional read, so there is no header width to compare against; `\|` is
   # honoured, an unescaped pipe in a note cell still shifts it. Same residual
   # the linter states at its own findings-ledger rule.
   n = split_cells(line, c)
-  if (n < 7) next
+  if (n < 7) return
   note = trim(c[7])
-  if (note ~ /^<[^<>]*>$/) next          # template placeholder row: note cell wholly <...>
+  if (note ~ /^<[^<>]*>$/) return          # template placeholder row: note cell wholly <...>
   fid = trim(c[2]); stage = trim(c[3]); lens = trim(c[4]); sev = trim(c[5]); disp = trim(c[6])
-  if (stage == "" || sev == "") next
+  if (stage == "" || sev == "") return
   key = FILENAME SUBSEP fid
   f_stage[key] = stage; f_lens[key] = lens; f_sev[key] = sev; f_disp[key] = disp; f_note[key] = note
   f_file[key] = FILENAME
   f_order[++f_n] = key
 }
 
-# --- Escapes ---------------------------------------------------------------
-section == "## Escapes" && /Traces-to:/ {
-  if ($0 ~ /none yet/) next
-  target = $0
-  sub(/^.*Traces-to:[ \t]*/, "", target)
-  if (target ~ /^</) next              # placeholder target, e.g. <DIAGNOSE/audit slug>
-  escapes++
-}
-
-# --- Conductor record rows (PD9/PD11), parsed by header name so a bold or
-# backtick-quoted header still resolves -------------------------------------
-section == "## Conductor record" {
-  has_conductor[FILENAME] = 1
-}
-section == "## Conductor record" && /^- exempt:/ {
-  if (trim($0) == "- exempt: pre-adoption persona") exempt[FILENAME] = 1
-}
-section == "## Conductor record" && /^\|/ {
-  line = $0
-  if (line ~ /^\|[- |]+\|$/) next
+function conductor_line(line,    n, c, i, h, kind, ctl, src) {
+  if (line ~ /^- exempt:/) {
+    if (trim(line) == "- exempt: pre-adoption persona") exempt[FILENAME] = 1
+    return
+  }
+  if (line !~ /^\|/) return
+  if (line ~ /^\|[- |]+\|$/) return
   n = split_cells(line, c)
   if (!(FILENAME in cr_hdr_seen)) {
     cr_ncols[FILENAME] = n
@@ -165,13 +133,13 @@ section == "## Conductor record" && /^\|/ {
       else if (h ~ /^control/) idx_control[FILENAME] = i
     }
     cr_hdr_seen[FILENAME] = 1
-    next
+    return
   }
-  if (!(FILENAME in idx_kind) || !(FILENAME in idx_control) || !(FILENAME in idx_source)) next
+  if (!(FILENAME in idx_kind) || !(FILENAME in idx_control) || !(FILENAME in idx_source)) return
   # F48: a shifted row addresses the wrong columns. Do not tally it -- but do
   # not drop it silently either: the count is printed in the conductor section
   # so a corpus that stopped being countable says so instead of reading low.
-  if (n != cr_ncols[FILENAME]) { cr_malformed++; next }
+  if (n != cr_ncols[FILENAME]) { cr_malformed++; return }
   kind = trim(c[idx_kind[FILENAME]])
   ctl = trim(c[idx_control[FILENAME]])
   src = trim(c[idx_source[FILENAME]])
@@ -183,6 +151,61 @@ section == "## Conductor record" && /^\|/ {
     fact_total++
     if (ctl == "" && tolower(src) ~ /unverified/) fact_unverified++
   }
+}
+
+FNR == 1 {
+  campaigns++
+  tier[FILENAME] = "UNTIERED"
+  section = ""
+  led_sib = 0; con_sib = 0
+  st = load_sibling(campaign_sibling_awk(FILENAME, "ledger"), "## Findings ledger", sib)
+  if (st == "noheading") sib_skipped++
+  if (st == "ok" || st == "stray") {
+    led_sib = 1
+    for (i = 1; i <= sib[0]; i++) ledger_row(sib[i])
+  }
+  st = load_sibling(campaign_sibling_awk(FILENAME, "conductor"), "## Conductor record", sib)
+  if (st == "noheading") sib_skipped++
+  if (st == "ok" || st == "stray") {
+    con_sib = 1
+    has_conductor[FILENAME] = 1
+    for (i = 1; i <= sib[0]; i++) conductor_line(sib[i])
+  }
+}
+
+# The first Tier line in the state file names the tier of the campaign; the parse is
+# in the library, shared with the linter. A placeholder or unparseable value
+# leaves the campaign UNTIERED, and a later Tier line never overrides it.
+is_tier_line($0) && !(FILENAME in tier_seen) {
+  tier_seen[FILENAME] = 1
+  t = tier_of($0)
+  tier[FILENAME] = (t == "" ? "UNTIERED" : t)
+}
+
+/^## /      { section = trim($0) }
+
+# A sibling that exists wins and the in-file section is not read (lint reports
+# it as a duplicate). Count each such section once per file so a campaign whose
+# in-file rows were dropped says so instead of reading low.
+section == "## Conductor record" && con_sib && !((FILENAME SUBSEP "c") in shadow_seen) { shadow_seen[FILENAME SUBSEP "c"] = 1; sib_shadowing++ }
+section == "## Findings ledger" && led_sib && !((FILENAME SUBSEP "l") in shadow_seen) { shadow_seen[FILENAME SUBSEP "l"] = 1; sib_shadowing++ }
+
+# --- Findings ledger rows: stored per (file, id) for PD13 reversal
+# accounting, which needs to resolve a reversing note against its target
+# WITHIN THE SAME FILE before any totals are tallied -- so all aggregation
+# moves to END, after every file has been read. ----------------------------
+section == "## Findings ledger" && !led_sib { ledger_row($0) }
+
+# --- Escapes ---------------------------------------------------------------
+# What counts as a recorded escape is is_escape_line in the library, shared with
+# lint (Check N), so the two cannot disagree.
+section == "## Escapes" && is_escape_line($0) { escapes++ }
+
+# --- Conductor record rows (PD9/PD11), parsed by header name so a bold or
+# backtick-quoted header still resolves -------------------------------------
+section == "## Conductor record" && !con_sib {
+  has_conductor[FILENAME] = 1
+  conductor_line($0)
 }
 
 END {
@@ -241,7 +264,7 @@ END {
   if (findings == 0 && escapes == 0 && !cr_rows_exist) {
     printf "mozart-metrics: %d campaign(s) found, but no findings-ledger data yet.\n", campaigns
     printf "Ledgers populate as campaigns disposition findings (state-file format: ## Findings ledger).\n"
-    exit 2
+    exit no_data_rc
   }
 
   printf "== mozart pipeline economics ==\n"
@@ -293,6 +316,8 @@ END {
   printf "  controlled check/adjudication rows: %d of %d; unverified facts: %d of %d\n", \
     ca_controlled, ca_total, fact_unverified, fact_total
   printf "  malformed conductor rows skipped (cell count != header): %d\n", cr_malformed
+  if (sib_skipped > 0) printf "  sibling files skipped (no section heading): %d\n", sib_skipped
+  if (sib_shadowing > 0) printf "  sibling files shadowing an in-file section (in-file rows ignored): %d\n", sib_shadowing
   if (d == 0) {
     printf "Wrong-override rate: n/a (no rejected findings in campaigns with a conductor record)\n"
   } else {
@@ -301,3 +326,9 @@ END {
   }
 }
 ' "${FILES[@]}"
+awk_rc=$?
+case "$awk_rc" in
+  0) ;;
+  "$NO_DATA_RC") exit 2 ;;
+  *) echo "mozart-metrics: awk failed (exit $awk_rc)" >&2; exit 3 ;;
+esac

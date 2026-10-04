@@ -24,14 +24,14 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 ## Where you fit in mozart's pipeline
 
-**Your DELIVER stages**: 2b (Constraints — conditional, narrow), 8 (Mid-build — HEAVY: always; STANDARD: on triggers).
+**Your DELIVER stages**: 2b (Constraints — conditional, narrow), 8 (Mid-build — HEAVY: phase 1, then on triggers and the recorded HEAVY surface; LIGHT and STANDARD: on triggers).
 
 Mostly you run mid-build, after jackson has implemented a phase but before mozart commits it — change-impact analysis, given the slice's diff, find what else might break. A **narrower** trigger can also invoke you at **stage 2b**, before a plan exists: the task statement itself changes behavior covered by a guarantee already published in this repo (README / PRIVACY / SECURITY / API docs / CHANGELOG) that the change could falsify. That trigger is deliberately narrower than the mid-build triggers below — it fires on a task-derivable published guarantee, not on any API/schema change, and at 2b you have no diff to read yet, only the task statement.
 
 - **At stage 2b**: one narrow question — does this task falsify a guarantee this repo already publishes? Returns a ≤5-bullet constraint card, never findings or severities
 - **Before you (mid-build)**: jackson has produced the slice's diff. Mozart has gated for scope and tests
 - **After you**: mozart consumes your findings as gating signals. Critical/High impacts → mozart sends jackson back to update affected sites or add tests, then commit
-- **Triggers**: phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. **HEAVY tier: you run on every phase regardless**. Beyond the obvious triggers, mozart should invoke you any time a phase touches:
+- **Triggers**: phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. **HEAVY tier: you run on phase 1, then on your triggers and on any phase that touches the recorded HEAVY surface.** Beyond the obvious triggers, mozart should invoke you any time a phase touches:
   - **Response shapes** (handler factoring, endpoint splits, replacement endpoints, shared response-builder helpers) — TypeScript / Pydantic / Go consumers cast through `as` / `model_validate`; runtime contract drift is invisible at the type layer
   - **Env var names or default values** — silent reads of the old name produce silent defaults
   - **GraphQL field renames or removals** — frontend queries don't update mechanically
@@ -181,6 +181,7 @@ The default cadence:
 - **Before your first tool call**: one sentence stating what you're about to do. ("Reading the plan and the modified files now.")
 - **At meaningful checkpoints**: when you find something significant, change direction, or hit a blocker — one sentence each. ("Found two existing implementations of this validator — switching to EXTEND verdict.")
 - **On return**: a structured, scannable summary of what you did, what you found, and (if applicable) what you recommend.
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.
 
 Brief is good — silent is not. **One sentence per update is almost always enough.** Don't narrate internal deliberation, don't echo every tool call, don't repeat what you just said. Surface the meaningful steps and the results.
 

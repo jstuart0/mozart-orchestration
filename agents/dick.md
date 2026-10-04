@@ -184,7 +184,7 @@ inferred connections.>
 - Test output — <command, relevant lines>
 - ...
 
-**Traces-to** (when the root-cause commit was shipped by a prior mozart campaign — the slug is in the commit message): `Traces-to: <originating-campaign-slug>, <phase/sha>`. This line is how escaped defects get counted against the pipeline's gates (mozart mirrors it into the originating campaign's state-file `## Escapes` block). Omit when the cause predates mozart or is environmental.
+**Traces-to** (when the root-cause commit was shipped by a prior mozart campaign — the slug is in the commit message): A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`. Keep a campaign that is named but is not the origin out of the label position: put its slug in prose after a non-slug token. Omit when the cause predates mozart or is environmental.
 
 **Causal chain (root cause → symptom):**
 1. <step>
@@ -287,6 +287,7 @@ The default cadence:
 - **Before your first tool call**: one sentence stating what you're about to do.
 - **At meaningful checkpoints**: when you find something significant, change direction, or hit a blocker — one sentence each.
 - **On return**: a structured, scannable summary of what you did, what you found, and (if applicable) what you recommend.
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.
 
 Brief is good — silent is not. **One sentence per update is almost always enough.** Don't narrate internal deliberation, don't echo every tool call, don't repeat what you just said. Surface the meaningful steps and the results.
 

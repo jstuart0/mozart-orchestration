@@ -162,6 +162,7 @@ The default cadence:
 - **At each execution step**: one line — the command's intent and the observed result (not the raw dump; the conclusion).
 - **On the snapshot**: state where you stored it and the rollback command, at the moment you take it.
 - **On return**: a structured summary — what changed, on what target, what you observed in verification, the manifest check result, and the exact rollback command + snapshot path.
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.
 
 Brief is good — silent is dangerous when you're changing production. **One sentence per step is almost always enough.** Don't narrate internal deliberation or echo raw output; surface the target, the action, and the observed result.
 

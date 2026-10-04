@@ -22,6 +22,28 @@
 # verification); every run that sets it prints the override-visibility line
 # below before any `LINT` line, so an override can never be silent.
 #
+# Check M (split-layout) and the sibling files. A campaign's findings ledger and
+# conductor record may live in files beside the state file instead of inside it
+# (the sibling rule is in lib-campaign.sh). lint_conductor() hands both paths to
+# the awk, which reads them with getline in BEGIN, like the decisions log, and
+# feeds their lines to the SAME row handlers as in-file lines. A sibling wins
+# over an in-file copy of its section; the pair is reported (Check M) and the
+# in-file rows are ignored. Flow, Tier, stage ticks and the change ledger are
+# read from the state file only. Findings are always reported against the state
+# file's path, never a sibling's.
+#
+# Check N (escape-unrecorded). A DIAGNOSE investigation or INCIDENT post-mortem that
+# names the campaign a defect traces to ("Traces-to: <slug>", slug first) must find
+# that campaign's ## Escapes block recording it: a recorded-escape line (the library
+# rule, is_escape_line) naming the artifact's own slug as a whole token. Scanned:
+# investigations/**/*.md and incidents/*.postmortem.md beside each plans root. The
+# origin is looked up in every layout of both roots, aborted/ included. A finding is
+# reported against the origin state file, keyed by the discovering slug, or against
+# the artifact when the origin has no state file here; an origin that cannot be
+# recorded is written "Traces-to: external — <where or why>; <slug>" and is silent,
+# as are "none", "n/a", a ticket id and any line inside a fenced code block. Not
+# gated on the conductor adoption date.
+#
 # Does NOT implement mozart's probe 5 (pending-pr worktrees needing a merge
 # re-check) — that stays a manual sweep at intake. See agents/STATE.md
 # (*State persistence (crash-resume)*), where probe 5 is defined.
@@ -48,6 +70,22 @@
 
 set -u
 
+# The shared helpers live in lib-campaign.sh, found beside this script (the
+# path is absolutised from BASH_SOURCE, so it works from any cwd and from a
+# path containing a space). Missing, unreadable, empty or truncated (no end sentinel) is a loud exit 3,
+# never a run with undefined awk functions; exit 2 keeps meaning "nothing to
+# lint".
+CAMPAIGN_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-campaign.sh"
+CAMPAIGN_AWK_LIB=""
+CAMPAIGN_LIB_END=""
+if [ -r "$CAMPAIGN_LIB" ] && [ -s "$CAMPAIGN_LIB" ]; then
+  . "$CAMPAIGN_LIB" 2>/dev/null
+fi
+if [ -z "${CAMPAIGN_AWK_LIB:-}" ] || [ "${CAMPAIGN_LIB_END:-}" != 1 ]; then
+  echo "mozart-lint: scripts/lib-campaign.sh not found beside this script" >&2
+  exit 3
+fi
+
 ROOT="${1:-.}"
 FINDINGS=0
 STALE_DAYS=7
@@ -55,7 +93,12 @@ STALE_DAYS=7
 # PD1/PD3/PD24. CONDUCTOR_SINCE defaults to the merge date (log D2); the
 # fixture-hook override is documented above and asserted by gate V11.
 CONDUCTOR_SINCE="${MOZART_LINT_CONDUCTOR_SINCE:-2026-09-19}"
-CONDUCTOR_GATES_DELIVER="5 9 10 13 P"
+# D12. The lens-record rules (a usable surface record on a HEAVY tier line, both lens fields on every
+# ticked phase row) apply to campaigns whose slug date is on or after this date. 2026-10-04 is the day
+# after the change landed (2026-10-03), so this campaign and everything earlier gains no finding. The
+# override is a fixture hook, announced like the adoption-date one.
+LENS_SINCE="${MOZART_LINT_LENS_SINCE:-2026-10-04}"
+CONDUCTOR_GATES_DELIVER="5 9 10 13 P:heavy"
 CONDUCTOR_GATES_OPERATE="1:fact 4 6"
 CONDUCTOR_GATES_INCIDENT="1 5"
 CONDUCTOR_FLOWS_DELIVER="FULL PLAN-ONLY RESEARCH-ONLY VALIDATE-ONLY"
@@ -64,6 +107,10 @@ CONDUCTOR_FLOWS_INCIDENT="INCIDENT MITIGATE-ONLY"
 
 if [ -n "${MOZART_LINT_CONDUCTOR_SINCE:-}" ]; then
   echo "conductor adoption date overridden: $MOZART_LINT_CONDUCTOR_SINCE"
+fi
+
+if [ -n "${MOZART_LINT_LENS_SINCE:-}" ]; then
+  echo "lens-record date overridden: $MOZART_LINT_LENS_SINCE"
 fi
 
 # Artifact roots, current first. A repo may have either, both, or neither.
@@ -114,13 +161,13 @@ flow_of() {
 flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
   local val="$1" tok
   for tok in $CONDUCTOR_FLOWS_DELIVER; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo DELIVER; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo DELIVER; return; }
   done
   for tok in $CONDUCTOR_FLOWS_OPERATE; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo OPERATE; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo OPERATE; return; }
   done
   for tok in $CONDUCTOR_FLOWS_INCIDENT; do
-    printf '%s' "$val" | grep -qE "^${tok}([^A-Za-z0-9]|\$)" && { echo INCIDENT; return; }
+    grep -qE "^${tok}([^A-Za-z0-9]|\$)" <<<"$val" && { echo INCIDENT; return; }
   done
   echo ""
 }
@@ -135,28 +182,6 @@ flow_family_of() { # PD3/PD20 -- DELIVER, OPERATE, INCIDENT, or empty
 # PD11 before resolving id/kind/claim/links/source/control/written-to: strip
 # \r, strip * and backtick, trim, lowercase.
 CONDUCTOR_AWK=$(cat <<'CONDUCTOR_AWK_EOF'
-function trim(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-# F48. Markdown table rows were split on a RAW pipe, so a `source` cell
-# holding a shell pipeline shifted every later cell and the linter read the
-# next cell along as `control` — an empty control parsed as filled, and the
-# row passed clean. Two halves, both needed:
-#   (a) `\|` is honoured as an escaped pipe: it stays inside its cell, so a
-#       piped command is WRITABLE rather than merely banned by prose;
-#   (b) the caller compares each row's cell count against the header's and
-#       rejects a mismatch, so an UNESCAPED pipe fails loudly instead of
-#       parsing into a wrong answer.
-# A trailing delimiter is stripped first so `| a | b |` and `| a | b` count
-# the same — the count check tests column shift, not trailing-pipe style.
-function split_cells(line, arr,   t, i, n) {
-  t = line
-  sub(/\|[ \t]*$/, "", t)
-  gsub(/\\\|/, SENT, t)
-  n = split(t, arr, "|")
-  for (i = 1; i <= n; i++) gsub(SENT, "|", arr[i])
-  return n
-}
-function normhdr(s,   t) { t = s; gsub(/\r/, "", t); gsub(/\*/, "", t); gsub(/`/, "", t); t = trim(t); t = tolower(t); return t }
-function is_placeholder(s,   t) { t = trim(s); return (t ~ /^<.*>$/) }
 function starts_with_tok(val, tok,   re) {
   re = "^" tok "([^A-Za-z0-9]|$)"
   return (val ~ re)
@@ -171,6 +196,53 @@ function flow_family(val,   n, i, toks) {
   return ""
 }
 function emit(cat, key, msg) { printf "%s\t%s\t%s\n", cat, key, msg }
+
+# True when claim records the lens as a whole token: "<lens>:" not preceded by a
+# letter or digit (so tessian: is not ian:), then either "run" or
+# "no trigger", an em dash and a non-empty reason (the reason ends at a semicolon).
+function lens_recorded(claim, lens,   rest, p, pre, after, dash, reason) {
+  dash = "—"
+  rest = claim
+  while ((p = index(rest, lens ":")) > 0) {
+    pre = substr(rest, 1, p - 1)
+    after = trim(substr(rest, p + length(lens) + 1))
+    rest = substr(rest, p + length(lens) + 1)
+    if (pre ~ /[A-Za-z0-9_]$/) continue
+    if (after ~ /^run([^A-Za-z0-9]|$)/) return 1
+    if (after ~ /^no trigger/) {
+      after = trim(substr(after, 11))
+      if (index(after, dash) != 1) continue
+      reason = substr(after, length(dash) + 1)
+      sub(/;.*$/, "", reason)
+      if (trim(reason) != "") return 1
+    }
+  }
+  return 0
+}
+
+# True when claim records xander in the form a surface of auth, secrets or
+# security allows: "xander: run", or, when esc_ok, the one pre-escalation reason.
+# Any other "no trigger" reason is a skipped lens on a phase that needed it, and
+# the pre-escalation reason without a recorded escalation and cumulative pass
+# (esc_ok = 0) is a bare phrase that excuses nothing.
+function xander_every_phase_ok(claim, esc_ok,   rest, p, pre, after, dash) {
+  dash = "—"
+  rest = claim
+  while ((p = index(rest, "xander:")) > 0) {
+    pre = substr(rest, 1, p - 1)
+    after = trim(substr(rest, p + 7))
+    rest = substr(rest, p + 7)
+    if (pre ~ /[A-Za-z0-9_]$/) continue
+    if (after ~ /^run([^A-Za-z0-9]|$)/) return 1
+    if (after ~ /^no trigger/) {
+      after = trim(substr(after, 11))
+      if (index(after, dash) != 1) continue
+      after = trim(substr(after, length(dash) + 1))
+      if (esc_ok && index(after, "phase ran before escalation") == 1) return 1
+    }
+  }
+  return 0
+}
 
 function valid_ignore_tok(tok,   grammar) {
   grammar = "^[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*(\\.[A-Za-z_][A-Za-z0-9_-]*(\\[[0-9]+\\]|\\[\"[^\"*?]+\"\\])*)*$"
@@ -190,7 +262,6 @@ function leading_digits(s,    t) {
 # FNR==NR idiom breaks when the first file has zero lines, which a missing
 # decisions file — /dev/null — always does) --------------------------------
 BEGIN {
-  SENT = sprintf("%c", 1)
   cur_d = ""
   if (decisions_file != "" && decisions_file != "/dev/null") {
     while ((getline dline < decisions_file) > 0) {
@@ -218,8 +289,100 @@ BEGIN {
   }
 }
 
-# ---- state file (the only file given on the awk command line) -----------
-FNR == 1 {
+# ---- row handlers --------------------------------------------------------
+# Shared by the state file's own lines and by sibling lines, so a row parses the
+# same wherever it lives (escaped pipes, the width guard, header resolution).
+function conductor_line(raw,    n, c, i, rid, id, kind, claim, links, source, control, hdr, n_control) {
+  if (raw ~ /^- exempt:/) { conductor_exempt = trim(raw); return }
+  if (trim(raw) == "" || raw ~ /^## /) return
+  conductor_lines++
+  if (raw !~ /^\|/) return
+  conductor_is_table = 1
+  if (raw ~ /^\|[- |]+\|$/) return  # separator
+  n = split_cells(raw, c)
+  if (cr_header_ok == -1) {
+    cr_ncols = n
+    for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
+    idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
+    n_control = 0
+    for (i = 1; i <= n; i++) {
+      if (hdr[i] == "id") idx_id = i
+      else if (hdr[i] == "kind") idx_kind = i
+      else if (hdr[i] == "claim") idx_claim = i
+      else if (hdr[i] == "links") idx_links = i
+      else if (hdr[i] == "source") idx_source = i
+      else if (hdr[i] ~ /^control/) { idx_control = i; n_control++ }
+      else if (hdr[i] == "written-to") idx_written = i
+    }
+    # "control" is the one column resolved by prefix rather than exact
+    # name, so it is the one that can silently resolve twice if a header
+    # carries two control-prefixed columns; treat that as unresolved
+    # rather than quietly keeping the last match.
+    if (n_control > 1) idx_control = 0
+    cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
+    return
+  }
+  if (cr_header_ok == 0) return
+  # F48: a row whose width does not match the header's is shifted, so every
+  # cell index past the break addresses the wrong column. Report the row and
+  # skip it -- reading `control` out of a shifted row is how an empty control
+  # was accepted as filled.
+  # RECORDED, not emitted here: every Check K finding is gated on PD1's
+  # adoption boundary in END, and an emit from inside a record rule would
+  # bypass it -- flagging a pre-adoption file this check is not allowed to
+  # touch. Same reason Check L's cl_bad[] is deferred.
+  if (n != cr_ncols) {
+    rid = (n >= 2) ? trim(c[2]) : ""
+    if (rid == "") rid = "row"
+    cr_width_bad[rid] = "row has " (n - 1) " cells, header has " (cr_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
+    return
+  }
+  ncr++
+  id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
+  links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
+  cr_kind[id] = kind; cr_claim[id] = claim; cr_links[id] = links
+  cr_source[id] = source; cr_control[id] = control
+  cr_id_known[id] = 1
+  cr_placeholder[id] = (is_placeholder(claim) || is_placeholder(links)) ? 1 : 0
+}
+
+function findings_row(raw,    n, c, fid, fnote, fdisp) {
+  if (raw !~ /^\|/) return
+  if (raw ~ /\| *id *\|/) return
+  if (raw ~ /^\|[- |]+\|$/) return
+  # F48 residual, stated plainly: this table is read POSITIONALLY (no header
+  # resolution), so there is no width to compare a row against. `\|` is
+  # honoured; an unescaped pipe in a note cell still shifts this read. The
+  # conductor and change-ledger tables, which carry the checked claims, are
+  # width-guarded above.
+  n = split_cells(raw, c)
+  if (n < 7) return
+  fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
+  if (fid == "") return
+  f_id_known[fid] = 1
+  f_disp[fid] = fdisp
+  f_note[fid] = fnote
+}
+
+# True when a ## Paths line really declares a path: a <...> placeholder, "n/a"
+# and an empty value do not.
+function declares_path(line,    v) {
+  v = line
+  sub(/^- [^:]*:[ \t]*/, "", v)
+  gsub(BT, "", v)
+  v = trim(v)
+  return !(v == "" || is_placeholder(v) || tolower(v) == "n/a")
+}
+
+# ---- sibling files, read via getline like the decisions log: not ARGV files
+# (the FNR==NR idiom and per-file resets break when a file has zero lines), and
+# nothing here depends on NR or FNR. State is initialised here, once, rather
+# than on the state file's first line, so lines loaded from a sibling survive
+# and a zero-byte state file still reaches END with its siblings read. --------
+BEGIN {
+  # A literal backtick cannot sit in this heredoc: bash 3.2 cannot parse a
+  # command substitution holding an unpaired one.
+  BT = sprintf("%c", 96)
   section = ""
   flow = ""
   in_conductor = 0; conductor_lines = 0; conductor_is_table = 0; conductor_exempt = ""
@@ -227,14 +390,22 @@ FNR == 1 {
   ncr = 0
   in_change = 0; cl_header_ok = -1; ncl = 0
   in_findings = 0; nf = 0
+  in_paths = 0
   incident_stage3 = 0
-  delete ticked
-  delete cr_kind; delete cr_claim; delete cr_links; delete cr_source; delete cr_control
-  delete cr_placeholder; delete cr_id_known; delete cr_width_bad
-  delete cl_manifest; delete cl_id_known
-  delete f_disp; delete f_note; delete f_id_known
+  tier_seen = 0; tier = ""; tier_surface = 0; tier_xander_every = 0; tier_surface_ok = 0; tier_esc_d = ""
+  infile_conductor = 0; infile_findings = 0
+  declared_ledger = 0; declared_conductor = 0
+
+  led_st = load_sibling(ledger_file, "## Findings ledger", led_lines)
+  led_used = (led_st == "ok" || led_st == "stray")
+  if (led_used) for (i = 1; i <= led_lines[0]; i++) findings_row(led_lines[i])
+
+  con_st = load_sibling(conductor_file, "## Conductor record", con_lines)
+  con_used = (con_st == "ok" || con_st == "stray")
+  if (con_used) for (i = 1; i <= con_lines[0]; i++) conductor_line(con_lines[i])
 }
 
+# ---- state file (the only file given on the awk command line) -----------
 {
   raw = $0
   gsub(/\r/, "", raw)
@@ -245,8 +416,15 @@ raw ~ /^## / {
   in_conductor = (section == "## Conductor record")
   in_change = (section ~ /^## Change ledger/)
   in_findings = (section == "## Findings ledger")
+  in_paths = (section ~ /^## Paths/)
+  if (in_conductor) infile_conductor = 1
+  if (in_findings) infile_findings = 1
   next
 }
+
+# Check M input: the two declarations in ## Paths.
+in_paths && raw ~ /^- Findings ledger:/ { if (declares_path(raw)) declared_ledger = 1 }
+in_paths && raw ~ /^- Conductor record:/ { if (declares_path(raw)) declared_conductor = 1 }
 
 # F40: **Flow**: is not always the line's own field -- a combined header
 # ("**Shape**: ... | **Tier**: ... | **Flow**: OPERATE-FULL") puts it after
@@ -257,6 +435,17 @@ raw ~ /\*\*Flow\*\*:/ {
   sub(/^.*\*\*Flow\*\*:[ \t]*/, "", fv)
   sub(/[ \t]*\|.*$/, "", fv)
   flow = trim(fv)
+}
+
+# The first Tier line in the state file decides which Phase rows are required
+# (library parse, shared with the metrics script). Table rows only quote it.
+is_tier_line(raw) && !tier_seen {
+  tier_seen = 1
+  tier = tier_of(raw)
+  tier_surface = tier_has_surface(raw)
+  tier_xander_every = tier_surface_wants_xander(raw)
+  tier_surface_ok = tier_surface_usable(raw)
+  tier_esc_d = tier_escalation_d(raw)
 }
 
 # Stage progress ticks (any family): "- [x] N[a-z]. "
@@ -279,64 +468,11 @@ raw ~ /^- \[x\] Phase [0-9]+[a-z]?:/ {
   ticked["P" k] = 1
 }
 
-# ---- Conductor record section -------------------------------------------
-in_conductor && raw ~ /^- exempt:/ {
-  conductor_exempt = trim(raw)
-  next
-}
-
-in_conductor && trim(raw) != "" && raw !~ /^## / {
-  conductor_lines++
-  if (raw ~ /^\|/) {
-    conductor_is_table = 1
-    if (raw ~ /^\|[- |]+\|$/) next  # separator
-    n = split_cells(raw, c)
-    if (cr_header_ok == -1) {
-      cr_ncols = n
-      for (i = 1; i <= n; i++) hdr[i] = normhdr(c[i])
-      idx_id = idx_kind = idx_claim = idx_links = idx_source = idx_control = idx_written = 0
-      n_control = 0
-      for (i = 1; i <= n; i++) {
-        if (hdr[i] == "id") idx_id = i
-        else if (hdr[i] == "kind") idx_kind = i
-        else if (hdr[i] == "claim") idx_claim = i
-        else if (hdr[i] == "links") idx_links = i
-        else if (hdr[i] == "source") idx_source = i
-        else if (hdr[i] ~ /^control/) { idx_control = i; n_control++ }
-        else if (hdr[i] == "written-to") idx_written = i
-      }
-      # "control" is the one column resolved by prefix rather than exact
-      # name, so it is the one that can silently resolve twice if a header
-      # carries two control-prefixed columns; treat that as unresolved
-      # rather than quietly keeping the last match.
-      if (n_control > 1) idx_control = 0
-      cr_header_ok = (idx_id && idx_kind && idx_claim && idx_links && idx_source && idx_control && idx_written) ? 1 : 0
-      next
-    }
-    if (cr_header_ok == 0) next
-    # F48: a row whose width does not match the header's is shifted, so every
-    # cell index past the break addresses the wrong column. Report the row and
-    # skip it -- reading `control` out of a shifted row is how an empty control
-    # was accepted as filled.
-    # RECORDED, not emitted here: every Check K finding is gated on PD1's
-    # adoption boundary in END, and an emit from inside a record rule would
-    # bypass it -- flagging a pre-adoption file this check is not allowed to
-    # touch. Same reason Check L's cl_bad[] is deferred.
-    if (n != cr_ncols) {
-      rid = (n >= 2) ? trim(c[2]) : ""
-      if (rid == "") rid = "row"
-      cr_width_bad[rid] = "row has " (n - 1) " cells, header has " (cr_ncols - 1) " -- an unescaped literal | inside a cell shifts every later column; write it as \\|"
-      next
-    }
-    ncr++
-    id = trim(c[idx_id]); kind = trim(c[idx_kind]); claim = trim(c[idx_claim])
-    links = trim(c[idx_links]); source = trim(c[idx_source]); control = trim(c[idx_control])
-    cr_kind[id] = kind; cr_claim[id] = claim; cr_links[id] = links
-    cr_source[id] = source; cr_control[id] = control
-    cr_id_known[id] = 1
-    cr_placeholder[id] = (is_placeholder(claim) || is_placeholder(links)) ? 1 : 0
-  }
-}
+# ---- Conductor record and Findings ledger sections ------------------------
+# A section that has a sibling is read from the sibling; the in-file copy is
+# ignored (and reported by Check M in END).
+in_conductor && !con_used { conductor_line(raw); next }
+in_findings && !led_used { findings_row(raw); next }
 
 # ---- Change ledger section (Check L) -------------------------------------
 in_change && raw ~ /^\|/ {
@@ -410,26 +546,26 @@ in_change && raw ~ /^\|/ {
   }
 }
 
-# ---- Findings ledger section ----------------------------------------------
-in_findings && raw ~ /^\|/ {
-  if (raw ~ /\| *id *\|/) next
-  if (raw ~ /^\|[- |]+\|$/) next
-  # F48 residual, stated plainly: this table is read POSITIONALLY (no header
-  # resolution), so there is no width to compare a row against. `\|` is
-  # honoured; an unescaped pipe in a note cell still shifts this read. The
-  # conductor and change-ledger tables, which carry the checked claims, are
-  # width-guarded above.
-  n = split_cells(raw, c)
-  if (n < 7) next
-  fid = trim(c[2]); fnote = trim(c[7]); fdisp = trim(c[6])
-  if (fid == "") next
-  f_id_known[fid] = 1
-  f_disp[fid] = fdisp
-  f_note[fid] = fnote
-}
-
 END {
   family = flow_family(flow)
+
+  # ---- Check M: split-layout. Not adoption-gated: a sibling that is missing,
+  # headingless or duplicated is wrong whenever the campaign was started, and
+  # none of these says anything about the conductor record's CONTENT. "Missing"
+  # tests the sibling DERIVED beside the state file (ledger_file/conductor_file
+  # come from the library's rule), never the path string Paths declares. ------
+  if (led_st == "noheading" || led_st == "stray")
+    emit("split-layout", "findings-ledger-noheading", "sibling ledger file has content outside a ## Findings ledger section (no such heading, or text ahead of it); that text is not read")
+  if (con_st == "noheading" || con_st == "stray")
+    emit("split-layout", "conductor-record-noheading", "sibling conductor file has content outside a ## Conductor record section (no such heading, or text ahead of it); that text is not read")
+  if (led_used && infile_findings)
+    emit("split-layout", "findings-ledger-duplicate", "## Findings ledger is in the state file and in the sibling ledger file; the sibling is read and the in-file section is ignored")
+  if (con_used && infile_conductor)
+    emit("split-layout", "conductor-record-duplicate", "## Conductor record is in the state file and in the sibling conductor file; the sibling is read and the in-file section is ignored")
+  if (declared_ledger && led_st == "missing")
+    emit("split-layout", "findings-ledger-missing", "Paths declares a findings ledger but the sibling ledger file beside the state file does not exist")
+  if (declared_conductor && con_st == "missing")
+    emit("split-layout", "conductor-record-missing", "Paths declares a conductor record but the sibling conductor file beside the state file does not exist")
 
   # ---- conductor-missing / exemption -------------------------------------
   # PD1 has TWO limbs: a campaign whose slug date is on or after the adoption
@@ -456,7 +592,9 @@ END {
   exempt_is_sole = (conductor_exempt != "" && conductor_lines == 0)
   if (post_by_date) {
     if (!header_present) {
-      emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
+      # One cause, one line: a conductor sibling with content but no heading
+      # has already been reported above, and is not also "missing".
+      if (con_st != "noheading") emit("conductor-missing", "-", "post-adoption campaign has no ## Conductor record section")
       exit
     }
     if (exempt_is_sole && conductor_exempt != "- exempt: pre-adoption persona") {
@@ -488,16 +626,48 @@ END {
   else if (family == "INCIDENT") { gate_str = gates_incident }
   else { gate_str = "" }
 
+  # D12: the lens-record rules apply to campaigns dated on or after lens_since.
+  lens_dated = (slug_date >= lens_since)
+  if (family == "DELIVER" && tier == "HEAVY" && lens_dated && !tier_surface_ok)
+    emit("conductor-row", "tier", "HEAVY tier line has no usable surface record (write the Tier value as HEAVY (surface: <word>[, <word>…]) with at least one of auth, secrets, schema, migrations, infra, billing, security)")
+  # F62/F63/F65: an escalation is evidenced by the Tier line (escalated from <TIER>, D<n>) AND a conductor
+  # row linked to exactly that D<n> whose claim is "xander: cumulative pass on escalation (through P<k>): run".
+  # The pre-escalation exemption covers phase rows up to P<k> only (phase_order), never later ones.
+  esc_through = -1
+  if (tier_esc_d != "") {
+    for (id in cr_id_known) {
+      if (cr_placeholder[id] || cr_links[id] != "D" tier_esc_d) continue
+      t_through = escalation_pass_through(cr_claim[id])
+      if (t_through != "" && phase_order(t_through) > esc_through) esc_through = phase_order(t_through)
+    }
+  }
+
   ngates = split(gate_str, gs, " ")
   for (g = 1; g <= ngates; g++) {
-    gkey = gs[g]; want_fact = 0
+    gkey = gs[g]; want_fact = 0; heavy_only = 0
     if (index(gkey, ":fact") > 0) { want_fact = 1; sub(/:fact/, "", gkey) }
+    if (index(gkey, ":heavy") > 0) { heavy_only = 1; sub(/:heavy/, "", gkey) }
     if (gkey == "P") {
+      # Only TINY, LIGHT and STANDARD are exempt. No Tier line, a placeholder
+      # and an unparseable value all keep the requirement.
+      if (heavy_only && (tier == "TINY" || tier == "LIGHT" || tier == "STANDARD")) continue
       for (pk in ticked) {
         if (pk ~ /^P[0-9]+[a-z]?$/) {
-          linked = 0
-          for (id in cr_id_known) if (!cr_placeholder[id] && cr_links[id] == pk) linked = 1
+          linked = 0; lens_ok = 0; xander_ok = 0; first_row = ""
+          for (id in cr_id_known) {
+            if (cr_placeholder[id] || cr_links[id] != pk) continue
+            linked = 1
+            if (first_row == "" || id < first_row) first_row = id
+            if (lens_recorded(cr_claim[id], "ian") && lens_recorded(cr_claim[id], "xander")) {
+              lens_ok = 1
+              if (xander_every_phase_ok(cr_claim[id], esc_through >= 0 && phase_order(pk) <= esc_through)) xander_ok = 1
+            }
+          }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
+          else if (heavy_only && tier == "HEAVY" && (tier_surface || lens_dated) && !lens_ok)
+            emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
+          else if (heavy_only && tier == "HEAVY" && tier_xander_every && !xander_ok)
+            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation (through P<k>): run, with P<k> at or after this phase)")
         }
       }
       continue
@@ -593,9 +763,105 @@ END {
 CONDUCTOR_AWK_EOF
 )
 
+# Check N programs. `read`, not $(cat <<EOF): bash 3.2 cannot parse a command
+# substitution whose body holds an unpaired backtick, and these match fences.
+# The claims program prints each origin slug an artifact names, once, outside fences.
+IFS= read -r -d '' ESCAPE_CLAIMS_AWK <<'ESCAPE_CLAIMS_AWK_EOF' || true
+# r is the text after one "Traces-to": an optional closing emphasis, an optional
+# parenthesis ("Traces-to (partial ...)"), the colon, then the slug directly.
+function claim_origin(r) {
+  sub(/^[*`_ \t]+/, "", r)
+  if (substr(r, 1, 1) == "(") {
+    if (index(r, ")") == 0) return ""
+    r = substr(r, index(r, ")") + 1)
+    sub(/^[*`_ \t]+/, "", r)
+  }
+  if (substr(r, 1, 1) != ":") return ""
+  r = substr(r, 2)
+  sub(/^[*`_ \t]+/, "", r)
+  if (!match(r, /^20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[a-z0-9][a-z0-9-]*/)) return ""
+  return substr(r, 1, RLENGTH)
+}
+{
+  gsub(/\r/, "")
+  if (fence == "") {
+    if ($0 ~ /^[ \t]*```/) { fence = "`"; next }
+    if ($0 ~ /^[ \t]*~~~/) { fence = "~"; next }
+  } else {
+    if (fence == "`" && $0 ~ /^[ \t]*```/) fence = ""
+    else if (fence == "~" && $0 ~ /^[ \t]*~~~/) fence = ""
+    next
+  }
+  rest = $0
+  while ((p = index(rest, "Traces-to")) > 0) {
+    rest = substr(rest, p + 9)
+    o = claim_origin(rest)
+    if (o != "" && !(o in seen)) { seen[o] = 1; print o }
+  }
+}
+ESCAPE_CLAIMS_AWK_EOF
+
+# The recorded program reads an origin state file and prints recorded, unrecorded
+# (a ## Escapes block with no line naming disc) or noheading (no such block).
+IFS= read -r -d '' ESCAPE_RECORDED_AWK <<'ESCAPE_RECORDED_AWK_EOF' || true
+# disc is a whole token when no slug character touches it on either side.
+function has_token(line, tok,   off, rest, p, pre, post) {
+  off = 0; rest = line
+  while ((p = index(rest, tok)) > 0) {
+    pre = substr(line, 1, off + p - 1)
+    post = substr(line, off + p + length(tok))
+    if (pre !~ /[a-z0-9-]$/ && post !~ /^[a-z0-9-]/) return 1
+    off += p
+    rest = substr(line, off + 1)
+  }
+  return 0
+}
+{ gsub(/\r/, "") }
+/^## / { section = trim($0); if (section == "## Escapes") heading = 1; next }
+section == "## Escapes" && is_escape_line($0) && has_token($0, disc) { recorded = 1 }
+END { print (recorded ? "recorded" : (heading ? "unrecorded" : "noheading")) }
+ESCAPE_RECORDED_AWK_EOF
+
+# Check N for one artifact root: base/investigations/**/*.md and base/incidents/*.postmortem.md.
+lint_escapes() {
+  local PLANS="$1" base art slug claims origin state verdict
+  base=$(dirname "$PLANS")
+  [ -d "$base/investigations" ] || [ -d "$base/incidents" ] || return 0
+  while IFS= read -r -d '' art; do
+    grep -q 'Traces-to' "$art" 2>/dev/null || continue
+    slug=$(basename "$art")
+    slug=${slug%%.*}
+    claims=$(awk "$ESCAPE_CLAIMS_AWK" "$art") || {
+      echo "mozart-lint: awk failed on $art" >&2
+      exit 3
+    }
+    while IFS= read -r origin; do
+      [ -n "$origin" ] || continue
+      [ "$origin" = "$slug" ] && continue
+      state=$(campaign_find_state "$origin" "${ROOTS[@]}") || state=""
+      if [ -z "$state" ]; then
+        finding "escape-unrecorded" "$art — $slug: traces to $origin, which has no state file in this repo (if it cannot be recorded here, write Traces-to: external — <where or why>; $origin)"
+        continue
+      fi
+      verdict=$(awk -v disc="$slug" "$CAMPAIGN_AWK_LIB"$'\n'"$ESCAPE_RECORDED_AWK" "$state") || {
+        echo "mozart-lint: awk failed on $state" >&2
+        exit 3
+      }
+      case "$verdict" in
+        recorded) ;;
+        noheading) finding "escape-unrecorded" "$state — $slug: a defect found in $art traces to this campaign, but it has no ## Escapes block (add one with a Traces-to: line naming $slug)" ;;
+        *) finding "escape-unrecorded" "$state — $slug: a defect found in $art traces to this campaign, but its ## Escapes block has no Traces-to: line naming $slug" ;;
+      esac
+    done <<< "$claims"
+  done < <(
+    { find "$base/investigations" -type f -name '*.md' -print0 2>/dev/null
+      find "$base/incidents" -maxdepth 1 -type f -name '*.postmortem.md' -print0 2>/dev/null; } | sort -zu
+  )
+}
+
 lint_conductor() {
   local PLANS="$1"
-  local f slug slug_date slug_date_src dec cat key msg
+  local f slug slug_date slug_date_src dec ledger_sib conductor_sib cat key msg conductor_out
   # F47: the legacy prefixless flat glob belongs here for the same reason it
   # belongs on C/D — the adoption gate is read from the SLUG DATE, not the
   # path, so a flat file classifies itself and a pre-adoption one exits early
@@ -619,10 +885,12 @@ lint_conductor() {
     [ -z "$slug_date" ] && slug_date="0000-00-00"
     dec="${f%.state.md}.decisions.md"
     [ -f "$dec" ] || dec=""
-    while IFS=$'\t' read -r cat key msg; do
-      [ -z "$cat" ] && continue
-      finding "$cat" "$f — $key: $msg"
-    done < <(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" \
+    ledger_sib=$(campaign_sibling "$f" ledger)
+    conductor_sib=$(campaign_sibling "$f" conductor)
+    # The awk runs to completion before any finding is emitted, so a program
+    # that does not parse (a function defined twice, say) is an exit 3 here
+    # and not an empty process substitution that lints clean.
+    conductor_out=$(awk -v slug_date="$slug_date" -v conductor_since="$CONDUCTOR_SINCE" -v lens_since="$LENS_SINCE" \
                   -v gates_deliver="$CONDUCTOR_GATES_DELIVER" \
                   -v gates_operate="$CONDUCTOR_GATES_OPERATE" \
                   -v gates_incident="$CONDUCTOR_GATES_INCIDENT" \
@@ -630,7 +898,16 @@ lint_conductor() {
                   -v flows_operate="$CONDUCTOR_FLOWS_OPERATE" \
                   -v flows_incident="$CONDUCTOR_FLOWS_INCIDENT" \
                   -v decisions_file="$dec" \
-                  "$CONDUCTOR_AWK" "$f")
+                  -v ledger_file="$ledger_sib" \
+                  -v conductor_file="$conductor_sib" \
+                  "$CAMPAIGN_AWK_LIB"$'\n'"$CONDUCTOR_AWK" "$f") || {
+      echo "mozart-lint: awk failed on $f" >&2
+      exit 3
+    }
+    while IFS=$'\t' read -r cat key msg; do
+      [ -z "$cat" ] && continue
+      finding "$cat" "$f — $key: $msg"
+    done <<< "$conductor_out"
   done
 }
 
@@ -776,6 +1053,9 @@ lint_root() {
 
   # --- Checks K/L: conductor record + mutation manifest -----------------
   lint_conductor "$PLANS"
+
+  # --- Check N: an investigation or post-mortem's origin records it -------
+  lint_escapes "$PLANS"
 }
 
 for plans in "${ROOTS[@]}"; do

@@ -26,7 +26,7 @@ Fall back to native `Read`/`Grep`/`Glob` when: no code-aware index is configured
 
 **Your DELIVER stages**: 2 (Research — optional).
 
-You're stage 2 — optional. Mozart invokes you only when the task involves an unfamiliar domain, a "best practices" framing, or a library/pattern decision worth investigating. Skipped in TINY tier.
+You're stage 2 — optional. Mozart invokes you only when the task involves an unfamiliar domain, a "best practices" framing, or a library/pattern decision worth investigating. Skipped in TINY and LIGHT tiers.
 
 - **Before you**: mozart has classified the task tier and confirmed scope
 - **After you**: harry uses your brief as input to the plan in stage 3
@@ -172,6 +172,7 @@ The default cadence:
 - **Before your first tool call**: one sentence stating what you're about to do. ("Reading the plan and the modified files now.")
 - **At meaningful checkpoints**: when you find something significant, change direction, or hit a blocker — one sentence each. ("Found two existing implementations of this validator — switching to EXTEND verdict.")
 - **On return**: a structured, scannable summary of what you did, what you found, and (if applicable) what you recommend.
+- **No progress**: if you run the same command three times with the same result and nothing changed between, or take three turns that do nothing, or a bounded wait expires twice, stop. Return what you attempted, the command, its last output, the likely blocker, and the next step. Stuck is a result.
 
 Brief is good — silent is not. **One sentence per update is almost always enough.** Don't narrate internal deliberation, don't echo every tool call, don't repeat what you just said. Surface the meaningful steps and the results.
 

@@ -3,7 +3,7 @@
 **Last updated**: 2026-09-17T00:00Z
 **Status**: in-progress
 **Flow**: FULL
-**Tier**: STANDARD
+**Tier**: HEAVY
 **Context**: BROWNFIELD
 **Mode**: AUTONOMOUS
 

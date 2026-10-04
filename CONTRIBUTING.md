@@ -24,7 +24,7 @@ Every specialist persona file must include, in this order:
 5. **`## Core operating principles`** — role-specific principles, as specific subsections.
 6. **`## Working mode`** — how the agent processes a task end-to-end, numbered steps.
 7. **`## Output format`** — a fenced markdown template for the agent's output artifact.
-8. **`## Communicate as you work`** — copy this section verbatim from `agents/sarah.md` or `agents/ruby.md`. It is the same in every specialist.
+8. **`## Communicate as you work`** — start from this section in `agents/sarah.md` or `agents/ruby.md`; the rest of it may differ between specialists. What is identical in every specialist is the no-progress bullet in its cadence list, byte-identical to `tests/policy/no-progress.txt`; `V29_noprogress` pins it.
 9. **`## Field notes (append-only)`** — copy the stub from any existing specialist. Append-only; see `agents/LEARNINGS.md` for the protocol.
 
 Use `agents/sarah.md` as the canonical template for a researcher-type agent; use `agents/ian.md` for an analyst-type. Both illustrate the full scaffold.
@@ -93,7 +93,9 @@ for f in README.md LICENSE INTEGRATION.md CHANGELOG.md CONTRIBUTING.md SECURITY.
           agents/TICKETS.md agents/INTAKE.md agents/WORKTREES.md \
           agents/FLOWS.md agents/OPERATE.md agents/INCIDENT.md \
           agents/COUNTERPOINT.md agents/EVAL.md agents/DIAGNOSE.md \
-          agents/AUDIT.md agents/CONTEXT-BUDGET.md; do
+          agents/AUDIT.md agents/CONTEXT-BUDGET.md \
+          agents/TEMPLATE-STATE.md agents/TEMPLATE-LEDGER.md agents/TEMPLATE-CONDUCTOR.md \
+          agents/TEMPLATE-FLOW.md agents/TEMPLATE-REPORT.md; do
   test -f "$f" && echo "OK: $f" || echo "MISSING: $f"
 done
 ```
@@ -127,12 +129,17 @@ Before opening a pull request, confirm:
 - CHANGELOG.md has an entry for the change
 - JSON files validate: `python3 -m json.tool .claude-plugin/plugin.json > /dev/null`
 - Persona-contract gates pass: `bash scripts/mozart-contract-gates.sh` from the root of the checkout whose changes you are submitting — the campaign worktree, when there is one — after `bash -n scripts/mozart-contract-gates.sh`. The script gates the tree it lives in and takes that tree's root as an optional first argument, and it selects files via `git ls-files`, so untracked and gitignored markdown (a `.mozart/` campaign directory, for instance) is out of scope by construction rather than by an exclusion list. Run the syntax check first — a script that doesn't parse produces no gate results, and "no result" is not "no findings". **The gates live in that script and nowhere else**: every one of them scans markdown, so a gate pasted into a markdown file falls inside some gate's scope and passes on the strength of its own text. V0 fails if a gate body is ever mirrored into a scanned doc
+- Wording that states how a DELIVER tier is chosen is pinned line by line: `V28_tiers` scans the docs for it and holds a table of the allowed lines, each by file, checksum and byte length. Editing one of those lines on purpose means updating its row in the gate in the same change; a new line of that kind fails until it is added. `CHANGELOG.md` is excluded by name.
 
 ## Field-notes protocol
 
 The `## Field notes (append-only)` section at the bottom of each specialist persona is an append-only log of cross-project patterns. See `agents/LEARNINGS.md` for the protocol and the entry template. Do not edit any other section of a persona file when adding a field note — those sections are human-authored contracts.
 
+`scripts/mozart-lint.sh` and `scripts/mozart-metrics.sh` source `scripts/lib-campaign.sh` from beside themselves and exit 3 without it. A port or install that copies either script copies the library with it, byte for byte; the sibling-file rule and the shared awk helpers live there and nowhere else (`V30_lib` counts the code lines that would re-spell it).
+
 `scripts/check-field-note-parity.py` is a **pre-merge tool, not a CI gate**: it proves the field-note prose and the M2/M7/M4 mechanism bullets are identical across all four roots — this repo, `mozart-codex`, `mozart-copilot`, and `mozart-local` — and agree with a frozen canonical source (`tests/parity/snippets/`). A third subcommand, `behaviour`, runs the same proof over shipped script *behavior* rather than persona prose: it replays the committed fixture corpus (`tests/fixtures/conductor/`) against each port's `mozart-lint.sh`/`mozart-metrics.sh` (or reports `N/A` for local, which ships neither) and asserts the lint/metrics output matches `expected.tsv` exactly. It is not wired into `mozart-contract-gates.sh` because that script's `report()` has only a PASS/FAIL state — no SKIP — and a cross-worktree check installed there would be permanently red in single-repo CI or vacuously green having compared nothing. Run it by hand across all four worktrees before merging any change to the shared field notes, mechanisms, or the fixture corpus; see the script's own docstring for `parity`, `bullets`, and `behaviour` usage.
+
+`scripts/check-editions.sh` runs the cheap half of that for the three ports in one command: `bash scripts/check-editions.sh <codex> <copilot> <local>` (absolute paths of the three checkouts, or `NAME=PATH` pairs for a subset, or `MOZART_EDITION_ROOTS`, or the sibling `../mozart-*` directories). Per edition it checks that the frozen S3 snippet occurs exactly once, that `scripts/lib-campaign.sh` in `mozart-codex` and `mozart-copilot` is byte-identical to this repo's, and that their lint and metrics reproduce the fixture corpus. It prints one `RUN <edition>` line per edition checked and one `SKIP <edition>: checkout not found` per missing checkout, and exits 1 if anything failed, else 3 if anything was skipped, else 0 — so a 0 means all four editions ran. `--skip-behaviour` drops the slow arm and exits 4 instead of 0. `V31_editions_selftest` in the gate suite runs the script against fake roots built from this tree, so the checker cannot rot unseen.
 
 **Roots must be absolute, and this repo's root must be the tree you are about to merge.**
 Relative roots report *zero inputs* for the other three ports rather than zero

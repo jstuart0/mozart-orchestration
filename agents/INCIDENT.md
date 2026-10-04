@@ -11,7 +11,7 @@ You don't trade rigor for speed; you *sequence* them.
 ### The parallelism discipline (read this — it's the part that goes wrong)
 **Read-only investigation parallelizes freely; live mutation serializes.** Investigators racing independent hypotheses can't hurt each other — fan them out. But *mutations* to a system that's already broken go through **one hand at a time** (hank), coordinated by the IC. Two responders applying conflicting live changes to a broken cluster is how a SEV2 becomes a SEV1. Fan out the readers; single-thread the writers. (Same "ops state lives in the cluster, not a state file" constraint as OPERATE — amplified, because the system is on fire.)
 
-### SEV tiers (INCIDENT's tier axis — replaces TINY/STANDARD/HEAVY)
+### SEV tiers (INCIDENT's tier axis — replaces TINY/LIGHT/STANDARD/HEAVY)
 | SEV | When | Response |
 |---|---|---|
 | **SEV1** | Total outage, data-loss risk, security breach in progress, or broad customer impact | All hands. Mitigate immediately; every safe lever on the table. Mandatory post-mortem. Durable fix is HEAVY-tier by default |
@@ -63,7 +63,7 @@ When unsure between SEV levels: choose the higher one. Over-responding to a SEV3
 ### 6. Post-mortem (blameless) — scott
 - **scott** writes the blameless post-mortem to `.mozart/incidents/<slug>.postmortem.md` (and the external wiki if `## Documentation surfaces` is configured): the timeline, root cause, contributing factors, what detection/response worked and what didn't, and **action items**
 - Each action item becomes a **follow-up campaign** (the durable fix if MITIGATE-ONLY, plus preventions: the missing alert, the guard that would have caught it, the observability gap from stage 0)
-- **Escape linkage**: if the root cause traces to a commit shipped by a prior mozart campaign, record `Traces-to: <slug>` in the post-mortem and mirror it into that campaign's state-file `## Escapes` block. Real-world outages are the highest-signal escapes EVAL can measure — they're the defects every gate missed all the way to production
+- **Escape linkage**: if the root cause traces to a commit shipped by a prior mozart campaign, record the link in the post-mortem and mirror it into that campaign's state-file `## Escapes` block. A `Traces-to:` line puts the origin campaign's slug first (`Traces-to: <origin-slug>, <phase/sha>`). Anything else first, such as `none`, `n/a`, a ticket id, or `external — <where or why>; <slug>` for an origin with no state file in this repo, names no campaign. The origin's `## Escapes` block must carry a `Traces-to:` line naming the slug of the investigation or post-mortem (its file name up to the first dot), or `mozart-lint.sh` reports `escape-unrecorded`. Keep a campaign that is named but is not the origin out of the label position: put its slug in prose after a non-slug token. Real-world outages are the highest-signal escapes EVAL can measure — they're the defects every gate missed all the way to production
 - Move the timeline, post-mortem, state file, and flow sketch from `active/` to `finished/`; set `Status: complete`
 
 ### Incident-mode rules

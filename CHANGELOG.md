@@ -4,6 +4,246 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — `scripts/check-editions.sh`, the cross-edition check
+
+`bash scripts/check-editions.sh <codex> <copilot> <local>` checks, per port, that the frozen S3 snippet occurs once in the file that port keeps it in, that `scripts/lib-campaign.sh` in `mozart-codex` and `mozart-copilot` is byte-identical to this repo's, and that their lint and metrics reproduce the fixture corpus. It prints one `RUN <edition>` line per edition checked and a `SKIP <edition>: checkout not found` per missing checkout; exit 1 means a check failed, 3 that one was skipped, 0 that all four editions ran, 2 a usage error. Roots may also be given as `NAME=PATH` pairs for a subset, or through `MOZART_EDITION_ROOTS`; `--skip-behaviour` omits the slow lint/metrics arm and makes a passing run exit 4, never 0. It is a pre-merge tool, not a gate, because the suite's `report()` has no SKIP state; `V31_editions_selftest` runs it against fake roots built from this tree. `scripts/check-field-note-parity.py behaviour` gains `--only` to run a subset of ports.
+
+### Changed — a LIGHT tier; DELIVER's tier choice follows the surface, not "when unsure, HEAVY"
+
+Campaign `2026-10-03-deliver-eval-efficiency-fixes`. DELIVER now has four tiers: TINY / LIGHT / STANDARD / HEAVY.
+
+**LIGHT** is for a change of up to about 3 files and 150 hand-written changed lines, in one or two
+phases, with no new shared abstraction and no stage-2b trigger; for a bug-shaped request the cause
+must be known (a cause stated only in an untrusted ticket body counts as unknown). It skips
+research, constraints (2b) and codex round 1. harry writes a short plan, bob alone reviews it
+(tessa too when TDD is set), mid-build specialists run on their triggers, and codex round 2 runs.
+
+**What makes a campaign not LIGHT.** Any term in xander's stage-4 or stage-8 trigger row; a HEAVY
+surface; an otto or nina trigger; a dependency manifest or lockfile change (lockfile lines never
+count toward the size bound); a CI workflow change. The check is repeated rather than made once:
+bob flags any such term he sees in a LIGHT plan (he is the only reviewer), and the stage-7d phase
+gate compares `git diff --name-only` and the diff with the rule before each phase commits.
+A campaign found not to be LIGHT is STANDARD at minimum and the escalation rule applies.
+
+**The old tiebreak is gone.** `agents/mozart.md` no longer says "when unsure, choose HEAVY" for
+DELIVER. Where TINY and LIGHT, or LIGHT and STANDARD, both fit, take the higher. Where STANDARD and
+HEAVY both fit, the tier follows the surface: HEAVY only when the work touches a listed HEAVY
+surface; with none evident, STANDARD, with a revisit trigger in the decisions log. Tiers only go
+up. OPERATE's own "when unsure between STANDARD and HEAVY: choose HEAVY" is unchanged. A consumer
+will see campaigns that used to run HEAVY on doubt now run STANDARD, and small changes run LIGHT.
+
+**Codex round 2 wording is one thing everywhere**: LIGHT runs it, STANDARD default-runs it, HEAVY
+requires it; "optional" no longer appears for STANDARD. The STANDARD skip for sub-50-LOC mechanical
+diffs is not available when any term in xander's stage-8 row applies.
+
+`mozart-metrics.sh` reports LIGHT as its own tier bucket (`metrics-light` fixture). The gate
+suite pins the tier tables, the LIGHT lines and the codex round-2 cells (`V28_tiers`).
+
+### Changed — HEAVY mid-build review is trigger-gated after phase 1, and the surface is a required record
+
+On HEAVY, ian and xander used to run on every phase regardless of triggers. Now both run on phase 1;
+from phase 2 each runs when its stage-8 trigger matches or the phase touches the recorded HEAVY
+surface; and when the recorded surface includes `auth`, `secrets` or `security`, xander is spawned
+on every phase (only ian is then trigger-gated). The surface is recorded on the state file's Tier
+line:
+
+```
+**Tier**: HEAVY (surface: auth, schema)
+```
+
+with words from `auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`. Record
+every word that applies; any term in xander's stage-8 row maps to `security`. An absent, empty or
+unlisted word counts as touching the surface on every phase, so both lenses run on every phase.
+Each `P<N>` conductor row records `ian:` and `xander:` as `run` or `no trigger — <why>`.
+
+- **Escalation.** On escalation to HEAVY, mozart records the surface, gives each ticked phase its
+  conductor row, and has xander review the cumulative diff since the base once (uncommitted phase
+  diff included) before further implementation. The Tier line then reads
+  `escalated from <TIER>, D<n>` and a conductor row linked to `D<n>` claims
+  `xander: cumulative pass on escalation (through P<k>): run`. That row covers phases up to
+  `P<k>` only; those earlier phases may read `no trigger — phase ran before escalation`.
+- **xander's stage-8 trigger is wider on every tier.** It is a twelve-term union: auth, secrets,
+  untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and
+  tenant filters), outbound requests, a dependency manifest or lockfile change, and CI/CD workflow
+  files. The stage-8 row used to name auth, secrets, untrusted input, the dependency change and
+  CI/CD; it now adds encryption, sessions, RBAC, security headers, CSP, authorization and outbound
+  requests. The stage-4 row gained authorization and outbound requests. The same terms are what
+  exclude a campaign from LIGHT.
+- **`EVERY-PHASE`.** A flag that restores the old behaviour: ian and xander at every phase of a
+  HEAVY campaign, whatever the triggers and recorded surface say. Set it by asking for it in the
+  request, or in the repo with the new optional `## Pipeline flags` stanza (`every_phase: true`;
+  `INTEGRATION.md` section 6). Mozart reads the stanza at intake and records
+  `Build-time flags: EVERY-PHASE` in the state file; it never writes the stanza, and the flag can
+  only add review.
+- **Lint.** `mozart-lint.sh` enforces the records (`conductor-row` findings): a HEAVY tier line with
+  no usable surface record; a ticked HEAVY phase row that does not record both lenses; a phase row
+  on an `auth`, `secrets` or `security` surface that does not record `xander: run`; and a
+  `phase ran before escalation` reason not backed by the Tier line's `escalated from <TIER>, D<n>`
+  and its cumulative-pass row, for any phase after `P<k>`. Once a tier line carries `(surface:`, the
+  both-lenses rule, the `xander: run` rule and the escalation-reason rule apply on any date. The
+  usable-surface requirement (at least one of the seven listed words) applies only from the lens
+  date: `HEAVY (surface: widgets)` on a campaign dated before it draws no finding.
+
+**`MOZART_LINT_LENS_SINCE`** sets the date from which the usable-surface requirement applies, and
+from which the both-lenses rule also applies to a HEAVY tier line with no `(surface:` (campaign
+slug date on or after the constant). The default is **2026-10-04**, so a campaign dated earlier
+whose tier line carries no `(surface:` gains no finding. It exists as a fixture
+hook and a deployment dial, like `MOZART_LINT_CONDUCTOR_SINCE`: every run that sets it prints
+`lens-record date overridden: <value>` before any finding, so an override can never be silent.
+Set it to a later date to exempt more campaigns, or an earlier one to bring them under the rule.
+**In the `mozart-codex` and `mozart-copilot` editions the default is `9999-12-31`**, so the rule
+is dormant there (it runs only when the variable is set): those editions' manuals do not yet tell
+the conductor to write a surface record, and a default date would give every new HEAVY campaign a
+finding its own manual cannot explain. The default moves to a real date when the prose lands in
+those editions. `mozart-local` ships no linter.
+
+### Changed — the no-progress stop
+
+Seventeen specialist personas (all but mozart and the support agents) carry one bullet
+as the fourth item of their cadence list: after three identical commands with the same result,
+three turns that do nothing, or two expired bounded waits, stop and return what was attempted, the
+command, its last output, the likely blocker and the next step. The text is frozen in
+`tests/policy/no-progress.txt` and pinned by `V29_noprogress`. mozart gains the receiving rule in
+*Orchestration discipline*: the first no-progress return gets the missing fact and a continued
+agent; the second from the same specialist on the same work follows the failed-spawn rule (fix the
+brief, not the roster) or goes to the user; never a third silent continue. `DELIVER.md` and
+`CONTEXT-BUDGET.md` gain one clause each. It is prose a persona can ignore; the next EVAL's
+no-op token share (4.6% when the change was planned) is how it will be judged.
+`CONTRIBUTING.md`'s persona contract item 8 changes with it: the `## Communicate as you work`
+section is no longer copied verbatim, only the bullet must be identical.
+
+### Changed — P8: the template files, dead persona text, and what did not happen
+
+Five `agents/TEMPLATE-*.md` skeleton files replace text that sat in `agents/STATE.md` and
+`agents/DELIVER.md` (see the entries below). The "You run in a subprocess" paragraph that sat under
+`## Communicate as you work` in `agents/mozart.md` is removed; the conductor is not a subprocess.
+
+- **The scott stage-12b split was not made.** The plan was to move scott's PR-authoring text into
+  a separate file. Only 4,241 of its 25,813 bytes could move: the push-enabling core (the grant
+  provenance gate, the failed-scan stops, the push-time grant re-check and the push itself) has to
+  stay inline and byte-identical, because moving it takes those stops out of scott's system prompt
+  and lets a campaign branch supply the file he follows. Moving the remainder buys 8% of his file for a new
+  read-on-instruction risk, so `agents/scott.md`'s 12b block is byte-identical to the base commit
+  (this campaign's decisions log, D8 and D9). It can return as its own HEAVY campaign.
+- **No net reduction in forced reads.** The ten files a DELIVER run must read total 239,041 bytes
+  at the base and **243,103 at the end of this campaign (+4,062)**. The template moves shrank the
+  set mid-campaign; the tier, surface-record, escalation and no-progress text added it back and
+  more. Nothing in this changelog or the docs should be read as a read-set saving.
+
+### Added — lint category `escape-unrecorded`, the `Traces-to` grammar, and `external` origins
+
+`mozart-lint.sh` gains a seventeenth category, Check N. A DIAGNOSE investigation or INCIDENT
+post-mortem (`investigations/**/*.md`, `incidents/*.postmortem.md`, beside each plans root) that
+names the campaign its defect traces to with `Traces-to: <slug>` must find that campaign's
+`## Escapes` block recording the artifact: a `Traces-to:` line there naming the artifact's own
+slug (its file name up to the first dot) as a whole token. The finding is reported against the
+origin campaign's state file, keyed by the discovering slug; if the origin has no state file in
+that repo it is reported against the artifact. It is not gated on any adoption date, and the
+origin is looked up in every layout of both roots, `aborted/` included.
+
+The grammar is one frozen sentence (`tests/policy/traces-to-grammar.txt`), carried at each of seven
+sites that tell someone to write the line: the origin campaign's slug comes first. Anything else first
+names no campaign and is silent: `none`, `n/a`, a ticket id, a line inside a fenced code block, or
+`external — <where or why>; <slug>` for an origin that has no state file in this repo. A campaign
+that is named but is not the origin goes in prose after a non-slug token, not in the label
+position. `docs/EVAL.md` has the sentence and EVAL now samples `external — …` origins for one that
+did have a state file. `mozart-metrics.sh` counts `Traces-to:` lines with the same
+`is_escape_line` function (library), so a placeholder or "none yet" line counts as 0 in both.
+
+On the author's repos at the time of the change the check fired 5 times (agentpulse 1,
+os-project-athena 3, k8s-home-lab 1). A consuming repo with DIAGNOSE or INCIDENT artifacts whose
+origin campaign never recorded the escape will see the same kind of finding on first run.
+
+### Changed — the flow-sketch and final-report skeletons are template files
+
+`agents/TEMPLATE-FLOW.md` and `agents/TEMPLATE-REPORT.md` hold the skeletons that used to sit in
+`agents/STATE.md` (the flow sketch) and `agents/DELIVER.md` (the final report), which the conductor
+reads on every run. Each is copied once, at intake and at closeout. Like the state templates they
+are not manual members and not agents, are never named in `agents/mozart.md`, and are listed in
+`CONTRIBUTING.md` and `validate-plugin.yml`. A skeleton holds headers and placeholder rows only; the
+filled-in examples stay in the manual's prose.
+
+### Changed — the Tier value is read more strictly
+
+`tier_of` returns no value (phase rows required, metrics UNTIERED) for: a non-HEAVY token whose
+remaining text names HEAVY as a whole word (`STANDARD (escalated to HEAVY)`); a token followed by
+anything but the end of the value, a space, `(`, an em dash or `;` (`TINY, LIGHT, STANDARD, HEAVY`,
+`STANDARD2`, `STANDARD.`); italic, underscore, backticked and unbalanced-bold values; and a bold
+pipe-list (`**TINY** | **LIGHT**`). Only a balanced `**` wrapper around the leading token is
+stripped. A campaign whose tier line used to read as STANDARD and now reads as untiered needs its
+Tier line rewritten as a bare tier, with a reason that does not name HEAVY.
+
+**Effect on metrics history.** The `STANDARD (escalated to HEAVY)` rule is deliberate: a campaign
+that says it escalated is the one that must not be exempted from phase rows. The cost is a
+bucket change, not a lint change. When it landed, 12 historical state files in the author's own
+repos moved to the UNTIERED bucket in `mozart-metrics.sh`, two of them reading "downgraded from
+HEAVY". Per-tier numbers from before and after this change are not comparable for those
+campaigns.
+
+### Changed — a ticked Phase line needs a linked conductor row on HEAVY only
+
+`CONDUCTOR_GATES_DELIVER` is `5 9 10 13 P:heavy`, and S3 in `agents/STATE.md` reads
+`P<N>:heavy`. On TINY, LIGHT and STANDARD a ticked `Phase <N>` line no longer needs a row (a row
+that is written is still checked for form). An absent Tier line, an unfilled placeholder
+(`TINY | LIGHT | STANDARD | HEAVY`) and a value that is not upper case keep the requirement, so no
+existing campaign gains a finding; a campaign on STANDARD or below loses its `conductor-unlinked`
+`P<N>` findings. Where a HEAVY tier line carries `(surface:`, each `P<N>` row's claim must record
+`ian:` and `xander:` as `run` or `no trigger — <why>`; a phase that ran before an escalation to
+HEAVY may read `no trigger — phase ran before escalation`. A HEAVY tier line without
+`(surface:` is checked for lens records only on a campaign dated on or after
+`MOZART_LINT_LENS_SINCE` (default 2026-10-04; see the HEAVY mid-build entry below); on an earlier
+campaign it is not.
+
+The Tier parse is one library function (`tier_of` in `scripts/lib-campaign.sh`) used by both
+scripts, and the first `**Tier**:` line wins in both. `scripts/mozart-metrics.sh` used to take the
+last one, and now buckets `HEAVY (surface: …)` as HEAVY and a lower-case or unfilled value as
+UNTIERED. It also prints `sibling files shadowing an in-file section (in-file rows ignored): N`,
+only when N is not 0, for a conductor record or findings ledger that exists in a sibling file and
+in the state file (lint reports the same case as `*-duplicate`).
+
+### Changed — a new campaign's findings ledger and conductor record live in their own files; the state-file skeletons are template files
+
+A campaign created from now on is **split**: `## Findings ledger` is in `<slug>.ledger.md` and
+`## Conductor record` is in `<slug>.conductor.md`, both beside `<slug>.state.md` and created with
+it from `agents/TEMPLATE-STATE.md`, `agents/TEMPLATE-LEDGER.md` and `agents/TEMPLATE-CONDUCTOR.md`.
+The skeletons left `agents/STATE.md`, which the conductor reads on every run, and are copied once
+at intake instead. The templates are not manual members and not agents: no `name:` frontmatter,
+never named in `agents/mozart.md`, and listed in `CONTRIBUTING.md` and `validate-plugin.yml`.
+
+**Adoption.** A campaign that already exists is never split on resume. A state file with either
+section heading, or with neither and no declaration, stays single-file for life. A state file whose
+`## Paths` declares a sibling that does not exist (a crash between writing the files) gets it from
+its template when no row of that kind exists anywhere. `mozart-lint.sh` and `mozart-metrics.sh`
+read both layouts (sibling wins when a section is in both places), and lint gains a sixteenth
+category, `split-layout`, with six keys.
+
+**`state_md5` in the eval ledger** now covers the state file plus its sibling ledger and conductor
+files (concatenated in that order, existing files only); the field name is unchanged and a
+single-file campaign hashes as before. **One-time cost:** the first EVAL run with a reader that
+includes siblings re-examines every split campaign once; a reader that predates this change misses
+a change made only to a sibling.
+
+### Changed — lint and metrics share `scripts/lib-campaign.sh`; metrics now reads CRLF state files
+
+`scripts/mozart-lint.sh` and `scripts/mozart-metrics.sh` each carried their own copy of the cell
+splitter, header normaliser, placeholder test and `trim`. They now source one library found beside
+them, which also holds the rule for a campaign's sibling files (`<slug>.ledger.md`,
+`<slug>.conductor.md`) in both a shell and an awk spelling, ready for the split layout. With the
+library missing or empty either script exits **3** with `<script>: scripts/lib-campaign.sh not
+found beside this script`; exit 2 still means "nothing to lint". Ship the library with the scripts.
+Lint also exits 3, rather than linting clean, if its awk program fails to run.
+
+**One intended behaviour change, two output differences, both in `mozart-metrics.sh`.** The library
+takes lint's `trim`, which strips a carriage return; metrics' own did not. Metrics over a CRLF
+state file therefore tallies instead of reading nothing. Visible as: a CRLF copy of
+`tests/fixtures/conductor/metrics-conductor` went from `no findings-ledger data yet` (exit 2) to the
+same table as the LF original; and over `tests/fixtures/conductor/lint`, whose one CRLF fixture
+(`2099-07-24-deliver-crlf`) used to form its own `STANDARD^M` tier bucket, the campaigns line goes
+from `48 (1 STANDARD^M | 47 STANDARD)` to `48 (48 STANDARD)`, campaigns with a conductor record
+40 to 41, and check rows 24 to 29. Every other output of both scripts is byte-identical. Metrics
+also drops a trailing CR from each input line before its row rules run, so a CRLF separator row is
+no longer miscounted as a finding.
+
 ### Added — nina, a cloud specialist who resolves provider assertions instead of recalling them
 
 `agents/nina.md` (33,350 B) is an eighteenth specialist. Her unit of review is **the

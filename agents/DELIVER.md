@@ -2,7 +2,7 @@
 
 ### 2. Research (sarah, optional — and parallel)
 
-Skip in TINY. In STANDARD/HEAVY, run when:
+Skip in TINY and LIGHT. In STANDARD/HEAVY, run when:
 - Unfamiliar domain, library, or pattern decision
 - "Best practices" or "modern way to X" framing
 - Multiple plausible approaches and the right one isn't obvious
@@ -50,11 +50,13 @@ Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `
 
 Pre-filter reviewers based on what the plan actually touches. Don't invoke a lens that doesn't apply.
 
+On a LIGHT campaign this stage is bob alone (plus tessa when TDD is set). Any term in xander's stage-4 or stage-8 trigger row makes the campaign not LIGHT: if one applies to the plan, the campaign is STANDARD at minimum and the escalation rule in `mozart.md` applies. The campaign is not LIGHT when the work touches a HEAVY surface (stage 8's closed list) or meets an otto or nina trigger in this table or stage 8. Bob reviews alone, so bob flags any trigger term he sees in a LIGHT plan.
+
 | Reviewer | Always | Trigger |
 |---|---|---|
 | **bob** | ✓ | — (architecture, sequencing, risk coverage applies to every plan) |
 | **librarian** | | BROWNFIELD AND plan introduces new functions, classes, modules, services, or shared abstractions. Skip on GREENFIELD or pure-modification plans (bug fixes, refactors that don't add new abstractions, edits to existing code only) |
-| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP. Also: plan adds or upgrades a dependency (package manifest / lockfile change — he runs his dependency-vetting checklist) or touches CI/CD workflow files (`.github/workflows/`, GitLab CI, pipeline YAML — he runs his CI/CD checklist) |
+| **xander** | | Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests. Also: plan adds or upgrades a dependency (package manifest / lockfile change — he runs his dependency-vetting checklist) or touches CI/CD workflow files (`.github/workflows/`, GitLab CI, pipeline YAML — he runs his CI/CD checklist) |
 | **dexter** | | Refactors, shared utilities, new abstractions, anything where code-health debt matters |
 | **ruby** | | UI/UX surface, frontend components, accessibility, design system — including admin/operator/internal screens, not just public-facing ones. On GREENFIELD plans with any UI, ruby additionally verifies the plan sequences a **design foundation** (tokens, type/spacing scale, app shell, one reference screen) before the first feature-UI phase — a plan that ships N feature phases with no design foundation ships N wireframes |
 | **otto** | | k8s manifests, Helm, Ingress, Service, Deployment, NetworkPolicy, RBAC, namespaces, persistent volumes, infra YAML |
@@ -118,8 +120,9 @@ d. **Per-phase gate** (you):
    - Run the plan's Automated commands that gate this phase: items tagged (phase N), plus untagged items that clearly apply. Record exit codes. If a command cannot run because its environment is genuinely unavailable, record ⛔ with the reason and surface the gap; do not treat Manual items as agent-run checks. If the diff touches a language the repo has no linter/type-checker configured for, that's a gate failure on GREENFIELD (the bootstrap phase was skipped or incomplete) and a surfaced flag on BROWNFIELD — don't quietly substitute "jackson eyeballed it" for a mechanical check
    - **Mechanical secret scan on the staged diff.** Run `gitleaks protect --staged` (or `gitleaks detect` / `trufflehog git` scoped to the phase's commits) when a scanner is installed; otherwise fall back to grepping the diff for high-signal patterns: `AKIA[0-9A-Z]{16}`, `-----BEGIN( RSA| EC| OPENSSH)? PRIVATE KEY-----`, `ghp_[A-Za-z0-9]{36}`, `xox[baprs]-`, `eyJhbGciOi`, `(password|passwd|api[_-]?key|secret|token)\s*[:=]\s*['"][^'"]{8,}`. Any hit = gate failure: the value never gets committed, the finding routes to jackson (move to env/secret store) — never "commit now, scrub later," because a secret in git history is already leaked. Reviewer eyeballs (xander, otto, scott) are the backstop, not the control. **A scan that does not run is not a clean scan**: a scanner that exits non-zero, dies on a bad range, or prints nothing because the command itself failed is a gate failure identical in force to a hit — read the exit status, never infer a pass from silence. The empty-input case is the same trap without the error: `gitleaks protect --staged` over an empty index exits 0 and prints nothing, byte-identical to a clean scan of real content, so confirm the scan had a non-empty staged diff to read before you read its silence as a result. This bullet is the shared definition `agents/scott.md`'s stage-12b secret scan cites by name, and the liveness rule binds both — the ranges differ (staged diff here, everything `git push` transmits there) and that difference is intentional, but "no output" means the same thing on both
    - **Re-run the plan's wiring-sites grep against the diff.** If the plan's `Pattern parity / wiring sites` section enumerates ≥2 sites for this phase, run the documented grep yourself and confirm each enumerated non-deferred site appears in the diff. A missing site is a gate failure — brief jackson to extend. If the grep returns a new site the plan didn't enumerate, that's a scope-flag event: surface to the user; don't silently widen.
+   - **LIGHT eligibility re-check.** On a LIGHT campaign, compare `git diff --name-only` and the diff with the tier rule: a dependency manifest or lockfile, `.github/workflows/` or another CI path, or any of the twelve terms in xander's stage-8 row makes the campaign not LIGHT; escalate per the escalation rule in `mozart.md` before this phase commits
    - Pull in mid-build specialists per stage 8
-   - Failures or drift → brief jackson with specifics. Cap: 3 attempts per phase. Escalate if you can't converge.
+   - Failures or drift → brief jackson with specifics. Cap: 3 attempts per phase. A no-progress return is not an attempt; the conductor rule in *Orchestration discipline* handles it. Escalate if you can't converge.
 
 e. **Mode-dependent commit:**
    - **AUTONOMOUS**: gate clean → commit immediately
@@ -136,13 +139,21 @@ g. **No half-staged slices.** Every implementation session ends with the slice e
 
 ### 8. Mid-build specialists (conditional, parallel)
 
-Run on the slice **before committing** when triggered. **HEAVY tier: ian and xander run on every phase regardless of triggers.** On HEAVY phases, spawn ian with a model override to the strongest available tier (e.g. `model: opus`) when the harness's spawn tool supports one — per-phase contract analysis is exactly where the July-2026 evaluation showed default-tier lenses PROCEED-ing past Criticals that stronger review later caught. If no override is supported, note it and proceed; don't block on it.
+Run on the slice **before committing** when triggered. **HEAVY tier**:
+- **Phase 1**: ian and xander both run.
+- **From phase 2**: each runs when its trigger below matches or the phase touches the recorded HEAVY surface. **When the recorded surface includes `auth`, `secrets` or `security`, xander is spawned on every phase**; only ian is trigger-gated.
+- **The surface record is required**: `**Tier**: HEAVY (surface: <word>[, <word>…])`, words from `auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`. Record every listed word that applies; any term in xander's stage-8 row maps to `security`. **An absent, empty or unlisted word counts as touching the surface on every phase**, so both lenses are spawned on every phase.
+- **On escalation** xander reviews the cumulative diff since the base once, uncommitted phase diff included, before further implementation; the record is the Tier line `escalated from <TIER>, D<n>` and a row linked to `D<n>` claiming `xander: cumulative pass on escalation (through P<k>): run` (`STATE.md`).
+- **Record both lenses on the phase's `P<N>` conductor row** (`ian:` and `xander:`, each `run` or `no trigger — <why>`; the form is in `STATE.md`).
+- **`EVERY-PHASE`** (see `FLOWS.md`) spawns both at every phase of a HEAVY campaign, whatever the triggers and the recorded surface say.
+
+On HEAVY phases, spawn ian with a model override to the strongest available tier (e.g. `model: opus`) when the harness's spawn tool supports one — per-phase contract analysis is exactly where the July-2026 evaluation showed default-tier lenses PROCEED-ing past Criticals that stronger review later caught. If no override is supported, note it and proceed; don't block on it.
 
 | Specialist | Trigger |
 |---|---|
-| **ian** | Phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract |
+| **ian** | Phase modifies public API, exported symbol, function signature, schema, shared utility, or behavior contract. On HEAVY, also any phase that touches the recorded HEAVY surface |
 | **librarian** | BROWNFIELD AND phase introduces a new shared abstraction, utility module, or code in well-trafficked paths (`utils/`, `lib/`, `shared/`, `helpers/`, `common/`, `core/`). Catches duplication that slipped past plan review or emerged during implementation. Skip on GREENFIELD |
-| **xander** | Phase touches auth, secrets, untrusted input; adds or upgrades a dependency (manifest / lockfile diff — dependency-vetting checklist); or modifies CI/CD workflow files (CI/CD checklist) |
+| **xander** | Phase touches auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), or outbound requests; adds or upgrades a dependency (manifest / lockfile diff — dependency-vetting checklist); or modifies CI/CD workflow files (CI/CD checklist). On HEAVY, also any phase that touches the recorded HEAVY surface |
 | **otto** | Phase modifies k8s manifests, Helm, Ingress, Service, Deployment, RBAC, infra YAML |
 | **nina** | Phase asserts how a cloud provider will behave, or modifies a cloud control-plane surface (identity/federation, cloud IAM, org or account structure, quotas, cross-account networking) or cloud IaC. **Brief her with the pin**, and with the operator-declared principal if live reads are intended. Skip when the cloud is only where the code runs |
 | **ruby** | Phase introduces or modifies any screen a human will use — user-facing OR operator-facing. Admin consoles, CMS surfaces, internal dashboards, and billing pages all count; "it's internal tooling" is not a skip reason. This trigger fires **in addition to** whatever lens owns the phase's dominant risk — a phase like "admin CMS + analytics" fires xander AND ruby, not xander instead of ruby (the July-2026 athlete-showcase campaign gated its admin-CMS and dashboard phases on security/contract lenses only, and shipped unstyled wireframes that a later remediation campaign had to redesign). A ruby verdict labeled `STRUCTURAL-ONLY` (she couldn't render the UI) is a partial gate: record the owed visual pass as a tracked item — do not count it as UX signoff |
@@ -160,7 +171,8 @@ Treat findings the same as plan-review findings: address before committing. Mult
 After all phases are committed:
 
 - **TINY**: skip
-- **STANDARD**: default-run (skip only on sub-50-LOC mechanical diffs where the plan was trivial and internal reviewers were clean). The May-2026 multi-repo evaluation found "STANDARD codex r2 skipped" runs that later shipped Criticals the next audit had to catch; the prior "optional" framing trained mozart to skip-by-default, which was wrong.
+- **LIGHT**: run
+- **STANDARD**: default-run (skip only on sub-50-LOC mechanical diffs where the plan was trivial and internal reviewers were clean; the skip is not available when any term in xander's stage-8 trigger row applies). The May-2026 multi-repo evaluation found "STANDARD codex r2 skipped" runs that later shipped Criticals the next audit had to catch; the prior "optional" framing trained mozart to skip-by-default, which was wrong.
 - **HEAVY**: **non-negotiable** — not "mandatory" with a soft override. Skipping codex r2 on HEAVY is a self-detected gate failure that requires escalation, never a runtime mozart decision. "Mid-build covered it," "context pressure," and "the diff is mechanical" are not valid skip reasons. Either codex r2 runs, or the campaign stops at `Status: stopped` with a state-file note explaining the blocker and resumes in a fresh session.
 
 ```bash
@@ -315,8 +327,8 @@ After the final report is written, close the campaign in one sitting. A half-don
    - `Status: complete` (or `aborted`), `Current stage` final, `Last updated` stamped
    - Every stage line `[x]` or `[-] skipped: <rationale>` — no bare `[ ]` left, no duplicate stage lines
    - Iteration counters reflect the actual round counts
-   - **Every commit SHA cited anywhere in the state file is reachable from HEAD** — assert it, don't eyeball it: `git -C <worktree> merge-base --is-ancestor <sha> HEAD` for each. A SHA that fails this is an orphan from a rebase, an amend, or a squashed phase, and it makes the ledger cite a commit nobody can check out (observed twice in a single campaign; prose discipline failed both times)
-   - Paths block lists the ACTUAL artifact paths (no "not yet run" beside a ticked checkbox), and every internal `plans/active/` reference is rewritten to `plans/finished/`
+   - **Every commit SHA cited anywhere in the state file, or in its `.ledger.md` and `.conductor.md` siblings when it has them, is reachable from HEAD** — assert it, don't eyeball it: `git -C <worktree> merge-base --is-ancestor <sha> HEAD` for each. A SHA that fails this is an orphan from a rebase, an amend, or a squashed phase, and it makes the ledger cite a commit nobody can check out (observed twice in a single campaign; prose discipline failed both times)
+   - Paths block lists the ACTUAL artifact paths (no "not yet run" beside a ticked checkbox; the `.ledger.md` and `.conductor.md` declarations name real files), and every internal `plans/active/` reference, in the state file and in those two siblings, is rewritten to `plans/finished/`
    - Worktree line updated with the merge disposition: `merged | squash-merged | pending-pr | intentionally-unmerged | abandoned` (`pending-pr` carries the PR number and is the one value that legitimately changes after closeout — step 5 owns the resolution). Record it explicitly — squash merges make `git branch --merged` / `--is-ancestor` lie, so without this line, worktree cleanup later requires forensics (observed: three completed mobile campaigns holding unmerged code with no record of whether that was intentional)
 2. **Finalize the flow sketch** — participation table, skipped-agents rationale, actual-flow mermaid, `Run completed` stamped (see Pipeline flow sketch)
 3. **Move ALL slug artifacts by glob, not an enumerated list:**
@@ -343,35 +355,4 @@ If any step fails, don't leave the campaign half-closed: undo the moves and surf
 
 **Corruption check after the move**: verify the invariant `Status: complete ⇔ file is in finished/`. The May-2026 multi-repo evaluation found two recurring drifts under the old prefix convention: (a) `Status: complete` state files left in `active/` (or at the legacy `active-` prefix); (b) `finished/` files with `Status: in-progress` bodies (mozart moved prematurely or the campaign never actually completed). After the move, `grep -lE '^\*?\*?Status\*?\*?: complete' .mozart/plans/active/*.state.md 2>/dev/null` should return empty, and `grep -LE '^\*?\*?Status\*?\*?: complete' .mozart/plans/finished/<slug>.state.md` should return empty. If either grep returns a result, the directory or status field disagrees with reality — fix immediately, don't ship the campaign with the discrepancy. When the bundled `scripts/mozart-lint.sh` is resolvable, run it against the repo root as the final closeout act — a clean exit (scoped to this slug's findings) is the machine check that the closeout transaction actually completed; prose checklists have twice failed to hold this invariant across evaluation cycles.
 
-Then write the final report:
-
-```
-## <slug>: shipped (tier: <TINY|STANDARD|HEAVY>)
-
-**Disposition**: shipped — <the merge evidence>. "shipped" is reserved for confirmed merge evidence; a campaign closing `pending-pr` titles this report `<slug>: PR open, awaiting merge` and names the PR number, branch, and worktree path here instead.
-**Plan**: <path>
-**Decisions**: <path or "none">
-**Flow sketch**: .mozart/plans/<slug>.flow.md
-**Codex**: <r1-plan path>, <r2-diff path if run>
-**Research**: <path if produced>
-**Investigation** (if applicable): <path>
-**Commits**: <SHAs + one-liners>
-**Phases**: <count>
-**Validation**: SIGNOFF (<reconciliation rounds>) — validation report: <path>
-**Documentation**: <in-repo files updated, wiki URLs published, or "skipped — no user-visible impact">
-
-### What was built
-<one paragraph>
-
-### Agents involved
-<one-line summary referencing the flow sketch — e.g., "harry → bob/librarian → jackson (2 phases, ian mid-build) → valerie → scott. See flow sketch for full trace.">
-
-### Deferred
-<from plan's out-of-scope, or "none">
-
-### Notable findings during the run
-<anything reviewers / specialists / codex surfaced that the user should know>
-
-### Open questions / follow-ups
-<unresolved or recommended next work>
-```
+Then write the final report. Its skeleton is a file beside this one, not text in this manual: `TEMPLATE-REPORT.md`. Copy it and fill every `<…>` field. A skeleton holds headers and placeholder rows only; the "Agents involved" section is one line that points at the flow sketch, for example "harry → bob/librarian → jackson (2 phases, ian mid-build) → valerie → scott. See flow sketch for full trace."

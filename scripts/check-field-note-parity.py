@@ -188,22 +188,34 @@ def cmd_bullets(bullet_files, paths, roots):
 
 # --- V-FN3: behaviour (PD24 runner loop) ------------------------------------
 
-CASES = ("lint", "metrics-placeholder", "metrics-conductor", "metrics-vacuity")
+CASES = ("lint", "metrics-placeholder", "metrics-conductor", "metrics-vacuity", "metrics-split")
+# The six K/L names, missing-2b, split-layout (Check M), and the two older
+# categories the split fixtures exercise: stranded-artifacts (Check H, a ledger
+# left behind in active/) and stale-paths (Check G), and escape-unrecorded (Check N).
 LINT_CATEGORIES = frozenset({
     "conductor-missing", "conductor-unlinked", "conductor-row",
     "conductor-reference", "decision-trigger", "mutation-manifest",
-    "missing-2b",
+    "missing-2b", "split-layout", "stranded-artifacts", "stale-paths",
+    "escape-unrecorded",
 })
 OVERRIDE_DATE = "2099-06-01"
+# D12: the corpus predates the lens-record date; the 2099-12 fixtures exercise the rule.
+LENS_OVERRIDE = "2099-12-01"
 OVERRIDE_LINE_PREFIX = "conductor adoption date overridden:"
-LINT_FIXTURE_FLOOR = 48
+LINT_FIXTURE_FLOOR = 173
+# Sibling files get their own floors: a state-file floor cannot notice a split
+# fixture losing its ledger or conductor half.
+LINT_LEDGER_FLOOR = 16
+LINT_CONDUCTOR_FLOOR = 25
 # F59: the path was parsed as \S+, so a corpus under a path containing a space
 # parsed ZERO triples while the linter it was checking emitted all of them
 # correctly — the harness carried the very defect F50 fixed in the shell
 # scripts. The linter's own format is `<path> — <key>: <msg>`, so take the path
 # non-greedily up to the FIRST " — ", which is how the bash-side extractor in
-# mozart-contract-gates.sh has always split it.
-LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(.+?) — ([^:]*):")
+# mozart-contract-gates.sh has always split it. The key runs to the first colon
+# or, for a message that has none (stale-paths), to the end of the line, as the
+# bash side's split on ": " does.
+LINT_LINE_RE = re.compile(r"^LINT \[([^\]]+)\]\s+(.+?) — ([^:]*)(?::|$)")
 
 # Named members (Fixture corpus, r5+) — asserted independently of aggregate
 # set-equality, per M7: a check that counts or globs needs a member whose
@@ -217,6 +229,15 @@ LINT_LAYOUTS = (
     ("legacy finished- prefix", ".mozart/plans", "finished-*.state.md"),
     ("legacy flat prefixless", ".mozart/plans", "[0-9]*.state.md"),
     ("legacy root thoughts/shared", "thoughts/shared/plans", "[0-9]*.state.md"),
+    # the split pair (state + ledger + conductor) in each layout it can sit in
+    ("split pair current/active (ledger)", ".mozart/plans/active", "*.ledger.md"),
+    ("split pair current/active (conductor)", ".mozart/plans/active", "*.conductor.md"),
+    ("split pair current/finished (ledger)", ".mozart/plans/finished", "*.ledger.md"),
+    ("split pair current/finished (conductor)", ".mozart/plans/finished", "*.conductor.md"),
+    ("split pair legacy active- prefix", ".mozart/plans", "active-*.conductor.md"),
+    ("split pair legacy finished- prefix", ".mozart/plans", "finished-*.conductor.md"),
+    ("split pair legacy flat prefixless", ".mozart/plans", "[0-9]*.conductor.md"),
+    ("split pair legacy root thoughts/shared", "thoughts/shared/plans", "[0-9]*.ledger.md"),
 )
 
 NAMED_PRESENT = (
@@ -238,6 +259,111 @@ NAMED_PRESENT = (
     # slug is BEFORE the override cutoff and carries a conductor record, so
     # only the union reaches its decisions log.
     ("decision-trigger", "2099-05-30-deliver-precutoff-header", "D1"),
+    # Check M, one fixture per key
+    ("split-layout", "2099-09-05-deliver-split-dupledger", "findings-ledger-duplicate"),
+    ("split-layout", "2099-09-04-deliver-split-dupconductor", "conductor-record-duplicate"),
+    ("split-layout", "2099-09-06-deliver-split-ledgermissing", "findings-ledger-missing"),
+    ("split-layout", "2099-05-21-deliver-split-conductormissing", "conductor-record-missing"),
+    ("split-layout", "2099-09-07-deliver-split-ledgernohead", "findings-ledger-noheading"),
+    ("split-layout", "2099-09-08-deliver-split-conductornohead", "conductor-record-noheading"),
+    # the sibling is read, in each place it can be
+    ("conductor-unlinked", "2099-09-04-deliver-split-dupconductor", "9"),
+    ("conductor-unlinked", "2099-09-02-deliver-split-unlinked", "9"),
+    ("conductor-unlinked", "2099-09-03-deliver-split-rejected", "F2"),
+    ("conductor-missing", "2099-09-10-deliver-split-emptyconductor", "-"),
+    ("conductor-unlinked", "2099-09-12-deliver-mixed-conductor", "F3"),
+    ("stranded-artifacts", "2099-09-13-deliver-split-halfmoved",
+     "state is in finished/ but sibling artifact(s) remain in active/"),
+    ("split-layout", "2099-09-13-deliver-split-halfmoved", "findings-ledger-missing"),
+    ("conductor-unlinked", "finished-2099-09-21-deliver-split-fprefix", "5"),
+    ("conductor-unlinked", "2099-09-23-deliver-split-legacyroot", "F2"),
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR2"),
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR3"),
+    ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "F2"),
+    ("conductor-unlinked", "2099-09-19-deliver-split-quoted", "5"),
+    ("conductor-unlinked", "2099-05-25-deliver-split-preadopted", "9"),
+    ("conductor-unlinked", "2099-09-20-deliver-zerostate", "F2"),
+    # a headingless sibling is not usable: the in-file section is still read
+    ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-noheading"),
+    ("conductor-unlinked", "2099-09-25-deliver-split-noheadinfile", "F2"),
+    # a sibling with its heading AND text ahead of it is still reported
+    ("split-layout", "2099-09-26-deliver-split-conductorstray", "conductor-record-noheading"),
+    # Phase rows are required on HEAVY and on a tier that is absent, a
+    # placeholder or unparseable; the lens record only where (surface: is written
+    ("conductor-unlinked", "2099-07-16-deliver-kP", "P2"),
+    ("conductor-unlinked", "2099-10-05-phase-notier", "P2"),
+    ("conductor-unlinked", "2099-10-06-phase-placeholder", "P2"),
+    ("conductor-unlinked", "2099-10-07-phase-unfilled", "P2"),
+    ("conductor-unlinked", "2099-10-08-phase-combinedheavy", "P2"),
+    ("conductor-unlinked", "2099-10-10-phase-heavyfmt", "P2"),
+    ("conductor-unlinked", "2099-10-12-phase-lower", "P2"),
+    ("conductor-unlinked", "2099-10-13-phase-title", "P2"),
+    ("conductor-unlinked", "2099-10-14-phase-heavyfirst", "P2"),
+    ("conductor-unlinked", "2099-10-27-phase-quoted", "P2"),
+    # a bold Tier value is a value: HEAVY, so the Phase line is required
+    ("conductor-unlinked", "2099-10-29-phase-boldheavy", "P2"),
+    # escalation text, lists, suffixes, italic and backticked values are no value
+    ("conductor-unlinked", "2099-10-11-phase-stdfmt", "P2"),
+    ("conductor-unlinked", "2099-10-31-phase-italicstd", "P2"),
+    ("conductor-unlinked", "2099-11-01-phase-underlight", "P2"),
+    ("conductor-unlinked", "2099-11-02-phase-stdarrow", "P2"),
+    ("conductor-unlinked", "2099-11-03-phase-stdnow", "P2"),
+    ("conductor-unlinked", "2099-11-04-phase-commaplaceholder", "P2"),
+    ("conductor-unlinked", "2099-11-05-phase-suffixed", "P2"),
+    ("conductor-unlinked", "2099-11-07-phase-boldstdesc", "P2"),
+    ("conductor-unlinked", "2099-11-09-phase-ticked", "P2"),
+    ("conductor-unlinked", "2099-11-14-phase-boldlist", "P2"),
+    ("conductor-row", "2099-10-16-phase-stdmalformed", "CR1"),
+    ("conductor-row", "2099-10-19-phase-lensbad", "CR2"),
+    ("conductor-row", "2099-10-21-phase-lensian", "CR1"),
+    ("conductor-row", "2099-10-22-phase-lensreason", "CR1"),
+    ("conductor-row", "2099-10-23-phase-lenstoken", "CR1"),
+    ("conductor-row", "2099-10-26-phase-widgets", "CR1"),
+    ("conductor-row", "2099-10-26-phase-widgets", "CR2"),
+    ("conductor-row", "2099-11-10-phase-lenshyphen", "CR1"),
+    ("conductor-row", "2099-11-11-phase-lensrunning", "CR1"),
+    ("conductor-row", "2099-11-12-phase-lenswsreason", "CR1"),
+    ("conductor-row", "2099-11-15-phase-lenscell", "CR1"),
+    ("conductor-row", "2099-11-17-phase-heavyrepeat", "CR1"),
+    ("conductor-row", "2099-11-18-phase-xanderskip", "CR2"),
+    ("conductor-row", "2099-11-19-phase-prebare", "CR1"),
+    ("conductor-row", "2099-11-20-phase-escnorow", "CR1"),
+    ("conductor-row", "2099-11-21-phase-rownoesc", "CR1"),
+    ("conductor-row", "2099-11-22-phase-passlinkwrong", "CR1"),
+    ("conductor-row", "2099-12-10-phase-escnoclaim", "CR1"),
+    ("conductor-row", "2099-12-11-phase-escdocsreason", "CR1"),
+    ("conductor-row", "2099-12-12-phase-escseereason", "CR1"),
+    ("conductor-row", "2099-12-13-phase-escprefixlink", "CR1"),
+    ("conductor-row", "2099-12-14-phase-escplaceholder", "CR1"),
+    ("conductor-row", "2099-12-15-phase-escnotrun", "CR1"),
+    ("conductor-row", "2099-12-17-phase-escoldform", "CR1"),
+    ("conductor-row", "2099-12-16-phase-escafterk", "CR3"),
+    ("conductor-row", "2099-12-18-phase-escorder", "CR4"),
+    ("conductor-row", "2099-12-20-phase-esctwodigit", "CR3"),
+    ("conductor-row", "2099-12-01-phase-bareheavy", "tier"),
+    ("conductor-row", "2099-12-02-phase-emptysurface", "tier"),
+    ("conductor-row", "2099-12-03-phase-unlistedonly", "tier"),
+    ("conductor-row", "2099-12-04-phase-baredated", "tier"),
+    ("conductor-row", "2099-12-04-phase-baredated", "CR1"),
+    ("conductor-row", "2099-12-07-phase-authcase", "CR1"),
+    ("conductor-row", "2099-12-08-phase-semisecrets", "CR1"),
+    # Check N: one member per rule, so an expected.tsv edited in step cannot hide one
+    ("escape-unrecorded", "2099-05-02-deliver-esc-noneyet", "2099-09-02-diagnose-noneyet"),
+    ("escape-unrecorded", "2099-05-03-deliver-esc-noheading", "2099-09-03-diagnose-noheading"),
+    ("escape-unrecorded", "2099-05-05-deliver-esc-forms", "2099-09-05-diagnose-form-partial"),
+    ("escape-unrecorded", "2099-05-07-deliver-esc-pm", "2099-09-07-incident-pm"),
+    ("escape-unrecorded", "2099-09-08-diagnose-nostate", "2099-09-08-diagnose-nostate"),
+    ("escape-unrecorded", "2099-08-30-diagnose-nostate", "2099-08-30-diagnose-nostate"),
+    ("escape-unrecorded", "2099-05-09-deliver-esc-prefix", "2099-09-09-diagnose-a"),
+    ("escape-unrecorded", "2099-05-10-deliver-esc-section", "2099-09-10-diagnose-section"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-abo", "2099-09-11-diagnose-lk-abo-no"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-rev", "2099-09-11-diagnose-lk-rev-no"),
+    ("escape-unrecorded", "2099-05-13-deliver-esc-dup", "2099-09-13-diagnose-dup2"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-after"),
+    ("escape-unrecorded", "2099-09-18-diagnose-dotted", "2099-09-18-diagnose-dotted"),
+    ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-extslug"),
+    ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrap2"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbunrec"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -245,6 +371,37 @@ NAMED_ABSENT_TRIPLES = (
     # is just rejecting every row that mentions a pipe and CR1 proves nothing.
     ("conductor-row", "2099-08-16-deliver-pipe-escaped", "CR2"),
     ("mutation-manifest", "2099-07-31-operate-ignore", "C8"),      # the escaped change-ledger twin
+    ("split-layout", "2099-09-14-deliver-split-pathsstale", "findings-ledger-missing"),  # derived sibling exists
+    ("conductor-unlinked", "2099-09-05-deliver-split-dupledger", "F2"),  # the in-file row is ignored, the sibling wins
+    ("conductor-missing", "2099-09-08-deliver-split-conductornohead", "-"),  # one cause, one line
+    ("conductor-row", "2099-09-18-deliver-split-crlf", "CR1"),
+    ("conductor-unlinked", "2099-09-18-deliver-split-crlf", "9"),  # the CRLF sibling's CR1 was read
+    ("split-layout", "2099-09-25-deliver-split-noheadinfile", "findings-ledger-duplicate"),  # headingless: not usable, not a duplicate
+    # Check N silent twins: recorded, prefix-collision twin, fenced, external, ticket id, self reference
+    ("escape-unrecorded", "2099-05-01-deliver-esc-recorded", "2099-09-01-diagnose-recorded"),
+    ("escape-unrecorded", "2099-05-02-deliver-esc-trailing", "2099-09-02-diagnose-trailing"),
+    ("escape-unrecorded", "2099-05-04-deliver-esc-real", "2099-09-04-diagnose-not-applicable"),
+    ("escape-unrecorded", "2099-05-04-deliver-esc-real", "2099-09-04-diagnose-silent-forms"),
+    ("escape-unrecorded", "2099-09-06-diagnose-self", "2099-09-06-diagnose-self"),
+    ("escape-unrecorded", "2099-05-09-deliver-esc-prefix", "2099-09-09-diagnose-ab"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-act", "2099-09-11-diagnose-lk-act-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-fin", "2099-09-11-diagnose-lk-fin-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-abo", "2099-09-11-diagnose-lk-abo-ok"),
+    ("escape-unrecorded", "active-2099-05-11-deliver-esc-lk-apre", "2099-09-11-diagnose-lk-apre-ok"),
+    ("escape-unrecorded", "finished-2099-05-11-deliver-esc-lk-fpre", "2099-09-11-diagnose-lk-fpre-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-flat", "2099-09-11-diagnose-lk-flat-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-leg", "2099-09-11-diagnose-lk-leg-ok"),
+    ("escape-unrecorded", "2099-05-11-deliver-esc-lk-rev", "2099-09-11-diagnose-lk-rev-ok"),
+    ("escape-unrecorded", "2099-09-12-diagnose-ticket", "2099-09-12-diagnose-ticket"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-backtick"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-tilde"),
+    ("escape-unrecorded", "2099-05-16-deliver-esc-fence", "2099-09-16-diagnose-fence-open"),
+    ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-external"),
+    ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrapcarry"),
+    # a multibyte character beside the slug is not a slug character: still recorded
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbquote"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbdash"),
+    ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbpre"),
 )
 # F48: the two pipe fixtures are the same shape modulo the escape, so a
 # key-only assertion would pass if both produced the same finding. Name the
@@ -253,17 +410,94 @@ NAMED_MESSAGES = (
     ("2099-08-15-deliver-pipe-raw", "CR1", "row has 8 cells, header has 7"),
     ("2099-08-16-deliver-pipe-escaped", "CR1", "empty or placeholder control"),
     ("2099-07-31-operate-ignore", "C7", "row has 8 cells, header has 7"),
+    # Check M: six keys, six reasons
+    ("2099-09-05-deliver-split-dupledger", "findings-ledger-duplicate",
+     "## Findings ledger is in the state file and in the sibling ledger file"),
+    ("2099-09-04-deliver-split-dupconductor", "conductor-record-duplicate",
+     "## Conductor record is in the state file and in the sibling conductor file"),
+    ("2099-09-06-deliver-split-ledgermissing", "findings-ledger-missing",
+     "declares a findings ledger but the sibling ledger file"),
+    ("2099-05-21-deliver-split-conductormissing", "conductor-record-missing",
+     "declares a conductor record but the sibling conductor file"),
+    ("2099-09-07-deliver-split-ledgernohead", "findings-ledger-noheading",
+     "sibling ledger file has content outside a ## Findings ledger section"),
+    ("2099-09-08-deliver-split-conductornohead", "conductor-record-noheading",
+     "sibling conductor file has content outside a ## Conductor record section"),
+    ("2099-09-18-deliver-split-crlf", "CR2", "row has 8 cells, header has 7"),
+    ("2099-09-18-deliver-split-crlf", "CR3", "empty or placeholder control"),
+    ("2099-09-26-deliver-split-conductorstray", "conductor-record-noheading",
+     "sibling conductor file has content outside a ## Conductor record section"),
+    ("2099-07-16-deliver-kP", "P2", "ticked Phase line has no linked conductor row"),
+    ("2099-10-19-phase-lensbad", "CR2", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-21-phase-lensian", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-22-phase-lensreason", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-23-phase-lenstoken", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-26-phase-widgets", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-10-26-phase-widgets", "CR2", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),  # an unlisted word fails safe: xander every phase
+    ("2099-11-10-phase-lenshyphen", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-11-phase-lensrunning", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-12-phase-lenswsreason", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-15-phase-lenscell", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-17-phase-heavyrepeat", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-11-18-phase-xanderskip", "CR2", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-19-phase-prebare", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-20-phase-escnorow", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-21-phase-rownoesc", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-11-22-phase-passlinkwrong", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-10-phase-escnoclaim", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-11-phase-escdocsreason", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-12-phase-escseereason", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-13-phase-escprefixlink", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-14-phase-escplaceholder", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-15-phase-escnotrun", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-17-phase-escoldform", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-16-phase-escafterk", "CR3", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-18-phase-escorder", "CR4", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-20-phase-esctwodigit", "CR3", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-01-phase-bareheavy", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-02-phase-emptysurface", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-03-phase-unlistedonly", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-04-phase-baredated", "tier", "HEAVY tier line has no usable surface record"),
+    ("2099-12-04-phase-baredated", "CR1", "HEAVY phase row does not record ian and xander"),
+    ("2099-12-07-phase-authcase", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-08-phase-semisecrets", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
     "2000-01-03-deliver-legacy-ledger",                            # F39: pre-adoption, no grandfathering needed
     "2099-08-08-deliver-revisit-trigger", "2099-08-09-deliver-revisit-when",  # F43: both spellings accepted
+    # clean or exempt split pairs and silent mixes: nothing may fire on them
+    "2099-09-01-deliver-split-clean", "2099-05-23-deliver-split-exempt",
+    "2099-05-24-deliver-split-preledger", "2099-09-11-deliver-mixed-ledger",
+    "2099-09-15-deliver-split-placeholders", "active-2099-09-17-deliver-split-aprefix",
+    "2099-09-22-deliver-split-flat", "2099-09-24-deliver-split-finishedclean",
+    "2099-09-09-deliver-split-emptyledger", "2099-05-22-deliver-split-emptypre",
+    # STANDARD, LIGHT, TINY and the lens-exempt shapes: nothing may fire
+    "2099-10-02-phase-standard", "2099-10-03-phase-light", "2099-10-04-phase-tiny",
+    "2099-10-09-phase-combinedstd", "2099-10-15-phase-stdfirst",
+    "2099-10-18-phase-lensok", "2099-10-20-phase-lenspre", "2099-10-24-phase-stdsurface",
+    "2099-10-25-phase-escalated", "2099-10-28-phase-lowersurface",
+    # a balanced ** wrapper is not part of the value; a free-text STANDARD is still STANDARD
+    "2099-10-30-phase-boldstd", "2099-11-06-phase-stdfree", "2099-11-08-phase-boldcombined",
+    # an em dash before the lens name is not a letter: both lenses recorded
+    "2099-11-16-phase-lensemdash",
+    # dated lens rule and escalation evidence: a usable surface, a mixed or skipped-but-unneeded lens, the full escalation record
+    "2099-12-05-phase-datedok",
+    "2099-12-06-phase-mixedsurface",
+    "2099-12-09-phase-escok",
+    "2099-12-19-phase-escorderok",
+    "2099-12-21-phase-esctwodigitok",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing
 # NAMED_PRESENT[0], so deleting this line is a visible edit rather than a
 # silently weaker assertion.
 SPACED_NAMED_MEMBER = ("conductor-row", "2099-08-15-deliver-pipe-raw", "CR1")
+# metrics-split: one lens per layout and campaign kind. The catches-by-lens line
+# is unordered, so each token is checked on its own (mirror of V10b).
+SPLIT_LENSES_PRESENT = ("bob", "ruby", "tessa", "percy", "xander", "ian", "dexter",
+                        "hank", "nina", "jackson", "scott", "sarah", "infile")
+SPLIT_LENSES_ABSENT = ("shadow", "orphan", "zerostate", "nohead", "otto")
 
 
 def read_tsv(path):
@@ -277,10 +511,25 @@ def read_tsv(path):
     return rows
 
 
+def utf8_locale():
+    """A UTF-8 locale this machine has, or exit. Lint's awk dies on a lone byte
+    of a multibyte character only in such a locale, so a harness that runs under
+    whatever the caller exported can pass without ever meeting the failure."""
+    names = subprocess.run(["locale", "-a"], capture_output=True, text=True).stdout.split()
+    found = [n for n in names if re.search(r"\.utf-?8$", n, re.I)]
+    if not found:
+        print("FAIL  behaviour: no UTF-8 locale in `locale -a`; the multibyte lint "
+              "fixtures cannot be exercised")
+        sys.exit(1)
+    return "en_US.UTF-8" if "en_US.UTF-8" in found else found[0]
+
+
 def run_script(script, root, env_overrides):
     env = dict(os.environ)
     env.pop("MOZART_LINT_CONDUCTOR_SINCE", None)
+    env["MOZART_LINT_LENS_SINCE"] = LENS_OVERRIDE
     env.update(env_overrides)
+    env["LC_ALL"] = utf8_locale()
     if not script.exists():
         return None, f"script not found: {script}"
     proc = subprocess.run(["bash", str(script), str(root)],
@@ -301,14 +550,15 @@ def parse_lint_output(output):
         cat, path, key = m.group(1), m.group(2), m.group(3).strip()
         if cat not in LINT_CATEGORIES:
             continue
-        slug = pathlib.Path(path).name
-        if slug.endswith(".state.md"):
-            slug = slug[: -len(".state.md")]
+        # The slug is the file name up to the FIRST dot: a state file has none, and a
+        # post-mortem (<slug>.postmortem.md) or an investigation reported against its
+        # own path is cut to the slug it was written under.
+        slug = pathlib.Path(path).name.split(".")[0]
         triples.add((cat, slug, key))
     return triples, override_present
 
 
-def cmd_behaviour(corpus, scripts_roots):
+def cmd_behaviour(corpus, scripts_roots, only=None):
     if set(scripts_roots) != set(REQUIRED_PORTS):
         print(f"FAIL  behaviour: scripts-roots given {sorted(scripts_roots)}, need "
               f"exactly {sorted(REQUIRED_PORTS)}")
@@ -323,6 +573,13 @@ def cmd_behaviour(corpus, scripts_roots):
         print(f"FAIL  behaviour: corpus has {state_floor} lint fixtures, below floor "
               f"{LINT_FIXTURE_FLOOR} — population would be vacuous")
         return 1
+    ledger_floor = len(list(lint_root.rglob("*.ledger.md")))
+    conductor_floor = len(list(lint_root.rglob("*.conductor.md")))
+    if ledger_floor < LINT_LEDGER_FLOOR or conductor_floor < LINT_CONDUCTOR_FLOOR:
+        print(f"FAIL  behaviour: corpus has {ledger_floor} ledger and {conductor_floor} conductor "
+              f"siblings, below floors {LINT_LEDGER_FLOOR} and {LINT_CONDUCTOR_FLOOR} — the split "
+              f"fixtures lost a half")
+        return 1
     unpopulated = [label for label, sub, pat in LINT_LAYOUTS
                    if not list((lint_root / sub).glob(pat))]
     if unpopulated:
@@ -335,13 +592,30 @@ def cmd_behaviour(corpus, scripts_roots):
     # V14 proves for the shell scripts alone. Built here rather than committed:
     # the point is the path, and a committed spaced directory would have to be
     # mirrored byte-for-byte into copilot's fixture tree for no added signal.
+    # Both lint runs read a copy stamped "now": lint's stale-active check goes by
+    # file mtime, so a corpus older than its threshold would emit extra lines
+    # that expected.tsv rightly does not record.
+    fresh_tmp = tempfile.mkdtemp()
+    fresh_lint = pathlib.Path(fresh_tmp) / "lint"
+    shutil.copytree(lint_root, fresh_lint)
+    for entry in [fresh_lint, *fresh_lint.rglob("*")]:
+        os.utime(entry)
+    source_files = sum(1 for p in lint_root.rglob("*") if p.is_file())
+    fresh_files = sum(1 for p in fresh_lint.rglob("*") if p.is_file())
+    if source_files != fresh_files:
+        print(f"FAIL  behaviour: fresh copy holds {fresh_files} file(s), corpus holds {source_files}")
+        shutil.rmtree(fresh_tmp, ignore_errors=True)
+        return 1
+
     spaced_tmp = tempfile.mkdtemp()
     spaced_root = pathlib.Path(spaced_tmp) / "dir with a space"
-    shutil.copytree(lint_root, spaced_root / "lint")
+    shutil.copytree(fresh_lint, spaced_root / "lint")
     spaced_lint = spaced_root / "lint"
 
     overall_fail = 0
     for port in REQUIRED_PORTS:
+        if only is not None and port not in only:
+            continue
         root = pathlib.Path(scripts_roots[port])
         if port == "local":
             print("local: N/A — ships no campaign scripts")
@@ -350,7 +624,7 @@ def cmd_behaviour(corpus, scripts_roots):
         port_fail = 0
         lint_script = root / "scripts" / "mozart-lint.sh"
 
-        proc_ov, err = run_script(lint_script, lint_root, {"MOZART_LINT_CONDUCTOR_SINCE": OVERRIDE_DATE})
+        proc_ov, err = run_script(lint_script, fresh_lint, {"MOZART_LINT_CONDUCTOR_SINCE": OVERRIDE_DATE})
         if err:
             print(f"FAIL  {port}  lint: {err}")
             overall_fail = 1
@@ -358,7 +632,7 @@ def cmd_behaviour(corpus, scripts_roots):
         triples_ov, override_present = parse_lint_output(proc_ov.stdout)
         emitted = sum(1 for l in proc_ov.stdout.splitlines() if l.startswith("LINT ["))
 
-        proc_no, err = run_script(lint_script, lint_root, {})
+        proc_no, err = run_script(lint_script, fresh_lint, {})
         if err:
             print(f"FAIL  {port}  lint (no override): {err}")
             overall_fail = 1
@@ -404,6 +678,13 @@ def cmd_behaviour(corpus, scripts_roots):
             if not hit:
                 print(f"FAIL  {port}  lint: message mismatch — {slug} {key} does not contain {want!r}")
                 port_fail = 1
+        # Findings are always reported against the state file, never a sibling.
+        sibling_paths = [l for l in proc_ov.stdout.splitlines()
+                         if re.match(r"^LINT .*\.(ledger|conductor)\.md — ", l)]
+        if sibling_paths:
+            print(f"FAIL  {port}  lint: {len(sibling_paths)} LINT line(s) name a sibling file as "
+                  f"their path, e.g. {sibling_paths[0]!r}")
+            port_fail = 1
         if not override_present:
             print(f"FAIL  {port}  lint: override run missing '{OVERRIDE_LINE_PREFIX} {OVERRIDE_DATE}'")
             port_fail = 1
@@ -457,6 +738,18 @@ def cmd_behaviour(corpus, scripts_roots):
                 if line not in outlines:
                     print(f"FAIL  {port}  {case}: expected line absent: {line!r}")
                     port_fail = 1
+            if case == "metrics-split":
+                by_lens = next((l for l in proc.stdout.splitlines()
+                                 if l.startswith("  by lens:")), "")
+                tokens = by_lens.split()
+                for lens in SPLIT_LENSES_PRESENT:
+                    if f"{lens}=1" not in tokens:
+                        print(f"FAIL  {port}  {case}: '{lens}=1' absent from the catches-by-lens line")
+                        port_fail = 1
+                for lens in SPLIT_LENSES_ABSENT:
+                    if any(t.startswith(f"{lens}=") for t in tokens):
+                        print(f"FAIL  {port}  {case}: '{lens}=' present in the catches-by-lens line (must not be read)")
+                        port_fail = 1
             if case == "metrics-conductor":
                 lens_line = next((l for l in proc.stdout.splitlines()
                                    if l.startswith("  rejected by lens:")), "")
@@ -475,6 +768,7 @@ def cmd_behaviour(corpus, scripts_roots):
             overall_fail = 1
 
     shutil.rmtree(spaced_tmp, ignore_errors=True)
+    shutil.rmtree(fresh_tmp, ignore_errors=True)
     return overall_fail
 
 
@@ -506,10 +800,18 @@ def main():
     pb.add_argument("--scripts-root", dest="scripts_root", action="append",
                      required=True, type=kv, metavar="PORT=PATH",
                      help="repo root for each of: " + ", ".join(REQUIRED_PORTS))
+    pb.add_argument("--only", help="comma-separated ports to run (default: all). The four "
+                    "--scripts-root values are still required; a port left out is not read.")
 
     n = ap.parse_args()
     if n.cmd == "behaviour":
-        return cmd_behaviour(n.corpus, dict(n.scripts_root))
+        only = None
+        if n.only is not None:
+            only = [x for x in n.only.split(",") if x]
+            unknown = [x for x in only if x not in REQUIRED_PORTS]
+            if unknown or not only:
+                ap.error(f"--only takes ports from {', '.join(REQUIRED_PORTS)}, got {n.only!r}")
+        return cmd_behaviour(n.corpus, dict(n.scripts_root), only)
     roots = dict(n.root)
     if n.cmd == "parity":
         return cmd_parity(n.persona, n.paths, n.canonical, roots)
