@@ -5072,7 +5072,7 @@ for e in ("copilot", "codex", "local"):
     need(sum(1 for r in rows if r[1] == e and r[2] == "0" and not r[0].startswith("ctl-")) == 0, f"{e}: a phase-0 row that is not ctl-*")
 phases = {r[2] for r in rows} - {"0"}
 done = open(os.path.join(root, "tests/parity/editions.done"), encoding="utf-8").read().split()
-need(done == [] and all(d in phases for d in done), f"editions.done holds {done}")
+need(all(d in phases for d in done) and len(done) == len(set(done)), f"editions.done holds {done}")
 # ---- no rewrite token in a fragment; translate.tsv shape -----------------------------------------
 tr = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/translate.tsv"), encoding="utf-8")]
 need(tr[0] == ["edition", "from", "to", "applies"], "translate.tsv header")
@@ -5201,7 +5201,7 @@ fi
 rm -rf "$v36_tmp"
 
 report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
-  "${v36_bad:-382 rows (codex 100, copilot 104, local 105, orchestration 73), 82 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (lens waiting for 1b); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
+  "${v36_bad:-382 rows (codex 100, copilot 104, local 105, orchestration 73), 82 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still
