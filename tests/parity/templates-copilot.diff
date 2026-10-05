@@ -1,0 +1,30 @@
+--- a/agents/TEMPLATE-STATE.md
++++ b/.github/mozart/manual/TEMPLATE-STATE.md
+@@ -20,2 +20,2 @@
+-- Codex r1 (plan): <path or "not yet run">
+-- Codex r2 (diff): <path or "not yet run">
++- Counterpoint r1 (plan): <path or "not yet run">
++- Counterpoint r2 (diff): <path or "not yet run">
+@@ -38 +38 @@
+-- [ ] 5. Codex on plan — <timestamp>
++- [ ] 5. Counterpoint on plan — <timestamp>
+@@ -42 +42 @@
+-- [ ] 9. Codex on diff — <run|skip per tier>
++- [ ] 9. Counterpoint on diff — <run|skip per tier>
+@@ -59,0 +60,8 @@
++
++## Attestation ledger
++| stage | agent | role | attested model | matched frontmatter? |
++|-------|-------|------|-----------------|----------------------|
++| 5-counterpoint-r1 | sebastian | validation | <provider>/<model-id> | yes/no |
++| 7-implement-p1 | jackson | builders | <provider>/<model-id> | yes/no |
++
++One row per subagent dispatch this campaign. Populated from each response's `MODEL-ATTESTATION:` line — see D8/the cross-family invariant and each persona's Model attestation section. A `matched frontmatter?: no` row is a drift signal, not necessarily a failure; surface it, don't silently accept it.
+--- a/agents/TEMPLATE-REPORT.md
++++ b/.github/mozart/manual/TEMPLATE-REPORT.md
+@@ -7 +7 @@
+-**Codex**: <r1-plan path>, <r2-diff path if run>
++**Counterpoint**: <r1-plan path>, <r2-diff path if run>
+@@ -25 +25 @@
+-<anything reviewers / specialists / codex surfaced that the user should know>
++<anything reviewers / specialists / sebastian surfaced that the user should know>
