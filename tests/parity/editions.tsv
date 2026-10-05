@@ -4,7 +4,7 @@ ctl-noprogress-none-orchestration	orchestration	0	absent	agents/mozart.md;agents
 rule-conductor-np-orchestration	orchestration	0	once	agents/mozart.md	## Orchestration discipline		1	**A no-progress return is information
 rule-conductor-cp-orchestration	orchestration	0	once	agents/mozart.md	## Orchestration discipline		1	on phase 1 and on every triggered phase
 rule-np-7-orchestration	orchestration	0	once	agents/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
-rule-np-cb-orchestration	orchestration	0	once	agents/CONTEXT-BUDGET.md			1	counts as one failed
+rule-np-cb-orchestration	orchestration	0	once	agents/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-orchestration	orchestration	0	each-once	agents/mozart.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
 rule-tier-shape-orchestration	orchestration	0	shape	agents/mozart.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
 rule-choose-orchestration	orchestration	0	absent	agents/mozart.md	## Task tiers (DELIVER)		0	choose HEAVY
@@ -70,7 +70,7 @@ ctl-noprogress-none-copilot	copilot	0	absent	.github/agents/mozart.agent.md;.git
 rule-conductor-np-copilot	copilot	2	once	.github/agents/mozart.agent.md	## Orchestration discipline		1	**A no-progress return is information
 rule-conductor-cp-copilot	copilot	2	once	.github/agents/mozart.agent.md	## Orchestration discipline		1	on phase 1 and on every triggered phase
 rule-np-7-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
-rule-np-cb-copilot	copilot	2	once	.github/mozart/manual/CONTEXT-BUDGET.md			1	counts as one failed
+rule-np-cb-copilot	copilot	2	once	.github/mozart/manual/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-copilot	copilot	2	each-once	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
 rule-tier-shape-copilot	copilot	2	shape	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
 rule-choose-copilot	copilot	2	absent	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		0	choose HEAVY
@@ -130,7 +130,7 @@ lay-tier4-state-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-STATE.md+	
 lay-tier4-flow-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
 lay-prline-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-STATE.md+			1	- PR:
 lay-index-copilot	copilot	3	once	.github/mozart/manual/INDEX.md	## On-demand files, not members @+		1	None is a manual member or an agent.
-lay-gaps-copilot	copilot	3	gaps	.github/agents/*.agent.md;.github/mozart/*.md;.github/mozart/manual/*.md;README.md;.github/mozart/manual/TEMPLATE-STATE.md+;.github/mozart/manual/TEMPLATE-LEDGER.md+;.github/mozart/manual/TEMPLATE-CONDUCTOR.md+;.github/mozart/manual/TEMPLATE-FLOW.md+;.github/mozart/manual/TEMPLATE-REPORT.md+			0	
+lay-gaps-copilot	copilot	3	gaps	.github/agents/*.agent.md;.github/mozart/*.md;.github/mozart/manual/*.md;README.md;.github/mozart/manual/TEMPLATE-STATE.md+;.github/mozart/manual/TEMPLATE-LEDGER.md+;.github/mozart/manual/TEMPLATE-CONDUCTOR.md+;.github/mozart/manual/TEMPLATE-FLOW.md+;.github/mozart/manual/TEMPLATE-REPORT.md+		allow=@survivors.tsv	0	
 lay-pointer-report-copilot	copilot	3	once	.github/mozart/manual/DELIVER.md			1	Its skeleton is a file beside this one
 lay-intake-copilot	copilot	3	once	.github/mozart/manual/DELIVER.md	### 1. Intake		1	together with its two siblings
 lay-clauses-copilot	copilot	3	each-once	.github/mozart/manual/STATE.md			5	@layout-clauses.txt
@@ -144,7 +144,7 @@ ctl-noprogress-none-codex	codex	0	absent	.codex/skills/mozart/SKILL.md;.codex/ag
 rule-conductor-np-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Orchestration discipline		1	**A no-progress return is information
 rule-conductor-cp-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Orchestration discipline		1	on phase 1 and on every triggered phase
 rule-np-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
-rule-np-cb-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Subagent context budget (large-AGENTS.md repos)		1	counts as one failed
+rule-np-cb-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Subagent context budget (large-AGENTS.md repos)		1	A no-progress return counts as one failed
 rule-tier-clauses-codex	codex	6	each-once	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
 rule-tier-shape-codex	codex	6	shape	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
 rule-choose-codex	codex	6	absent	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		0	choose HEAVY
@@ -198,7 +198,7 @@ lay-skeleton-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	### S
 lay-tier4-state-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
 lay-tier4-flow-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## Pipeline flow sketch @fenced		1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
 lay-tier4-report-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### 13. Report @fenced		1	## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY>)
-lay-gaps-codex	codex	7	gaps	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;README.md;docs/EVAL.md			0	
+lay-gaps-codex	codex	7	gaps	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;README.md;docs/EVAL.md		allow=@survivors.tsv	0	
 lay-intake-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## DELIVER pipeline		1	together with its two siblings
 lay-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	## State persistence (crash-resume)		5	@layout-clauses.txt
 lay-nosplit-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## State persistence (crash-resume)		1	never split on resume
@@ -214,7 +214,7 @@ ctl-noprogress-none-local	local	0	absent	src/mozart_local/bundle/agents/mozart.m
 rule-conductor-np-local	local	4	once	src/mozart_local/bundle/agents/mozart.md	## Working mode		1	**A no-progress return is information
 rule-conductor-cp-local	local	4	once	src/mozart_local/bundle/agents/mozart.md	## Working mode		1	on phase 1 and on every triggered phase
 rule-np-7-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
-rule-np-cb-local	local	4	once	src/mozart_local/bundle/manual/CONTEXT-BUDGET.md			1	counts as one failed
+rule-np-cb-local	local	4	once	src/mozart_local/bundle/manual/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-local	local	4	each-once	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
 rule-tier-shape-local	local	4	shape	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
 rule-choose-local	local	4	absent	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		0	choose HEAVY
@@ -273,12 +273,12 @@ lay-tier4-state-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-STATE
 lay-tier4-flow-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
 lay-prline-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+			1	- PR:
 lay-index-local	local	5	once	src/mozart_local/bundle/manual/INDEX.md	## On-demand files, not members @+		1	None is a manual member or an agent.
-lay-gaps-local	local	5	gaps	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+			0	
+lay-gaps-local	local	5	gaps	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+		allow=@survivors.tsv	0	
 lay-pointer-report-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md			1	Its skeleton is a file beside this one
 lay-intake-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	together with its two siblings
 lay-clauses-local	local	5	each-once	src/mozart_local/bundle/manual/STATE.md			5	@layout-clauses.txt
 lay-report-tail-local-heading	local	5	absent	src/mozart_local/bundle/manual/DELIVER.md			0	## <slug>: shipped
-lay-report-tail-local-fences	local	5	count	src/mozart_local/bundle/manual/DELIVER.md	 @fenced		4	```
+lay-report-tail-local-fences	local	5	count	src/mozart_local/bundle/manual/DELIVER.md	 @fenced		6	```
 lay-report-tail-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md			1	Its skeleton is a file beside this one
 lay-variant-local	local	5	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+		mask=@heavy-variant.mask	0	@heavy-variant.re
 lay-example-local	local	5	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+			0	@heavy-example.re
@@ -381,3 +381,30 @@ rule-copies-xander-terms-txt-local	local	4	cmp-src	tests/policy/xander-terms.txt
 lens-orchestration	orchestration	1b	lens-src	scripts/mozart-lint.sh			6	scripts/check-edition-lens.sh+;tests/fixtures/lens+
 lens-copilot	copilot	3	lens-src	scripts/mozart-lint.sh			6	scripts/check-edition-lens.sh+;tests/fixtures/lens+
 lens-codex	codex	7	lens-src	scripts/mozart-lint.sh			6	scripts/check-edition-lens.sh+;tests/fixtures/lens+
+rule-chain-xesc-orchestration	orchestration	0	once	agents/xander.md		line:**Your DELIVER stages**	1	plus once on any escalation, over the cumulative diff since the base, uncommitted phase diff included.
+rule-chain-xlight-orchestration	orchestration	0	once	agents/xander.md		line:**Your DELIVER stages**	1	a trigger on a LIGHT campaign makes it not LIGHT)
+rule-chain-ilight-orchestration	orchestration	0	once	agents/ian.md		line:**Your DELIVER stages**	1	LIGHT and STANDARD: on triggers)
+rule-chain-xesc-codex	codex	6	once	.codex/agents/xander.toml		line:DELIVER stages:	1	plus once on any escalation, over the cumulative diff since the base, uncommitted phase diff included.
+rule-chain-xlight-codex	codex	6	once	.codex/agents/xander.toml		line:DELIVER stages:	1	a trigger on a LIGHT campaign makes it not LIGHT)
+rule-chain-ilight-codex	codex	6	once	.codex/agents/ian.toml		line:DELIVER stages:	1	LIGHT and STANDARD: on triggers)
+rule-gates-never-orchestration	orchestration	0	once	agents/mozart.md		line:- **Context pressure is a stop signal	1	**Never silently downgrade mandatory gates**
+rule-gates-list-orchestration	orchestration	0	once	agents/mozart.md		line:- **Context pressure is a stop signal	1	valerie validation, scott documentation)
+rule-gates-collapse-orchestration	orchestration	0	once	agents/mozart.md		line:- **Context pressure is a stop signal	1	collapsing gates is not.
+rule-gates-r2-orchestration	orchestration	0	once	agents/mozart.md		line:- **Context pressure is a stop signal	1	HEAVY codex r2,
+rule-gates-never-copilot	copilot	2	once	.github/agents/mozart.agent.md		line:- **Context pressure is a stop signal	1	**Never silently downgrade mandatory gates**
+rule-gates-list-copilot	copilot	2	once	.github/agents/mozart.agent.md		line:- **Context pressure is a stop signal	1	valerie validation, scott documentation)
+rule-gates-collapse-copilot	copilot	2	once	.github/agents/mozart.agent.md		line:- **Context pressure is a stop signal	1	collapsing gates is not.
+rule-gates-r2-copilot	copilot	2	once	.github/agents/mozart.agent.md		line:- **Context pressure is a stop signal	1	HEAVY sebastian r2,
+rule-readme-never-light-orchestration	orchestration	0	once	README.md			1	is never LIGHT, and a tier only ever goes up.
+rule-readme-light-r2-orchestration	orchestration	0	once	README.md			1	mid-build specialists on triggers; codex r2 runs
+rule-readme-never-light-codex	codex	6	once	README.md			1	is never LIGHT, and a tier only ever goes up.
+rule-readme-light-r2-codex	codex	6	once	README.md			1	mid-build specialists on triggers; claude r2 runs.
+rule-readme-never-light-copilot	copilot	2	once	README.md			1	change is never LIGHT, and a
+rule-readme-up-copilot	copilot	2	once	README.md			1	tier only ever goes up.
+rule-readme-light-r2-copilot	copilot	2	once	README.md			1	and the sebastian round-2 review of the
+rule-advisory-orchestration	orchestration	0	once	agents/INTAKE.md	### 1. Intake		1	can only add review
+rule-advisory-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	can only add review
+rule-stanza-nothing-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	If you declare nothing, that is the behaviour.
+rule-stanza-phase1-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	ian and xander both run on phase 1
+rule-stanza-nothing-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	If you declare nothing, that is the behaviour.
+rule-stanza-phase1-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	ian and xander both run on phase 1

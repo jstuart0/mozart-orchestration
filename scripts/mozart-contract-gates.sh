@@ -4714,6 +4714,37 @@ else
   for v31_k in rows source-rows ids table-sha256 policy-sha256 reader-sha256; do v31_has "$v31_out" "^--expect-$v31_k [0-9a-f]+\$|^--expect-$v31_k [0-9]+\$" "hashes: no --expect-$v31_k line"; done
   [ "$(grep -c '^--expect-' <<<"$v31_out" || true)" = "6" ] || v31_bad="$v31_bad [hashes: not exactly six literals]"
 
+  # ---- the held-diff emitter (source-only): the format the reader's diff-src kind compares -----------
+  v31_emit="$gate_root/scripts/check-edition-diffs.py"
+  v31_es="$v31_tmp/emit/src"; v31_ep="$v31_tmp/emit/port"; v31_pd=".github/mozart/manual"
+  mkdir -p "$v31_es/agents" "$v31_es/tests/parity" "$v31_ep/$v31_pd"
+  for v31_n in STATE FLOW REPORT; do
+    printf '# %s\nline a\nCodex r1\nline c\n' "$v31_n" > "$v31_es/agents/TEMPLATE-$v31_n.md"
+    printf '# %s\nline a\nCounterpoint r1\nline c\nextra\n' "$v31_n" > "$v31_ep/$v31_pd/TEMPLATE-$v31_n.md"
+  done
+  v31_arm "emitter, three differing templates" 0 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_has "$v31_out" ': 3 chunk\(s\), 9 changed line\(s\)$' "emitter: not three chunks and nine changed lines"
+  v31_held="$v31_es/tests/parity/templates-copilot.diff"
+  [ "$(grep -c '^--- a/' "$v31_held" || true)" = "3" ] || v31_bad="$v31_bad [emitter: the held file does not hold three chunks]"
+  v31_tbl held \
+    "$(v31_row h-state codex 0 diff-src "$v31_pd/TEMPLATE-STATE.md" "" "" 1 'src=agents/TEMPLATE-STATE.md;held=tests/parity/templates-copilot.diff')" \
+    "$(v31_row h-flow codex 0 diff-src "$v31_pd/TEMPLATE-FLOW.md" "" "" 1 'src=agents/TEMPLATE-FLOW.md;held=tests/parity/templates-copilot.diff')" \
+    "$(v31_row h-report codex 0 diff-src "$v31_pd/TEMPLATE-REPORT.md" "" "" 1 'src=agents/TEMPLATE-REPORT.md;held=tests/parity/templates-copilot.diff')"
+  v31_arm "the reader accepts every chunk the emitter wrote" 0 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  v31_has "$v31_out" '^ok h-state$' "diff-src: first chunk not ok"; v31_has "$v31_out" '^ok h-report$' "diff-src: last chunk not ok"
+  awk '/^--- a\//{n++} n<=1' "$v31_held" > "$v31_es/tests/parity/first-only.diff"
+  cp "$v31_es/tests/parity/first-only.diff" "$v31_held"
+  v31_arm "a held file with only its first chunk fails the later templates" 1 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  v31_has "$v31_out" '^FAIL h-flow: ' "first-chunk-only: the second template did not fail"; v31_has "$v31_out" '^FAIL h-report: ' "first-chunk-only: the third template did not fail"
+  v31_has "$v31_out" '^ok h-state$' "first-chunk-only: the first template should still pass"
+  cp "$v31_es/agents/TEMPLATE-FLOW.md" "$v31_ep/$v31_pd/TEMPLATE-FLOW.md"
+  v31_arm "emitter: an identical template has no chunk" 0 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_has "$v31_out" ': 2 chunk\(s\), 6 changed line\(s\)$' "emitter: an identical template still wrote a chunk"
+  v31_arm "the reader accepts the identical template with no chunk" 0 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  rm "$v31_ep/$v31_pd/TEMPLATE-REPORT.md"
+  v31_arm "emitter: a missing port template" 2 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_arm "emitter: an unknown edition" 2 python3 "$v31_emit" --edition codex --root "$v31_ep" --source "$v31_es"
+
   # ---- a planted violation per ctl-* family, run through the SHIPPED row definition ----------------
   # Each family: the row's own line is lifted from the shipped table, a scratch root is built that
   # satisfies it (rc 0, "ok <id>"), then one violation is planted (rc 1, "FAIL <id>"). A control that
@@ -4955,7 +4986,7 @@ fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -eq 105 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 105 -- an arm was added or lost without the floor moving]"
+[ "$v31_arms" -eq 112 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 112 -- an arm was added or lost without the floor moving]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
@@ -5025,15 +5056,15 @@ rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parit
 hdr, rows = rows[0], rows[1:]
 need(hdr == ["id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle"], "table header changed")
 need(all(len(r) == 9 for r in rows), "a ragged table line")
-N = 382
+N = 409
 need(len(rows) == N, f"the table holds {len(rows)} rows, want {N}")
 per_ed = collections.Counter(r[1] for r in rows)
-need(dict(per_ed) == {'codex': 100, 'copilot': 104, 'local': 105, 'orchestration': 73}, f"rows per edition: {dict(per_ed)}")
+need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 85}, f"rows per edition: {dict(per_ed)}")
 ids = sorted(r[0] for r in rows)
 need(len(set(i.lower() for i in ids)) == len(ids), "duplicate ids")
-need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "cca67eb4e388682903bc438349dd6d22b418bac6a86b62446e2d64464bb1082f", "the id list changed")
+need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "3c2f11aa186694d31c8cc4c439843b45bfc562168924d6cd3ce966b0217deef5", "the id list changed")
 kpe = sorted(f"{r[0]} {r[3]} {r[2]} {r[7]}" for r in rows)
-need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "f6c71c633cc3e2f6a703d385fc4e9b8fe1909cdcbb173a42978b7e58ebe5aa2d", "a row's kind, phase or expect changed")
+need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "b0271cc49b138baedbba0fff3694f7f982885058e449468dc01a4655e52d94d8", "a row's kind, phase or expect changed")
 def family(i):
     i = re.sub(r"-(orchestration|copilot|codex|local)$", "", i)
     i = re.sub(r"-\d+$", "", i)
@@ -5041,8 +5072,8 @@ def family(i):
 matrix = sorted(f"{family(r[0])}:{r[1]}={n}" for (r), n in [(r, 1) for r in rows])
 cnt = collections.Counter((family(r[0]), r[1]) for r in rows)
 matrix = sorted(f"{f}:{e}={n}" for (f, e), n in cnt.items())
-need(len(set(f for f, _ in cnt)) == 82, f"{len(set(f for f, _ in cnt))} families, want 82")
-need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "7f24b25759dc0b6defaa55ae625d67cead37611a31d21bc1b9fb9a0704c012f5", "the family-by-edition matrix changed")
+need(len(set(f for f, _ in cnt)) == 95, f"{len(set(f for f, _ in cnt))} families, want 95")
+need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "334624ad889dca7988fec58624a63dd5d623246b940e4f3004b95d954bed13fe", "the family-by-edition matrix changed")
 marks = []
 for r in rows:
     for col, name in ((4, "scope"), (5, "anchor"), (6, "row"), (8, "needle")):
@@ -5078,7 +5109,7 @@ tr = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/
 need(tr[0] == ["edition", "from", "to", "applies"], "translate.tsv header")
 tr = tr[1:]
 need(all(len(t) == 4 and all(t) for t in tr), "translate.tsv: a ragged or empty cell")
-need(dict(collections.Counter(t[0] for t in tr)) == {'codex': 20, 'copilot': 25, 'local': 20}, "translate.tsv rows per edition changed")
+need(dict(collections.Counter(t[0] for t in tr)) == {'codex': 22, 'copilot': 28, 'local': 20}, "translate.tsv rows per edition changed")
 need(len({(t[0], t[1]) for t in tr}) == len(tr), "translate.tsv: a repeated (edition, from)")
 frag_files = ['tier-clauses.txt', 'stage4-light-clauses.txt', 'stage7d-clauses.txt', 'stage8-clauses.txt', 'stage8-xander-row.txt', 'pipeline-s8-xander-row.txt', 'phaserows-clauses.txt', 'bob-duty-clauses.txt', 'flags-clauses.txt', 'layout-clauses.txt', 'codex-skeleton-clauses.txt', 'nolinter-clauses.txt', 'eval-sentences.txt']
 for fn in frag_files:
@@ -5094,10 +5125,10 @@ if os.path.isfile(nm_path):
     need(nm[0] == ["id", "file", "lines", "class", "codex", "copilot", "local", "note"], "norm-map.tsv header")
     nm = nm[1:]
     need(all(len(r) == 8 for r in nm), "norm-map.tsv: a ragged line")
-    need(len(nm) == 69, f"norm-map.tsv holds {len(nm)} rows, want 69")
+    need(len(nm) == 79, f"norm-map.tsv holds {len(nm)} rows, want 79")
     need(len({r[0] for r in nm}) == len(nm), "norm-map.tsv: a repeated id")
     need({r[3] for r in nm} <= {"rules", "layout"}, "norm-map.tsv: a class that is neither rules nor layout")
-    need(collections.Counter(r[3] for r in nm) == {"rules": 48, "layout": 21}, "norm-map.tsv: rows per class changed")
+    need(collections.Counter(r[3] for r in nm) == {"rules": 48, "layout": 31}, "norm-map.tsv: rows per class changed")
     # The allow-list is the set of replaced:/dropped: cells. Its size per edition is pinned here, so
     # growing it takes a visible edit in a second file; each entry carries a reason.
     allow = collections.Counter()
@@ -5107,17 +5138,17 @@ if os.path.isfile(nm_path):
                 if cell == kind or cell.startswith(kind + ":"):
                     allow[(ed, kind)] += 1
                     need(len(cell) > len(kind) + 1 and cell[len(kind) + 1:].strip() != "", f"norm-map.tsv {r[0]}: a {kind} cell for {ed} with no reason")
-    need(dict(allow) == {("codex", "replaced"): 8, ("codex", "dropped"): 5, ("copilot", "replaced"): 3, ("copilot", "dropped"): 5,
+    need(dict(allow) == {("codex", "replaced"): 11, ("codex", "dropped"): 8, ("copilot", "replaced"): 4, ("copilot", "dropped"): 5,
                          ("local", "replaced"): 3, ("local", "dropped"): 7}, f"norm-map.tsv allow-list size changed: {sorted(allow.items())}")
 # ---- shipped files: content pins, no host or user path -------------------------------------------
-pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': '6471999eadcbc89f18a55133b0bc6472e017437363d62c03e2e94414089861ae', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': '8c2f63857d61c654ed061b575fe37f776d29746349ec2a44ef5b709348b96a9c', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
+pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': 'bb82ff23269667613814859557cf4a712ea67854ee70e756d0c044d511b16a18', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
 named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
 need(named == sorted(n.split("/", 2)[2] for n in pins if n.startswith("tests/policy/")), "the set of policy files the table names changed")
 for path, want in pins.items():
     need(os.path.isfile(os.path.join(root, path)) and sha(path) == want, f"{path}: sha256 differs from V36's pin")
     txt = open(os.path.join(root, path), encoding="utf-8").read()
     need("mozart-local" not in txt and "/Users/" not in txt, f"{path} names mozart-local or a /Users/ path")
-need(sha("tests/parity/templates-allow.re") == "20df0c46c20d29aad58da39f76d5e1292643e89ce58f1dc5d682753de0232167", "templates-allow.re changed")
+need(sha("tests/parity/templates-allow.re") == "35deac6c8fb3016cf10cd272030bf5176e85a064d09ff2ce74bc0dc5b9a8c507", "templates-allow.re changed")
 need(open(os.path.join(root, "tests/policy/s3-snippet.txt"), "rb").read() == open(os.path.join(root, "tests/parity/snippets/S3.txt"), "rb").read(), "s3-snippet.txt differs from the frozen S3 snippet")
 for pol, src in (("ledger-skeleton.md", "agents/TEMPLATE-LEDGER.md"), ("conductor-skeleton.md", "agents/TEMPLATE-CONDUCTOR.md")):
     need(open(os.path.join(root, "tests/policy", pol), "rb").read() == open(os.path.join(root, src), "rb").read(), f"{pol} differs from {src}")
@@ -5144,21 +5175,75 @@ for rid, fn in [('rule-xterms-s4-orchestration', 'd4'), ('rule-xterms-s8-orchest
     want = open(os.path.join(sys.argv[2], fn), encoding="utf-8").read().rstrip("\n") if len(sys.argv) > 2 else None
     if want is not None:
         need(got == want, f"{rid}: the reader's xander row differs from v28_rows")
-# held template diffs, once they exist
-allow = re.compile(open(os.path.join(root, "tests/parity/templates-allow.re")).read().strip())
-label = re.compile(open(os.path.join(root, "tests/policy/reviewer-label.re")).read().strip())
-for ed, floor in (("copilot", 10), ("local", 10)):
-    p = os.path.join(root, f"tests/parity/templates-{ed}.diff")
-    if not os.path.isfile(p):
-        continue
-    text = open(p, encoding="utf-8").read().split("\n")
-    changed = [l for l in text if l[:1] in "+-" and not l.startswith(("+++ ", "--- "))]
-    need(len(changed) >= floor, f"templates-{ed}.diff: {len(changed)} changed lines, floor {floor}")
-    for l in text:
-        if l and not allow.match(l):
-            bad.append(f"templates-{ed}.diff: a line outside templates-allow.re: {l[:60]!r}")
+# held template diffs (contract 3.2b): the allow-regex is a closed set of whole lines; the changed-line floor and the six
+# label lines as named members are checked per edition. They run on planted diffs now (no real diff exists until phases 3
+# and 5 write one with scripts/check-edition-diffs.py) and on the real files once they do.
+allow = re.compile(open(os.path.join(root, "tests/parity/templates-allow.re"), encoding="utf-8").read().strip())
+label = re.compile(open(os.path.join(root, "tests/policy/reviewer-label.re"), encoding="utf-8").read().strip())
+LAB = {"src": ["- Codex r1 (plan): <path or \"not yet run\">", "- Codex r2 (diff): <path or \"not yet run\">", "- [ ] 5. Codex on plan — <timestamp>", "- [ ] 9. Codex on diff — <run|skip per tier>", "**Codex**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / codex surfaced that the user should know>"], "copilot": ["- Counterpoint r1 (plan): <path or \"not yet run\">", "- Counterpoint r2 (diff): <path or \"not yet run\">", "- [ ] 5. Counterpoint on plan — <timestamp>", "- [ ] 9. Counterpoint on diff — <run|skip per tier>", "**Counterpoint**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / sebastian surfaced that the user should know>"], "local": ["- sebastian r1 (plan): <path or \"not yet run\">", "- sebastian r2 (diff): <path or \"not yet run\">", "- [ ] 5. sebastian on plan — <timestamp>", "- [ ] 9. sebastian on diff — <run|skip per tier>", "**sebastian**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / sebastian surfaced that the user should know>"], "att": ["## Attestation ledger", "| stage | agent | role | attested model | matched frontmatter? |", "|-------|-------|------|-----------------|----------------------|", "| 5-counterpoint-r1 | sebastian | validation | <provider>/<model-id> | yes/no |", "| 7-implement-p1 | jackson | builders | <provider>/<model-id> | yes/no |", "One row per subagent dispatch this campaign. Populated from each response's `MODEL-ATTESTATION:` line — see D8/the cross-family invariant and each persona's Model attestation section. A `matched frontmatter?: no` row is a drift signal, not necessarily a failure; surface it, don't silently accept it."]}
+HELD_FLOOR = 12
+def held_problems(text, ed):
+    out = []
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    changed = [l for l in lines if l and l[0] in "+-" and not l.startswith(("+++ ", "--- "))]
+    if len(changed) < HELD_FLOOR:
+        out.append(f"{len(changed)} changed lines, floor {HELD_FLOOR}")
+    for l in lines:
+        if not l or not allow.match(l):
+            out.append(f"a line outside templates-allow.re: {l[:60]!r}")
         if l.startswith("+") and not l.startswith("+++ ") and label.search(l):
-            bad.append(f"templates-{ed}.diff: an added line keeps a source reviewer label: {l[:60]!r}")
+            out.append(f"an added line keeps a source reviewer label: {l[:60]!r}")
+    for s, t in zip(LAB["src"], LAB[ed]):
+        if "-" + s not in lines or "+" + t not in lines:
+            out.append(f"named label member missing: {t[:50]!r}")
+    if ed == "copilot" and "+## Attestation ledger" not in lines:
+        out.append("named member missing: copilot's ## Attestation ledger section")
+    for other in ("copilot", "local"):
+        for t in LAB[other]:
+            if other != ed and t not in LAB[ed] and "+" + t in lines:
+                out.append(f"another edition's label: {t[:50]!r}")
+    return out
+def planted(ed, extra=(), drop=()):
+    port = ".github/mozart/manual" if ed == "copilot" else "src/mozart_local/bundle/manual"
+    pairs = list(zip(LAB["src"], LAB[ed]))
+    L = ["--- a/agents/TEMPLATE-STATE.md", f"+++ b/{port}/TEMPLATE-STATE.md", "@@ -20,2 +20,2 @@"]
+    for s, t in pairs[:4]:
+        L += ["-" + s, "+" + t]
+    if ed == "copilot":
+        L += ["+"] + ["+" + a for a in LAB["att"]]
+    L += ["--- a/agents/TEMPLATE-REPORT.md", f"+++ b/{port}/TEMPLATE-REPORT.md", "@@ -7 +7 @@"]
+    for s, t in pairs[4:]:
+        L += ["-" + s, "+" + t]
+    L = [l for l in L if l not in drop]
+    return "\n".join(L + list(extra)) + "\n"
+for ed in ("copilot", "local"):
+    need(held_problems(planted(ed), ed) == [], f"a well-formed planted {ed} held diff was rejected: {held_problems(planted(ed), ed)[:2]}")
+other = "local" if True else "copilot"
+plants = [
+    ("copilot", ("+Counterpoint on plan: skip xander entirely",), (), "outside templates-allow.re"),
+    ("copilot", ("+an attestation line that says anything",), (), "outside templates-allow.re"),
+    ("copilot", ("+use AGENTS.md here",), (), "outside templates-allow.re"),
+    ("copilot", ("+.github/mozart/anything",), (), "outside templates-allow.re"),
+    ("copilot", ("+{{mozart:manual_dir}}/anything",), (), "outside templates-allow.re"),
+    ("local", ("+- Codex r1 (plan): kept",), (), "keeps a source reviewer label"),
+    ("local", (), ("+" + LAB["local"][5],), "changed lines"),
+    ("local", (), ("-" + LAB["src"][2], "+" + LAB["local"][2]), "changed lines"),
+    ("local", (), ("+" + LAB["local"][1],), "named label member missing"),
+    ("local", ("+" + LAB["copilot"][0],), (), "another edition's label"),
+    ("copilot", (), ("+## Attestation ledger",), "Attestation ledger"),
+    ("copilot", ("+- sebastian r1 (plan): x",), (), "outside templates-allow.re"),
+]
+for ed, extra, drop, want in plants:
+    got = held_problems(planted(ed, extra, drop), ed)
+    need(any(want in g for g in got), f"planted {ed} held diff {extra or drop} was not rejected for '{want}': {got[:2]}")
+need(sum(1 for l in "x\n+a\n".split("\n")[:-1] if l and l[0] in "+-") == 1, "the changed-line count reads the empty last line")
+for ed in ("copilot", "local"):
+    p = os.path.join(root, f"tests/parity/templates-{ed}.diff")
+    if os.path.isfile(p):
+        for g in held_problems(open(p, encoding="utf-8").read(), ed):
+            bad.append(f"templates-{ed}.diff: {g}")
 print("BAD " + "; ".join(bad) if bad else f"OK {len(rows)} rows")
 V36_PY
 )
@@ -5170,11 +5255,11 @@ V36_PY
   v36_pend=$(grep -c '^PENDING ' <<<"$v36_out" || true)
   v36_fail=$(grep -c '^FAIL ' <<<"$v36_out" || true)
   if [ -z "$v36_done" ] || ! grep -qw 1b <<<"$v36_done"; then
-    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 72 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
-      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 72 1 0 with only lens-orchestration pending]"
+    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 84 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
+      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 84 1 0 with only lens-orchestration pending]"
   else
-    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 73 ] && [ "$v36_fail" -eq 0 ]; } \
-      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 73 0]"
+    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 85 ] && [ "$v36_fail" -eq 0 ]; } \
+      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 85 0]"
   fi
   # the clause-level script against this repo's history (phase 1c). The map must cover every added line of
   # df2322d..3fdf576 and every translate.tsv row must fire (the three dead INTEGRATION.md rows of 1c were
@@ -5185,7 +5270,7 @@ V36_PY
     v36_bad="$v36_bad [scripts/check-edition-norm.py is absent]"
   elif git -C "$gate_root" cat-file -e "df2322d^{commit}" 2>/dev/null && git -C "$gate_root" cat-file -e "3fdf576^{commit}" 2>/dev/null; then
     v36_cm=$(python3 "$v36_norm" --check-map 2>&1); v36_cm_rc=$?
-    { [ "$v36_cm_rc" -eq 0 ] && grep -q '^map ok: 69 rows, 338 added lines covered$' <<<"$v36_cm"; } \
+    { [ "$v36_cm_rc" -eq 0 ] && grep -q '^map ok: 79 rows, 338 added lines covered$' <<<"$v36_cm"; } \
       || v36_bad="$v36_bad [norm-map.tsv against df2322d..3fdf576: rc=$v36_cm_rc ${v36_cm:0:300}]"
     v36_cr=$(python3 "$v36_norm" --check-rewrites 2>&1); v36_cr_rc=$?
     { [ "$v36_cr_rc" -eq 0 ] && ! grep -q '^ERROR ' <<<"$v36_cr" && [ "$(grep -c '^rewrites ok: ' <<<"$v36_cr" || true)" = "3" ]; } \
@@ -5201,7 +5286,7 @@ fi
 rm -rf "$v36_tmp"
 
 report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
-  "${v36_bad:-382 rows (codex 100, copilot 104, local 105, orchestration 73), 82 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
+  "${v36_bad:-382 rows (codex 100, copilot 104, local 105, orchestration 73), 95 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

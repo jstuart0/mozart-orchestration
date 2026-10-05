@@ -143,6 +143,7 @@ mozart-orchestration/
 │   └── README.md
 ├── scripts/
 │   ├── check-edition-text.py       # the parity reader: one table of rules by section and table row, shipped byte-identical in every edition
+│   ├── check-edition-diffs.py      # writes the held template diffs (tests/parity/templates-<edition>.diff); source-only
 │   ├── check-editions.sh           # per-edition S3, shared library, lint/metrics and table-row checks over the three ports (pre-merge, not a CI gate)
 │   ├── check-field-note-parity.py  # cross-port parity (pre-merge, not a CI gate)
 │   ├── lib-campaign.sh             # sourced by the linter and metrics: shared helpers (ship it with them)
