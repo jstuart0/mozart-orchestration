@@ -4761,11 +4761,146 @@ V31_CTL_PY
 )
   v31_arms=$((v31_arms + 1))
   v31_has "$v31_ctl_out" '^CTL 10 families all planted violations fail$' "ctl families: ${v31_ctl_out:0:200}"
+
+  # ---- the clause-level run (phase 1c): scripts/check-edition-norm.py over a scratch git repo ------
+  # The source repo below has two tagged commits. x.md gains a rewritten line (its old sentence is
+  # unchanged), a list item, a table row, a sentence naming "codex r2", one naming a bare "codex" and
+  # a sentence under 40 characters; y.md is new. The copilot port root holds every one of them in the
+  # words the rewrite rows give, rewrapped, renumbered, with a sentence the source never had. Each
+  # arm then plants one change in a copy of that root, or in the map, and names what must follow.
+  v31_norm="$gate_root/scripts/check-edition-norm.py"
+  v31_nd="$v31_tmp/norm"
+  [ -f "$v31_norm" ] || v31_bad="$v31_bad [scripts/check-edition-norm.py is absent]"
+  mkdir -p "$v31_nd/src/agents" "$v31_nd/ok/.github" || v31_bad="$v31_bad [building the clause-level fixture failed]"
+  {
+    printf '# Notes\n'
+    printf 'Old sentence that stays exactly the same across both revisions of the file. Mozart will launch the reviewer on a heavy campaign when the surface matches.\n'
+  } > "$v31_nd/src/agents/x.md"
+  v31_ng() { git -C "$v31_nd/src" -c user.name=v31 -c user.email=v31@example.invalid -c commit.gpgsign=false "$@"; }
+  v31_ng init -q . && v31_ng add -A && v31_ng commit -q -m base && v31_ng tag base || v31_bad="$v31_bad [the base commit of the clause-level fixture failed]"
+  {
+    printf '# Notes\n'
+    printf 'Old sentence that stays exactly the same across both revisions of the file. Mozart will spawn the reviewer on every phase of a heavy campaign, never skipping one.\n'
+    printf -- '- **Gate.** The linter reports the escape when the origin block lacks a Traces-to line.\n'
+    printf '| LIGHT | bob alone reviews the plan, with tessa too when TDD is set on the campaign | run |\n'
+    printf 'The codex r2 verdict is recorded in the conductor row for the phase before commit.\n'
+    printf 'Ask codex to review the diff only after the validation report is written.\n'
+    printf 'Short one.\n'
+  } > "$v31_nd/src/agents/x.md"
+  printf 'Its skeleton is a file beside this one, not text in this manual: the template named TEMPLATE-REPORT.md.\n' > "$v31_nd/src/agents/y.md"
+  v31_ng add -A && v31_ng commit -q -m head && v31_ng tag head || v31_bad="$v31_bad [the head commit of the clause-level fixture failed]"
+  {
+    printf 'edition\tfrom\tto\tapplies\n'
+    printf 'copilot\tcodex\tsebastian\tscratch: the shortest row first, so a file-order or shortest-first rewrite is wrong\n'
+    printf 'copilot\tspawn\tdispatch\tscratch\n'
+    printf 'copilot\tcodex r2\tsebastian round 2\tscratch\n'
+  } > "$v31_nd/tr.tsv"
+  printf 'id\tfile\tlines\tclass\tcodex\tcopilot\tlocal\tnote\nn1\tagents/x.md\t2-7\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tscratch rules range\nn2\tagents/y.md\t1-1\tlayout\t.codex/y.md\t.github/y.md\tlocal/y.md\tscratch layout range\n' > "$v31_nd/map.tsv"
+  {
+    printf '# Port notes\n'
+    printf 'Mozart will dispatch the reviewer on every phase of a heavy campaign, never skipping one.\n'
+    printf '1. **Gate.** The linter reports the escape when the origin block lacks a Traces-to line.\n'
+    printf '| LIGHT | bob alone reviews the plan, with tessa too\n  when TDD is set on the campaign | run |\n'
+    printf 'The sebastian round 2 verdict is recorded in the conductor row for the phase before commit.\n'
+    printf 'Ask sebastian to review the diff only after the validation report is written.\n'
+    printf 'A sentence that exists only in this port and that the check must never read or require.\n'
+  } > "$v31_nd/ok/.github/x.md"
+  cp "$v31_nd/src/agents/y.md" "$v31_nd/ok/.github/y.md"
+  v31_nmap="$v31_nd/map.tsv"
+  # v31_nrun <label> <want rc> <port root> <extra args...>
+  v31_nrun() {
+    v31_nl=$1; v31_nw=$2; v31_nroot=$3; shift 3
+    v31_arm "$v31_nl" "$v31_nw" python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nmap" --translate "$v31_nd/tr.tsv" \
+      --base base --head head --paths agents --edition copilot --root "$v31_nroot" "$@"
+  }
+  # mutated copy of the port: v31_nport <name> <sed expression> [file]
+  v31_nport() { rm -rf "$v31_nd/$1"; cp -R "$v31_nd/ok" "$v31_nd/$1" && sed "$2" "$v31_nd/ok/${3:-.github/x.md}" > "$v31_nd/$1/${3:-.github/x.md}"; }
+
+  v31_nrun "norm: a legitimate port, rules" 0 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^norm copilot rules: 0 missing, 0 allow-listed, 5 checked$' "norm legitimate port: the summary line, with its sentence count, is wrong: ${v31_out:0:200}"
+  v31_hasnt "$v31_out" '^MISSING' "norm legitimate port: a legitimate rewrite, renumbering, rewrap or extra sentence was printed"
+  v31_nrun "norm: a legitimate port, layout" 0 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^norm copilot layout: 0 missing, 0 allow-listed, 1 checked$' "norm layout: the summary line is wrong: ${v31_out:0:200}"
+  v31_nrun "norm: --all-added reads the unchanged sentence of a changed line" 1 "$v31_nd/ok" --class rules --all-added
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*Old sentence that stays exactly' "norm --all-added: the unchanged sentence was not printed"
+  v31_nport drift 's/every phase/each phase/'
+  v31_nrun "norm: a one-word drift" 1 "$v31_nd/drift" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*dispatch the reviewer on every phase of a heavy campaign' "norm one-word drift: not printed with the sentence the port should hold"
+  v31_has "$v31_out" '^norm copilot rules: 1 missing' "norm one-word drift: not exactly one sentence missing"
+  v31_nport untranslated 's/Mozart will dispatch/Mozart will spawn/'
+  v31_nrun "norm: an untranslated noun" 1 "$v31_nd/untranslated" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*dispatch the reviewer' "norm untranslated noun: not printed"
+  v31_nport reworded 's/Mozart will dispatch/Mozart will not dispatch/'
+  v31_nrun "norm: a clause intact inside a reworded sentence" 1 "$v31_nd/reworded" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 ' "norm reworded sentence: the clause being intact hid the rewording"
+  v31_nport dropped '/Gate\./d'
+  v31_nrun "norm: a dropped sentence" 1 "$v31_nd/dropped" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:3 ' "norm dropped sentence: not printed"
+  v31_nport nolayout '/skeleton/d' .github/y.md
+  v31_nrun "norm: rules never shows a layout sentence" 0 "$v31_nd/nolayout" --class rules
+  v31_hasnt "$v31_out" 'y\.md' "norm class rules: a layout sentence was printed"
+  v31_nrun "norm: layout shows its own sentence" 1 "$v31_nd/nolayout" --class layout
+  v31_has "$v31_out" '^MISSING agents/y\.md:1 ' "norm class layout: its sentence was not printed"
+  v31_nrun "norm: layout never shows a rules sentence" 0 "$v31_nd/drift" --class layout
+  v31_hasnt "$v31_out" 'x\.md' "norm class layout: a rules sentence was printed"
+  rm -rf "$v31_nd/notarget" && cp -R "$v31_nd/ok" "$v31_nd/notarget" && rm "$v31_nd/notarget/.github/x.md"
+  v31_nrun "norm: a target file that does not exist" 1 "$v31_nd/notarget" --class rules
+  v31_has "$v31_out" '^norm copilot rules: 5 missing' "norm absent target: its sentences were not all printed"
+  v31_has "$v31_out" 'target absent: \.github/x\.md' "norm absent target: the path is not named"
+  v31_hasnt "$v31_out" 'Traceback' "norm absent target: a traceback"
+  # the map: unmapped, allow-listed, malformed
+  printf 'id\tfile\tlines\tclass\tcodex\tcopilot\tlocal\tnote\nn1\tagents/x.md\t2-7\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tscratch\n' > "$v31_nd/m-unmapped.tsv"
+  v31_nmap="$v31_nd/m-unmapped.tsv"
+  v31_nrun "norm: an unmapped added range" 1 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^ERROR unmapped agents/y\.md:1-1' "norm unmapped range: not an error naming the range"
+  v31_nrun "norm: --check-map on an unmapped range" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR unmapped agents/y\.md:1-1' "norm --check-map: unmapped range not named"
+  v31_nmap="$v31_nd/map.tsv"
+  v31_nrun "norm: --check-map on the good map" 0 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^map ok: 2 rows' "norm --check-map: no ok line"
+  sed "s/^\(n2.*\)${v31_T}\.github\/y\.md${v31_T}/\1${v31_T}replaced:the port words this sentence its own way${v31_T}/" "$v31_nd/map.tsv" > "$v31_nd/m-replaced.tsv"
+  v31_nmap="$v31_nd/m-replaced.tsv"
+  v31_nrun "norm: an allow-listed sentence the port lacks" 0 "$v31_nd/nolayout" --class layout
+  v31_has "$v31_out" '^norm copilot layout: 0 missing, 1 allow-listed, 0 checked$' "norm allow-list: not counted as allow-listed"
+  v31_nrun "norm: --allowlist prints each entry with its reason" 0 "$v31_nd/ok" --allowlist
+  v31_has "$v31_out" '^replaced agents/y\.md:1-1 copilot: the port words this sentence its own way$' "norm --allowlist: entry and reason not printed"
+  sed 's/replaced:the port words this sentence its own way/replaced:/' "$v31_nd/m-replaced.tsv" > "$v31_nd/m-noreason.tsv"
+  v31_nmap="$v31_nd/m-noreason.tsv"
+  v31_nrun "norm: an allow-list cell with no reason" 1 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^ERROR .*reason' "norm empty reason: not an error naming the reason"
+  sed 's/replaced:the port words this sentence its own way/dropped/' "$v31_nd/m-replaced.tsv" > "$v31_nd/m-nocolon.tsv"
+  v31_nmap="$v31_nd/m-nocolon.tsv"
+  v31_nrun "norm: a cell that is neither a path nor kind:reason" 1 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^ERROR ' "norm malformed cell: no error"
+  sed "s/${v31_T}rules${v31_T}/${v31_T}rule${v31_T}/" "$v31_nd/map.tsv" > "$v31_nd/m-class.tsv"
+  v31_nmap="$v31_nd/m-class.tsv"
+  v31_nrun "norm: an unknown class" 1 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^ERROR .*class' "norm unknown class: not an error naming the class"
+  { cat "$v31_nd/map.tsv"; printf 'n3\tagents/x.md\t40-50\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tcovers no added line\n'; } > "$v31_nd/m-stale.tsv"
+  v31_nmap="$v31_nd/m-stale.tsv"
+  v31_nrun "norm: a row that covers no added line" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR .*n3.*no added line' "norm stale row: not named"
+  { cat "$v31_nd/map.tsv"; printf 'n3\tagents/x.md\t6-7\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\toverlaps n1\n'; } > "$v31_nd/m-overlap.tsv"
+  v31_nmap="$v31_nd/m-overlap.tsv"
+  v31_nrun "norm: two rows over the same lines" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR .*overlap' "norm overlap: not named"
+  v31_nmap="$v31_nd/map.tsv"
+  # the rewrite rows: each must fire, or the table carries a row nothing needs
+  v31_nrun "norm: every rewrite row fires" 0 "$v31_nd/ok" --check-rewrites
+  v31_has "$v31_out" '^rewrites ok: copilot 3 rows' "norm --check-rewrites: no ok line"
+  { cat "$v31_nd/tr.tsv"; printf 'copilot\tnowhere in the source\tanywhere\tscratch\n'; } > "$v31_nd/tr-extra.tsv"
+  v31_arm "norm: a rewrite row that never fires" 1 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr-extra.tsv" \
+    --base base --head head --paths agents --edition copilot --check-rewrites
+  v31_has "$v31_out" '^ERROR rewrite never fires.*nowhere in the source' "norm unfired rewrite: not named"
+  v31_arm "norm: a revision that is not in this clone" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" \
+    --base no-such-revision --head head --paths agents --edition copilot --class rules --root "$v31_nd/ok"
+  v31_arm "norm: no --class" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" --edition copilot --root "$v31_nd/ok"
+  v31_arm "norm: an unknown edition" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" --edition rust --class rules --root "$v31_nd/ok"
 fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -eq 66 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 66 -- an arm was added or lost without the floor moving]"
+[ "$v31_arms" -eq 92 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 92 -- an arm was added or lost without the floor moving]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
@@ -4896,6 +5031,12 @@ for fn in frag_files:
         for t in tr:
             if ln.strip() and t[1] in ln:
                 bad.append(f"{fn}: a fragment contains the rewrite token {t[1]!r}: {ln[:50]!r}")
+# ---- norm-map.tsv (phase 1c): source-only, never copied to a port ---------------------------------
+nm_path = os.path.join(root, "tests/parity/norm-map.tsv")
+need(os.path.isfile(nm_path), "tests/parity/norm-map.tsv is absent")
+if os.path.isfile(nm_path):
+    nm = [l.rstrip("\n").split("\t") for l in open(nm_path, encoding="utf-8")]
+    need(nm[0] == ["id", "file", "lines", "class", "codex", "copilot", "local", "note"], "norm-map.tsv header")
 # ---- shipped files: content pins, no host or user path -------------------------------------------
 pins = {'scripts/check-edition-text.py': '5c25b792dafd7ce91aa26bd466a3f8e7d688f28e8244475e3a8b8aa98a16ba78', 'tests/parity/editions.tsv': '1d5e09b6cdb90e15cf7e94929db66e1c98a849ff6790fbbab9338ee0bb55bc37', 'tests/policy/bob-duty-clauses.txt': '4136590bbe8ec8e45ca2dd3b90e00fff84c7d3656b0fba1c30cbed0a771876f6', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '54bdf068c5a6e02b377d29e35c25527e39a2ea53f3979ac5c1598ea487c3c229', 'tests/policy/flags-clauses.txt': 'a7b355b06488896fe8b37ada2e61d09b24d9db152baba9195378677f16b24b3c', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '7999ff46f71fe4f1817d2847ea0f983e1f105c2ebd6acf2c231b30046be7beb6', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '52238d65ac7077c555fa2115f858f686458a8b0098e21f1765c839d5e87be5ba', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': '5587c16fba00273f76993857f820f53dbf425c21810cd5bf479982e718852f3e', 'tests/policy/stage8-clauses.txt': 'ed79edc40907240582ac593efa725a7e30bcf0f9fe8e6e9c7e429c2ac172dc77', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': '8c2f63857d61c654ed061b575fe37f776d29746349ec2a44ef5b709348b96a9c', 'tests/policy/tier-clauses.txt': '1f9f4957a2c71969b56b825f1bf09c486cb3e1a339d2fe6fe18d9a65a0fd4bc8', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
 named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
