@@ -4923,15 +4923,43 @@ V31_CTL_PY
   v31_nrun "norm: a target path that leaves the port root" 1 "$v31_nd/ok" --class rules
   v31_has "$v31_out" '^ERROR .*escape\.md.*neither a relative path' "norm escaping target: not an error naming the path"
   v31_nmap="$v31_nd/map.tsv"
+  # The lens helper itself (phase 1b), run for real: the source's lint passes all six arms, and a lint whose
+  # default date is planted wrong (later, earlier or never) fails the arm that pins that side of the boundary.
+  # A root with no lint script, and a call with no arguments, are "could not run" (2), never a content failure.
+  v31_lens="$gate_root/scripts/check-edition-lens.sh"
+  v31_lens_root() { # <dest> <default date>
+    mkdir -p "$1/scripts" || return 1
+    cp "$gate_root"/scripts/lib-campaign.sh "$1/scripts/" || return 1
+    sed "s/^LENS_SINCE=\"\${MOZART_LINT_LENS_SINCE:-[0-9-]*}\"/LENS_SINCE=\"\${MOZART_LINT_LENS_SINCE:-$2}\"/" "$gate_root/scripts/mozart-lint.sh" > "$1/scripts/mozart-lint.sh" || return 1
+  }
+  v31_lens_root "$v31_tmp/lens-ok" 2026-10-04 && v31_lens_root "$v31_tmp/lens-never" 9999-12-31 \
+    && v31_lens_root "$v31_tmp/lens-late" 2026-10-05 && v31_lens_root "$v31_tmp/lens-early" 2026-10-03 \
+    || v31_bad="$v31_bad [building the lens roots failed]"
+  cmp -s "$v31_tmp/lens-ok/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-lint.sh" || v31_bad="$v31_bad [CONTROL: the lens-ok root differs from the source lint]"
+  for v31_w in never late early; do
+    cmp -s "$v31_tmp/lens-$v31_w/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-lint.sh" && v31_bad="$v31_bad [CONTROL: the planted $v31_w default changed nothing]"
+  done
+  v31_arm "lens helper: the source's default" 0 bash "$v31_lens" orchestration "$v31_tmp/lens-ok"
+  for v31_k in a b c d e f; do v31_has "$v31_out" "^ok $v31_k( |\$)" "lens helper, source default: no ok line for arm $v31_k"; done
+  v31_hasnt "$v31_out" '^FAIL' "lens helper, source default: a FAIL line"
+  v31_arm "lens helper: a default of 9999-12-31" 1 bash "$v31_lens" codex "$v31_tmp/lens-never"
+  v31_has "$v31_out" '^FAIL b' "lens helper, default never: arm b did not fail"
+  v31_has "$v31_out" '^ok a( |$)' "lens helper, default never: arm a (the control side) did not pass"
+  v31_arm "lens helper: a default one day late" 1 bash "$v31_lens" copilot "$v31_tmp/lens-late"
+  v31_has "$v31_out" '^FAIL b' "lens helper, default one day late: arm b did not fail"
+  v31_arm "lens helper: a default one day early" 1 bash "$v31_lens" copilot "$v31_tmp/lens-early"
+  v31_has "$v31_out" '^FAIL a' "lens helper, default one day early: arm a did not fail"
+  v31_arm "lens helper: a root with no lint script" 2 bash "$v31_lens" codex "$v31_tmp/ctl"
+  v31_arm "lens helper: no arguments" 2 bash "$v31_lens"
 fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -eq 99 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 99 -- an arm was added or lost without the floor moving]"
+[ "$v31_arms" -eq 105 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 105 -- an arm was added or lost without the floor moving]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
-  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper, every call-site pin mismatch and the six printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper and the helper itself over a lint with its default right, never, a day late and a day early (0, 1, 1, 1) and over no lint script and no arguments (2), every call-site pin mismatch and the six printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
 
 # ---------------------------------------------------------------------------
 # V36_editions_table - the parity table, its reader and the policy files it names (phase 1a)
