@@ -4581,7 +4581,7 @@ else
 
   # selftest: every kind has planted inputs it must flag and clean ones it must not
   v31_arm "reader selftest" 0 python3 "$v31_reader" selftest
-  v31_has "$v31_out" '^selftest ok: 63 planted inputs flagged, 33 clean inputs accepted$' "selftest: the planted/clean counts changed"
+  v31_has "$v31_out" '^selftest ok: 78 planted inputs flagged, 36 clean inputs accepted$' "selftest: the planted/clean counts changed"
   # the shipped table is not the default of the inline one: over a bare fake root it fails
   v31_arm "shipped table, bare fake roots" 1 bash "$v31_script" --skip-behaviour --done "" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
   v31_has "$v31_out" '^FAIL ctl-noprogress-none-codex' "shipped table over a bare root: no FAIL for a phase-0 codex row"
@@ -4692,14 +4692,27 @@ else
   v31_rd "--expect-ids wrong" 1 "$v31_tf" --expect-ids 0000
   v31_rd "--expect-table-sha256 wrong" 1 "$v31_tf" --expect-table-sha256 0000
   v31_rd "--expect-policy-sha256 wrong" 1 "$v31_tf" --expect-policy-sha256 0000
+  v31_rd "--expect-reader-sha256 wrong" 1 "$v31_tf" --expect-reader-sha256 0000
+  v31_rsha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$v31_reader")
+  v31_rd "--expect-reader-sha256 right" 0 "$v31_tf" --expect-reader-sha256 "$v31_rsha" --expect-source-rows 0
+  cp "$v31_reader" "$v31_tmp/tbl/reader-copy.py"; printf '#' >> "$v31_tmp/tbl/reader-copy.py"
+  v31_arm "a reader one byte off fails its own pin" 1 python3 "$v31_tmp/tbl/reader-copy.py" --edition codex --root "$v31_rt" --table "$v31_tf" --expect-reader-sha256 "$v31_rsha" --expect-source-rows 0
+  v31_has "$v31_out" '^FAIL expect-reader-sha256' "the modified reader did not fail the reader pin"
+  v31_rd "a port cannot be its own source" 2 "$v31_tf" --source "$v31_rt"
+  v31_tbl otheredition "$(v31_row t-o copilot 0 once a.md "" "" 1 hello)"
+  v31_rd "an edition with no row" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*no row for edition codex' "no-row edition: no FAIL <table>"
+  printf 'x\n' > "$v31_tmp/tbl/nl.md"; ln -s a.md "$v31_rt/link.md"
+  v31_tbl link "$(v31_row t-ln codex 0 once link.md "" "" 1 hello)"
+  v31_rd "a symlink in scope" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL t-ln: table defect' "a symlink in scope was not a table defect"
+  rm -f "$v31_rt/link.md"
   sed 's/@n.txt/hellp/' "$v31_tf" > "$v31_tmp/tbl/parity/pins2.tsv"
   v31_rd "a changed needle is caught by the table pin" 1 "$v31_tmp/tbl/parity/pins2.tsv" --expect-table-sha256 "$v31_pins_tsha"
   printf 'hellp\n' > "$v31_tmp/tbl/policy/n.txt"
   v31_rd "a changed policy file is caught by the policy pin" 1 "$v31_tf" --expect-policy-sha256 "$v31_pins_pol"
   printf 'hello\n' > "$v31_tmp/tbl/policy/n.txt"
   v31_arm "hashes prints five literals" 0 python3 "$v31_reader" hashes --edition codex
-  for v31_k in rows source-rows ids table-sha256 policy-sha256; do v31_has "$v31_out" "^--expect-$v31_k [0-9a-f]+\$|^--expect-$v31_k [0-9]+\$" "hashes: no --expect-$v31_k line"; done
-  [ "$(grep -c '^--expect-' <<<"$v31_out" || true)" = "5" ] || v31_bad="$v31_bad [hashes: not exactly five literals]"
+  for v31_k in rows source-rows ids table-sha256 policy-sha256 reader-sha256; do v31_has "$v31_out" "^--expect-$v31_k [0-9a-f]+\$|^--expect-$v31_k [0-9]+\$" "hashes: no --expect-$v31_k line"; done
+  [ "$(grep -c '^--expect-' <<<"$v31_out" || true)" = "6" ] || v31_bad="$v31_bad [hashes: not exactly six literals]"
 
   # ---- a planted violation per ctl-* family, run through the SHIPPED row definition ----------------
   # Each family: the row's own line is lifted from the shipped table, a scratch root is built that
@@ -4914,11 +4927,11 @@ fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -eq 93 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 93 -- an arm was added or lost without the floor moving]"
+[ "$v31_arms" -eq 99 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 99 -- an arm was added or lost without the floor moving]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
-  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper, every call-site pin mismatch and the five printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper, every call-site pin mismatch and the six printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
 
 # ---------------------------------------------------------------------------
 # V36_editions_table - the parity table, its reader and the policy files it names (phase 1a)
@@ -4984,15 +4997,15 @@ rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parit
 hdr, rows = rows[0], rows[1:]
 need(hdr == ["id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle"], "table header changed")
 need(all(len(r) == 9 for r in rows), "a ragged table line")
-N = 385
+N = 382
 need(len(rows) == N, f"the table holds {len(rows)} rows, want {N}")
 per_ed = collections.Counter(r[1] for r in rows)
-need(dict(per_ed) == {'codex': 101, 'copilot': 105, 'local': 106, 'orchestration': 73}, f"rows per edition: {dict(per_ed)}")
+need(dict(per_ed) == {'codex': 100, 'copilot': 104, 'local': 105, 'orchestration': 73}, f"rows per edition: {dict(per_ed)}")
 ids = sorted(r[0] for r in rows)
 need(len(set(i.lower() for i in ids)) == len(ids), "duplicate ids")
-need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "02dc8c243207e5edb9b2d2b850b59acbe1ffa92ca655a68c9f8e66f9e7213db1", "the id list changed")
+need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "cca67eb4e388682903bc438349dd6d22b418bac6a86b62446e2d64464bb1082f", "the id list changed")
 kpe = sorted(f"{r[0]} {r[3]} {r[2]} {r[7]}" for r in rows)
-need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "6cab856e610e742f4c57a6118c26758bb3fe28210f04a79a94949be60dd3a9af", "a row's kind, phase or expect changed")
+need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "8fe15e2e45abf1e1d8fe2eb7ddb1ddaabf515a49cbb22c3b4b0aa4cb31b5b619", "a row's kind, phase or expect changed")
 def family(i):
     i = re.sub(r"-(orchestration|copilot|codex|local)$", "", i)
     i = re.sub(r"-\d+$", "", i)
@@ -5000,8 +5013,8 @@ def family(i):
 matrix = sorted(f"{family(r[0])}:{r[1]}={n}" for (r), n in [(r, 1) for r in rows])
 cnt = collections.Counter((family(r[0]), r[1]) for r in rows)
 matrix = sorted(f"{f}:{e}={n}" for (f, e), n in cnt.items())
-need(len(set(f for f, _ in cnt)) == 83, f"{len(set(f for f, _ in cnt))} families, want 83")
-need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "07326263e21ad90547b7356eb362dd72bcf450958f0eab1f2470a10789fd60fc", "the family-by-edition matrix changed")
+need(len(set(f for f, _ in cnt)) == 82, f"{len(set(f for f, _ in cnt))} families, want 82")
+need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "7f24b25759dc0b6defaa55ae625d67cead37611a31d21bc1b9fb9a0704c012f5", "the family-by-edition matrix changed")
 marks = []
 for r in rows:
     for col, name in ((4, "scope"), (5, "anchor"), (6, "row"), (8, "needle")):
@@ -5015,8 +5028,8 @@ for r in rows:
         if n:
             marks.append(f"{r[0]} {name} {n}")
 marks.sort()
-need(len(marks) == 123, f"{len(marks)} cells carry a + mark, want 123")
-need(hashlib.sha256(("\n".join(marks) + "\n").encode()).hexdigest() == "65570a53668c6d48f476cf3e89829c71ddcb2c614c3b88b448ef486f330da13d", "the + marks changed")
+need(len(marks) == 120, f"{len(marks)} cells carry a + mark, want 120")
+need(hashlib.sha256(("\n".join(marks) + "\n").encode()).hexdigest() == "8def551b3723875eea6b57c75e652ba2e16d954cd74c0b6b9778e37d79f5062e", "the + marks changed")
 byid = {r[0]: r for r in rows}
 for rid, kind, phase, expect in [('rule-noprogress-codex', 'bullet-last', '6', '17'), ('rule-xterms-s8-copilot', 'terms', '2', '12'), ('rule-tier-clauses-local', 'each-once', '4', '23'), ('rule-variant-codex', 'absent-re', '6', '0'), ('lay-moved-copilot', 'moved', '3', '5'), ('rule-bobduty-local', 'each-once', '4', '6'), ('lens-codex', 'lens-src', '7', '6')]:
     r = byid.get(rid)
@@ -5037,7 +5050,7 @@ tr = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/
 need(tr[0] == ["edition", "from", "to", "applies"], "translate.tsv header")
 tr = tr[1:]
 need(all(len(t) == 4 and all(t) for t in tr), "translate.tsv: a ragged or empty cell")
-need(dict(collections.Counter(t[0] for t in tr)) == {'codex': 17, 'copilot': 19, 'local': 16}, "translate.tsv rows per edition changed")
+need(dict(collections.Counter(t[0] for t in tr)) == {'codex': 18, 'copilot': 21, 'local': 17}, "translate.tsv rows per edition changed")
 need(len({(t[0], t[1]) for t in tr}) == len(tr), "translate.tsv: a repeated (edition, from)")
 frag_files = ['tier-clauses.txt', 'stage4-light-clauses.txt', 'stage7d-clauses.txt', 'stage8-clauses.txt', 'stage8-xander-row.txt', 'pipeline-s8-xander-row.txt', 'phaserows-clauses.txt', 'bob-duty-clauses.txt', 'flags-clauses.txt', 'layout-clauses.txt', 'codex-skeleton-clauses.txt', 'nolinter-clauses.txt', 'eval-sentences.txt']
 for fn in frag_files:
@@ -5069,7 +5082,7 @@ if os.path.isfile(nm_path):
     need(dict(allow) == {("codex", "replaced"): 6, ("codex", "dropped"): 5, ("copilot", "replaced"): 3, ("copilot", "dropped"): 4,
                          ("local", "replaced"): 3, ("local", "dropped"): 7}, f"norm-map.tsv allow-list size changed: {sorted(allow.items())}")
 # ---- shipped files: content pins, no host or user path -------------------------------------------
-pins = {'scripts/check-edition-text.py': '5c25b792dafd7ce91aa26bd466a3f8e7d688f28e8244475e3a8b8aa98a16ba78', 'tests/parity/editions.tsv': '1d5e09b6cdb90e15cf7e94929db66e1c98a849ff6790fbbab9338ee0bb55bc37', 'tests/policy/bob-duty-clauses.txt': '4136590bbe8ec8e45ca2dd3b90e00fff84c7d3656b0fba1c30cbed0a771876f6', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '54bdf068c5a6e02b377d29e35c25527e39a2ea53f3979ac5c1598ea487c3c229', 'tests/policy/flags-clauses.txt': 'a7b355b06488896fe8b37ada2e61d09b24d9db152baba9195378677f16b24b3c', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '7999ff46f71fe4f1817d2847ea0f983e1f105c2ebd6acf2c231b30046be7beb6', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '52238d65ac7077c555fa2115f858f686458a8b0098e21f1765c839d5e87be5ba', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': '5587c16fba00273f76993857f820f53dbf425c21810cd5bf479982e718852f3e', 'tests/policy/stage8-clauses.txt': 'ed79edc40907240582ac593efa725a7e30bcf0f9fe8e6e9c7e429c2ac172dc77', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': '8c2f63857d61c654ed061b575fe37f776d29746349ec2a44ef5b709348b96a9c', 'tests/policy/tier-clauses.txt': '1f9f4957a2c71969b56b825f1bf09c486cb3e1a339d2fe6fe18d9a65a0fd4bc8', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
+pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': '61fd511e07ad783c066a8c531fff84ce47263941223f71977108afd9242f49df', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': '8c2f63857d61c654ed061b575fe37f776d29746349ec2a44ef5b709348b96a9c', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
 named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
 need(named == sorted(n.split("/", 2)[2] for n in pins if n.startswith("tests/policy/")), "the set of policy files the table names changed")
 for path, want in pins.items():
@@ -5136,9 +5149,8 @@ V36_PY
       || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 73 0]"
   fi
   # the clause-level script against this repo's history (phase 1c). The map must cover every added line of
-  # df2322d..3fdf576 and every translate.tsv row must fire, except the three rows named below, which never
-  # do: the source writes `INTEGRATION.md` with backticks and the row has none (a translate.tsv correction
-  # is owed; when it lands this pin becomes empty). A shallow clone has no such history: the run says so.
+  # df2322d..3fdf576 and every translate.tsv row must fire (the three dead INTEGRATION.md rows of 1c were
+  # corrected: the source writes the file name in backticks). A shallow clone has no such history: the run says so.
   v36_norm="$gate_root/scripts/check-edition-norm.py"
   v36_norm_note="history-bound map and rewrite checks NOT RUN (this clone lacks df2322d or 3fdf576)"
   if [ ! -f "$v36_norm" ]; then
@@ -5148,22 +5160,20 @@ V36_PY
     { [ "$v36_cm_rc" -eq 0 ] && grep -q '^map ok: 63 rows, 338 added lines covered$' <<<"$v36_cm"; } \
       || v36_bad="$v36_bad [norm-map.tsv against df2322d..3fdf576: rc=$v36_cm_rc ${v36_cm:0:300}]"
     v36_cr=$(python3 "$v36_norm" --check-rewrites 2>&1); v36_cr_rc=$?
-    v36_cr_dead=$(grep -c '^ERROR rewrite never fires' <<<"$v36_cr" || true)
-    v36_cr_want=$(printf '%s\n' "ERROR rewrite never fires: codex 'INTEGRATION.md section 6'" "ERROR rewrite never fires: copilot 'INTEGRATION.md section 6'" "ERROR rewrite never fires: local 'INTEGRATION.md section 6'")
-    { [ "$v36_cr_rc" -eq 1 ] && [ "$v36_cr_dead" -eq 3 ] && [ "$(grep '^ERROR ' <<<"$v36_cr")" = "$v36_cr_want" ]; } \
-      || v36_bad="$v36_bad [translate.tsv rows that never fire are not exactly the three INTEGRATION.md section 6 rows: rc=$v36_cr_rc ${v36_cr:0:400}]"
-    v36_norm_note="norm-map.tsv covers all 338 added lines of df2322d..3fdf576; every rewrite row fires except the three INTEGRATION.md section 6 rows"
+    { [ "$v36_cr_rc" -eq 0 ] && ! grep -q '^ERROR ' <<<"$v36_cr" && [ "$(grep -c '^rewrites ok: ' <<<"$v36_cr" || true)" = "3" ]; } \
+      || v36_bad="$v36_bad [translate.tsv has a rewrite row that never fires (the known-dead pin is zero): rc=$v36_cr_rc ${v36_cr:0:400}]"
+    v36_norm_note="norm-map.tsv covers all 338 added lines of df2322d..3fdf576; every rewrite row fires"
   fi
-  # the reader's call-site literals: five lines per edition, and the table's own row counts
+  # the reader's call-site literals: six lines per edition, and the table's own row counts
   for v36_e in orchestration codex copilot local; do
     v36_h=$(python3 "$v36_reader" hashes --edition "$v36_e" 2>&1)
-    [ "$(grep -c '^--expect-[a-z0-9-]* [0-9a-f]*$' <<<"$v36_h" || true)" = "5" ] || v36_bad="$v36_bad [hashes --edition $v36_e does not print five literals]"
+    [ "$(grep -c '^--expect-[a-z0-9-]* [0-9a-f]*$' <<<"$v36_h" || true)" = "6" ] || v36_bad="$v36_bad [hashes --edition $v36_e does not print six literals]"
   done
 fi
 rm -rf "$v36_tmp"
 
 report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
-  "${v36_bad:-385 rows (codex 101, copilot 105, local 106, orchestration 73), 83 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (lens waiting for 1b); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
+  "${v36_bad:-382 rows (codex 100, copilot 104, local 105, orchestration 73), 82 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (lens waiting for 1b); norm-map.tsv: 63 rows, 42 rules and 21 layout, an allow-list of codex 6+5, copilot 3+4 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

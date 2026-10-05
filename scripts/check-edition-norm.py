@@ -328,7 +328,7 @@ def run_check_rewrites(args, rows, rules, lines):
         for row in (r for r in rows if r.cells[edition].kind == "targets"):
             for (path, number), text in lines.items():
                 if path == row.path and row.first <= number <= row.last:
-                    rewrite(text)
+                    rewrite(collapse(text))
         unfired = [f for f, count in rewrite.fired.items() if count == 0]
         problems += [f"rewrite never fires: {edition} {f!r}" for f in unfired]
         if not unfired:

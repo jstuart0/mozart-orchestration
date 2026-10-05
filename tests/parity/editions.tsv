@@ -17,8 +17,8 @@ rule-xrow-s8-orchestration	orchestration	0	each-once	agents/DELIVER.md	### 8. Mi
 rule-ian-s8-orchestration	orchestration	0	once	agents/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	ian	1	recorded HEAVY surface
 rule-xterms-s8-orchestration	orchestration	0	terms	agents/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	xander	12	@xander-terms.txt
 rule-xterms-s4-orchestration	orchestration	0	terms	agents/DELIVER.md	### 4. Internal review (conditional, parallel)	xander	12	@xander-terms.txt
-rule-s9-light-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)		1	- **LIGHT**: run
-rule-s9-std-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)		1	the skip is not available when any term in xander's stage-8 trigger row applies
+rule-s9-light-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)	exact	1	- **LIGHT**: run
+rule-s9-std-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)	line:- **STANDARD**: default-run	1	the skip is not available when any term in xander's stage-8 trigger row applies
 rule-intake-stanza-orchestration	orchestration	0	once	agents/INTAKE.md	### 1. Intake		1	**Read the `## Pipeline flags` stanza**
 rule-xterms-p4-orchestration	orchestration	0	terms	agents/PIPELINE.md	### Reviewer triggers (stage 4 — internal review of the plan)	xander	12	@xander-terms.txt
 rule-xterms-p8-orchestration	orchestration	0	terms	agents/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	xander	12	@xander-terms.txt
@@ -44,14 +44,14 @@ rule-gaps-orchestration	orchestration	0	gaps	agents/*.md;commands/*.md;docs/*.md
 rule-mc-1-orchestration	orchestration	0	once	agents/mozart.md	## Intake (skeleton; the full checklist is in INTAKE.md)		1	an unknown-cause bug is not LIGHT
 rule-mc-2-orchestration	orchestration	0	once	agents/PIPELINE.md	## DIAGNOSE pipeline		1	an unknown-cause bug is not LIGHT
 rule-mc-3-orchestration	orchestration	0	once	agents/FLOWS.md	### PLAN-ONLY (most common partial flow)		1	or as the LIGHT tier sets them
-rule-eval-orchestration	orchestration	0	each-once	docs/EVAL.md			7	@eval-sentences.txt
-rule-traces-1-orchestration	orchestration	0	once	agents/PIPELINE.md			1	@traces-to-grammar.txt
-rule-traces-2-orchestration	orchestration	0	once	agents/DIAGNOSE.md			1	@traces-to-grammar.txt
-rule-traces-3-orchestration	orchestration	0	once	agents/STATE.md			1	@traces-to-grammar.txt
-rule-traces-4-orchestration	orchestration	0	once	agents/INCIDENT.md			1	@traces-to-grammar.txt
-rule-traces-5-orchestration	orchestration	0	once	docs/EVAL.md			1	@traces-to-grammar.txt
-rule-traces-6-orchestration	orchestration	0	once	agents/scott.md			1	@traces-to-grammar.txt
-rule-traces-7-orchestration	orchestration	0	once	agents/dick.md			1	@traces-to-grammar.txt
+rule-eval-orchestration	orchestration	0	each-once	docs/EVAL.md	 @fenced		7	@eval-sentences.txt
+rule-traces-1-orchestration	orchestration	0	once	agents/PIPELINE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-2-orchestration	orchestration	0	once	agents/DIAGNOSE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-3-orchestration	orchestration	0	once	agents/STATE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-4-orchestration	orchestration	0	once	agents/INCIDENT.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-5-orchestration	orchestration	0	once	docs/EVAL.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-6-orchestration	orchestration	0	once	agents/scott.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-7-orchestration	orchestration	0	once	agents/dick.md	 @fenced		1	@traces-to-grammar.txt
 rule-traces-old-orchestration	orchestration	0	absent	agents/dick.md			0	<originating-campaign-slug>
 lay-moved-orchestration	orchestration	0	moved	agents/TEMPLATE-STATE.md;agents/TEMPLATE-LEDGER.md;agents/TEMPLATE-CONDUCTOR.md;agents/TEMPLATE-FLOW.md;agents/TEMPLATE-REPORT.md		pop=agents	5	TEMPLATE-STATE.md=agents/STATE.md;TEMPLATE-LEDGER.md=agents/STATE.md;TEMPLATE-CONDUCTOR.md=agents/STATE.md;TEMPLATE-FLOW.md=agents/STATE.md;TEMPLATE-REPORT.md=agents/DELIVER.md
 lay-skeleton-ledger-orchestration	orchestration	0	file-eq	agents/TEMPLATE-LEDGER.md			1	@ledger-skeleton.md
@@ -83,8 +83,8 @@ rule-xrow-s8-copilot	copilot	2	each-once	.github/mozart/manual/DELIVER.md	### 8.
 rule-ian-s8-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	ian	1	recorded HEAVY surface
 rule-xterms-s8-copilot	copilot	2	terms	.github/mozart/manual/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	xander	12	@xander-terms.txt
 rule-xterms-s4-copilot	copilot	2	terms	.github/mozart/manual/DELIVER.md	### 4. Internal review (conditional, parallel)	xander	12	@xander-terms.txt
-rule-s9-light-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)		1	- **LIGHT**: run
-rule-s9-std-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)		1	the skip is not available when any term in xander's stage-8 trigger row applies
+rule-s9-light-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **LIGHT**: run
+rule-s9-std-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	line:- **STANDARD**: default-run	1	the skip is not available when any term in xander's stage-8 trigger row applies
 rule-intake-stanza-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 1. Intake		1	**Read the `## Pipeline flags` stanza**
 rule-xterms-p4-copilot	copilot	2	terms	.github/mozart/PIPELINE.md	### Reviewer triggers (stage 4 — internal review of the plan)	xander	12	@xander-terms.txt
 rule-xterms-p8-copilot	copilot	2	terms	.github/mozart/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	xander	12	@xander-terms.txt
@@ -101,7 +101,6 @@ ctl-x2b-nocsp-d-copilot	copilot	0	absent	.github/mozart/manual/DELIVER.md	### 2b
 ctl-x2b-nocsp-p-copilot	copilot	0	absent	.github/mozart/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)	xander	0	CSP
 rule-phaserows-copilot	copilot	2	each-once	.github/mozart/manual/STATE.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-copilot	copilot	2	each-once	.github/agents/bob.agent.md		line:- **On a LIGHT plan you review alone** @+	6	@bob-duty-clauses.txt
-rule-bobterms-copilot	copilot	2	terms	.github/agents/bob.agent.md		line:- **On a LIGHT plan you review alone** @+	12	@xander-terms.txt
 rule-flags-copilot	copilot	2	each-once	.github/mozart/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		3	@flags-clauses.txt
 rule-stanza-copilot	copilot	2	once	.github/mozart/INTEGRATION.md	## 6. Pipeline flags (stanza optional) @+		1	**Mozart reads this stanza and never writes it.**
 rule-variant-copilot	copilot	2	absent-re	.github/agents/*.agent.md;.github/mozart/*.md;.github/mozart/manual/*.md;README.md		mask=@heavy-variant.mask;allow=@survivors.tsv	0	@heavy-variant.re
@@ -111,14 +110,14 @@ rule-gaps-copilot	copilot	2	gaps	.github/agents/*.agent.md;.github/mozart/*.md;.
 rule-mc-1-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 1. Intake		1	an unknown-cause bug is not LIGHT
 rule-mc-2-copilot	copilot	2	once	.github/mozart/PIPELINE.md	## DIAGNOSE pipeline		1	an unknown-cause bug is not LIGHT
 rule-mc-3-copilot	copilot	2	once	.github/mozart/manual/FLOWS.md	### PLAN-ONLY (most common partial flow)		1	or as the LIGHT tier sets them
-rule-eval-copilot	copilot	2	each-once	.github/mozart/EVAL.md			7	@eval-sentences.txt
-rule-traces-1-copilot	copilot	2	once	.github/mozart/PIPELINE.md			1	@traces-to-grammar.txt
-rule-traces-2-copilot	copilot	2	once	.github/mozart/EVAL.md			1	@traces-to-grammar.txt
-rule-traces-3-copilot	copilot	2	once	.github/mozart/manual/DIAGNOSE.md			1	@traces-to-grammar.txt
-rule-traces-4-copilot	copilot	2	once	.github/mozart/manual/STATE.md			1	@traces-to-grammar.txt
-rule-traces-5-copilot	copilot	2	once	.github/mozart/manual/INCIDENT.md			1	@traces-to-grammar.txt
-rule-traces-6-copilot	copilot	2	once	.github/agents/dick.agent.md			1	@traces-to-grammar.txt
-rule-traces-7-copilot	copilot	2	once	.github/agents/scott.agent.md			1	@traces-to-grammar.txt
+rule-eval-copilot	copilot	2	each-once	.github/mozart/EVAL.md	 @fenced		7	@eval-sentences.txt
+rule-traces-1-copilot	copilot	2	once	.github/mozart/PIPELINE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-2-copilot	copilot	2	once	.github/mozart/EVAL.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-3-copilot	copilot	2	once	.github/mozart/manual/DIAGNOSE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-4-copilot	copilot	2	once	.github/mozart/manual/STATE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-5-copilot	copilot	2	once	.github/mozart/manual/INCIDENT.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-6-copilot	copilot	2	once	.github/agents/dick.agent.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-7-copilot	copilot	2	once	.github/agents/scott.agent.md	 @fenced		1	@traces-to-grammar.txt
 rule-traces-old-copilot	copilot	2	absent	.github/agents/dick.agent.md			0	<originating-campaign-slug>
 lay-moved-copilot	copilot	3	moved	.github/mozart/manual/TEMPLATE-STATE.md+;.github/mozart/manual/TEMPLATE-LEDGER.md+;.github/mozart/manual/TEMPLATE-CONDUCTOR.md+;.github/mozart/manual/TEMPLATE-FLOW.md+;.github/mozart/manual/TEMPLATE-REPORT.md+		pop=.github/mozart	5	TEMPLATE-STATE.md=.github/mozart/manual/STATE.md;TEMPLATE-LEDGER.md=.github/mozart/manual/STATE.md;TEMPLATE-CONDUCTOR.md=.github/mozart/manual/STATE.md;TEMPLATE-FLOW.md=.github/mozart/manual/STATE.md;TEMPLATE-REPORT.md=.github/mozart/manual/DELIVER.md
 lay-nolabel-copilot	copilot	3	absent-re	.github/mozart/manual/TEMPLATE-STATE.md+;.github/mozart/manual/TEMPLATE-LEDGER.md+;.github/mozart/manual/TEMPLATE-CONDUCTOR.md+;.github/mozart/manual/TEMPLATE-FLOW.md+;.github/mozart/manual/TEMPLATE-REPORT.md+			0	@reviewer-label.re
@@ -158,8 +157,8 @@ rule-xrow-s8-codex	codex	6	each-once	.codex/skills/mozart/SKILL.md	### 8. Mid-bu
 rule-ian-s8-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 8. Mid-build specialists (conditional, parallel)	ian	1	recorded HEAVY surface
 rule-xterms-s8-codex	codex	6	terms	.codex/skills/mozart/SKILL.md	### 8. Mid-build specialists (conditional, parallel)	xander	12	@xander-terms.txt
 rule-xterms-s4-codex	codex	6	terms	.codex/skills/mozart/SKILL.md	### 4. Internal review (conditional, parallel)	xander	12	@xander-terms.txt
-rule-s9-light-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)		1	- **LIGHT**: run
-rule-s9-std-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)		1	the skip is not available when any term in xander's stage-8 trigger row applies
+rule-s9-light-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)	exact	1	- **LIGHT**: run
+rule-s9-std-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)	line:- **STANDARD**: default-run	1	the skip is not available when any term in xander's stage-8 trigger row applies
 rule-intake-stanza-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## DELIVER pipeline		1	**Read the `## Pipeline flags` stanza**
 rule-xterms-p4-codex	codex	6	terms	PIPELINE.md	### Reviewer triggers (stage 4 — internal review of the plan)	xander	12	@xander-terms.txt
 rule-xterms-p8-codex	codex	6	terms	PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	xander	12	@xander-terms.txt
@@ -174,7 +173,6 @@ rule-r2-old-codex	codex	6	absent	PIPELINE.md	### Tier policy		0	| STANDARD | run
 ctl-x2b-nocsp-d-codex	codex	0	absent	.codex/skills/mozart/SKILL.md	### 2b. Constraints (conditional — narrow)	line:1. The task changes **who may do what**	0	CSP
 rule-phaserows-codex	codex	6	each-once	.codex/skills/mozart/SKILL.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-codex	codex	6	each-once	.codex/agents/bob.toml		line:- **On a LIGHT plan you review alone** @+	6	@bob-duty-clauses.txt
-rule-bobterms-codex	codex	6	terms	.codex/agents/bob.toml		line:- **On a LIGHT plan you review alone** @+	12	@xander-terms.txt
 rule-flags-codex	codex	6	each-once	.codex/skills/mozart/SKILL.md	## Build-time flags (orthogonal to operating mode)		3	@flags-clauses.txt
 rule-stanza-codex	codex	6	once	INTEGRATION.md	## 4. Pipeline flags (stanza optional) @+		1	**Mozart reads this stanza and never writes it.**
 rule-variant-codex	codex	6	absent-re	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;README.md;docs/EVAL.md		mask=@heavy-variant.mask;allow=@survivors.tsv	0	@heavy-variant.re
@@ -184,22 +182,22 @@ rule-gaps-codex	codex	6	gaps	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;
 rule-mc-1-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## DELIVER pipeline		1	an unknown-cause bug is not LIGHT
 rule-mc-2-codex	codex	6	once	PIPELINE.md	## DIAGNOSE pipeline		1	an unknown-cause bug is not LIGHT
 rule-mc-3-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### PLAN-ONLY (most common partial flow)		1	or as the LIGHT tier sets them
-rule-eval-codex	codex	6	each-once	docs/EVAL.md			7	@eval-sentences.txt
-rule-traces-1-codex	codex	6	once	PIPELINE.md			1	@traces-to-grammar.txt
-rule-traces-2-codex	codex	6	once	docs/EVAL.md			1	@traces-to-grammar.txt
-rule-traces-3-codex	codex	6	once	.codex/agents/scott.toml			1	@traces-to-grammar.txt
-rule-traces-4-codex	codex	6	once	.codex/agents/dick.toml			1	@traces-to-grammar.txt
-rule-traces-5-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### State file format		1	@traces-to-grammar.txt
-rule-traces-6-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Diagnose-mode rules		1	@traces-to-grammar.txt
-rule-traces-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Incident-mode rules		1	@traces-to-grammar.txt
+rule-eval-codex	codex	6	each-once	docs/EVAL.md	 @fenced		7	@eval-sentences.txt
+rule-traces-1-codex	codex	6	once	PIPELINE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-2-codex	codex	6	once	docs/EVAL.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-3-codex	codex	6	once	.codex/agents/scott.toml	 @fenced		1	@traces-to-grammar.txt
+rule-traces-4-codex	codex	6	once	.codex/agents/dick.toml	 @fenced		1	@traces-to-grammar.txt
+rule-traces-5-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	@traces-to-grammar.txt
+rule-traces-6-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Diagnose-mode rules @fenced		1	@traces-to-grammar.txt
+rule-traces-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Incident-mode rules @fenced		1	@traces-to-grammar.txt
 rule-traces-old-codex	codex	6	absent	.codex/agents/dick.toml			0	<originating-campaign-slug>
-rule-dead-codex	codex	6	count	.codex/skills/mozart/SKILL.md			0	## Communicate as you work
+rule-dead-codex	codex	6	absent	.codex/skills/mozart/SKILL.md			0	## Communicate as you work
 lay-skeleton-ledger-codex	codex	7	block-eq	.codex/skills/mozart/SKILL.md	### State file format	block=2	3	@ledger-skeleton.md
 lay-skeleton-conductor-codex	codex	7	block-eq	.codex/skills/mozart/SKILL.md	### State file format	block=3	3	@conductor-skeleton.md
 lay-skeleton-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	### State file format		4	@codex-skeleton-clauses.txt
-lay-tier4-state-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### State file format		1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
-lay-tier4-flow-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## Pipeline flow sketch		1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
-lay-tier4-report-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### 13. Report		1	## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY>)
+lay-tier4-state-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
+lay-tier4-flow-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## Pipeline flow sketch @fenced		1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
+lay-tier4-report-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### 13. Report @fenced		1	## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY>)
 lay-gaps-codex	codex	7	gaps	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;README.md;docs/EVAL.md			0	
 lay-intake-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## DELIVER pipeline		1	together with its two siblings
 lay-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	## State persistence (crash-resume)		5	@layout-clauses.txt
@@ -229,8 +227,8 @@ rule-xrow-s8-local	local	4	each-once	src/mozart_local/bundle/manual/DELIVER.md	#
 rule-ian-s8-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	ian	1	recorded HEAVY surface
 rule-xterms-s8-local	local	4	terms	src/mozart_local/bundle/manual/DELIVER.md	### 8. Mid-build specialists (conditional, parallel)	xander	12	@xander-terms.txt
 rule-xterms-s4-local	local	4	terms	src/mozart_local/bundle/manual/DELIVER.md	### 4. Internal review (conditional, parallel)	xander	12	@xander-terms.txt
-rule-s9-light-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)		1	- **LIGHT**: run
-rule-s9-std-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)		1	the skip is not available when any term in xander's stage-8 trigger row applies
+rule-s9-light-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **LIGHT**: run
+rule-s9-std-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	line:- **STANDARD**: default-run	1	the skip is not available when any term in xander's stage-8 trigger row applies
 rule-intake-stanza-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	**Read the `## Pipeline flags` stanza**
 rule-xterms-p4-local	local	4	terms	src/mozart_local/bundle/docs/PIPELINE.md	### Reviewer triggers (stage 4 — internal review of the plan)	xander	12	@xander-terms.txt
 rule-xterms-p8-local	local	4	terms	src/mozart_local/bundle/docs/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	xander	12	@xander-terms.txt
@@ -247,7 +245,6 @@ ctl-x2b-nocsp-d-local	local	0	absent	src/mozart_local/bundle/manual/DELIVER.md	#
 ctl-x2b-nocsp-p-local	local	0	absent	src/mozart_local/bundle/docs/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)	xander	0	CSP
 rule-phaserows-local	local	4	each-once	src/mozart_local/bundle/manual/STATE.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-local	local	4	each-once	src/mozart_local/bundle/agents/bob.md		line:- **On a LIGHT plan you review alone** @+	6	@bob-duty-clauses.txt
-rule-bobterms-local	local	4	terms	src/mozart_local/bundle/agents/bob.md		line:- **On a LIGHT plan you review alone** @+	12	@xander-terms.txt
 rule-flags-local	local	4	each-once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		3	@flags-clauses.txt
 rule-stanza-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	**Mozart reads this stanza and never writes it.**
 rule-variant-local	local	4	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md		mask=@heavy-variant.mask;allow=@survivors.tsv	0	@heavy-variant.re
@@ -257,12 +254,12 @@ rule-gaps-local	local	4	gaps	src/mozart_local/bundle/agents/*.md;src/mozart_loca
 rule-mc-1-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	an unknown-cause bug is not LIGHT
 rule-mc-2-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	## DIAGNOSE pipeline		1	an unknown-cause bug is not LIGHT
 rule-mc-3-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	### PLAN-ONLY (most common partial flow)		1	or as the LIGHT tier sets them
-rule-traces-1-local	local	4	once	src/mozart_local/bundle/agents/dick.md			1	@traces-to-grammar.txt
-rule-traces-2-local	local	4	once	src/mozart_local/bundle/agents/scott.md			1	@traces-to-grammar.txt
-rule-traces-3-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md			1	@traces-to-grammar.txt
-rule-traces-4-local	local	4	once	src/mozart_local/bundle/manual/DIAGNOSE.md			1	@traces-to-grammar.txt
-rule-traces-5-local	local	4	once	src/mozart_local/bundle/manual/STATE.md			1	@traces-to-grammar.txt
-rule-traces-6-local	local	4	once	src/mozart_local/bundle/manual/INCIDENT.md			1	@traces-to-grammar.txt
+rule-traces-1-local	local	4	once	src/mozart_local/bundle/agents/dick.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-2-local	local	4	once	src/mozart_local/bundle/agents/scott.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-3-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-4-local	local	4	once	src/mozart_local/bundle/manual/DIAGNOSE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-5-local	local	4	once	src/mozart_local/bundle/manual/STATE.md	 @fenced		1	@traces-to-grammar.txt
+rule-traces-6-local	local	4	once	src/mozart_local/bundle/manual/INCIDENT.md	 @fenced		1	@traces-to-grammar.txt
 rule-traces-old-local	local	4	absent	src/mozart_local/bundle/agents/dick.md			0	<originating-campaign-slug>
 rule-nolinter-local	local	4	each-once	src/mozart_local/bundle/manual/FLOWS.md;src/mozart_local/bundle/manual/DELIVER.md			3	@nolinter-clauses.txt
 lay-moved-local	local	5	moved	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+		pop=src/mozart_local/bundle	5	TEMPLATE-STATE.md=src/mozart_local/bundle/manual/STATE.md;TEMPLATE-LEDGER.md=src/mozart_local/bundle/manual/STATE.md;TEMPLATE-CONDUCTOR.md=src/mozart_local/bundle/manual/STATE.md;TEMPLATE-FLOW.md=src/mozart_local/bundle/manual/STATE.md;TEMPLATE-REPORT.md=src/mozart_local/bundle/manual/DELIVER.md
@@ -281,7 +278,7 @@ lay-pointer-report-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md	
 lay-intake-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	together with its two siblings
 lay-clauses-local	local	5	each-once	src/mozart_local/bundle/manual/STATE.md			5	@layout-clauses.txt
 lay-report-tail-local-heading	local	5	absent	src/mozart_local/bundle/manual/DELIVER.md			0	## <slug>: shipped
-lay-report-tail-local-fences	local	5	count	src/mozart_local/bundle/manual/DELIVER.md			4	```
+lay-report-tail-local-fences	local	5	count	src/mozart_local/bundle/manual/DELIVER.md	 @fenced		4	```
 lay-report-tail-local	local	5	once	src/mozart_local/bundle/manual/DELIVER.md			1	Its skeleton is a file beside this one
 lay-variant-local	local	5	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+		mask=@heavy-variant.mask	0	@heavy-variant.re
 lay-example-local	local	5	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+			0	@heavy-example.re
@@ -293,10 +290,10 @@ witness-diff-src-orchestration	orchestration	0	diff-src	agents/TEMPLATE-LEDGER.m
 witness-block-eq-orchestration	orchestration	0	block-eq	INTEGRATION.md	## 6. Pipeline flags (stanza optional)	block=1	1	@pipeline-flags-stanza.md
 witness-moved-inline-orchestration	orchestration	0	moved	agents/TEMPLATE-STATE.md		inline=1	1	# Pipeline state: <slug>
 witness-count-orchestration	orchestration	0	count	agents/TEMPLATE-STATE.md			1	# Pipeline state: <slug>
-ctl-leak-claudemd-copilot	copilot	0	count	.github/mozart/**/*.md;.github/agents/*.agent.md			0	CLAUDE.md
-ctl-leak-claudemd-local	local	0	count	src/mozart_local/bundle/**/*.md			13	CLAUDE.md
-ctl-leak-codexdiff-local	local	0	count	src/mozart_local/bundle/**/*.md			1	Codex on diff
-ctl-leak-codexr2-codex	codex	0	count	.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;.codex/agents/*.toml			0	codex r2
+ctl-leak-claudemd-copilot	copilot	0	absent	.github/mozart/**/*.md;.github/agents/*.agent.md			0	CLAUDE.md
+ctl-leak-claudemd-local	local	0	count	src/mozart_local/bundle/**/*.md	 @fenced		13	CLAUDE.md
+ctl-leak-codexdiff-local	local	0	count	src/mozart_local/bundle/**/*.md	 @fenced		1	Codex on diff
+ctl-leak-codexr2-codex	codex	0	absent	.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;.codex/agents/*.toml			0	codex r2
 rule-copies-check-edition-text-py-copilot	copilot	2	cmp-src	scripts/check-edition-text.py+			1	scripts/check-edition-text.py
 rule-copies-editions-tsv-copilot	copilot	2	cmp-src	tests/parity/editions.tsv+			1	tests/parity/editions.tsv
 rule-copies-bob-duty-clauses-txt-copilot	copilot	2	cmp-src	tests/policy/bob-duty-clauses.txt+			1	tests/policy/bob-duty-clauses.txt

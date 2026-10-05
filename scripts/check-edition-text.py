@@ -8,6 +8,7 @@ a table row) and says what must be there. See CONTRIBUTING.md in the source repo
   check-edition-text.py --edition <name> --root <dir> [--source <dir>] [--table <path>]
       [--done "<phase ids>"] [--expect-rows N] [--expect-source-rows N]
       [--expect-ids SHA] [--expect-table-sha256 SHA] [--expect-policy-sha256 SHA]
+      [--expect-reader-sha256 SHA]
   check-edition-text.py selftest
   check-edition-text.py hashes --edition <name>
 
@@ -18,8 +19,12 @@ Row cells that carry options:
   scope   ';'-separated paths or globs under --root; a trailing '+' says the phase
           creates the file. Globs never reach a /fixtures/ path.
   anchor  a heading line that must occur exactly once outside fenced blocks, then
-          optional flags ' @+' (the phase creates the heading) and ' @stop=N'.
-  row     per kind: a first-cell prefix of one table row, 'line:<prefix>' for one
+          optional flags ' @+' (the phase creates the heading), ' @stop=N' and ' @fenced'
+          (once, count, each-once, terms, pair and shape skip fenced lines and <!-- -->
+          comments unless ' @fenced', which keeps fenced lines; absent and absent-re
+          read hidden text too).
+  row     per kind: the first cell (emphasis stripped) of one table row, 'exact' (once,
+          count: whole lines equal to the needle), 'line:<prefix>' for one
           line, or key=value options (bullet-last, absent-re, gaps, moved).
   needle  a literal, or '@name' for a file in the policy directory beside the table.
 """
@@ -41,6 +46,11 @@ PHASES = ("0", "1b", "2", "3", "4", "5", "6", "7")
 PHASE_ORDER = {p: i for i, p in enumerate(PHASES)}
 COLUMNS = ("id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle")
 TEXT_KINDS = ("once", "absent", "count", "each-once", "terms")
+# These read only what a reader of the rendered page sees: no fenced line, no <!-- --> comment.
+# absent and absent-re (and gaps) keep scanning hidden text, so a stale wording cannot hide in it.
+VISIBLE_KINDS = ("once", "count", "each-once", "terms", "pair", "shape")
+MAX_BYTES = 4 * 1024 * 1024
+COMMENT_RE = re.compile(r"<!--.*?(?:-->|\Z)", re.S)
 SRC_KINDS = ("cmp-src", "diff-src", "tree-src", "lens-src")
 KINDS = (
     *TEXT_KINDS,
@@ -57,7 +67,7 @@ KINDS = (
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 HEAD_RE = re.compile(r"^(#{1,6}) +\S")
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
-ANCHOR_RE = re.compile(r"^(.*?)((?: @(?:\+|stop=[1-6]))*)$")
+ANCHOR_RE = re.compile(r"^(.*?)((?: @(?:\+|fenced|stop=[1-6]))*)$")
 POLICY_REF_RE = re.compile(r"(?:^|[=;])@([A-Za-z0-9._-]+)")
 MASK_TOKEN = "XANDER-SURFACE-RULE"
 SURVIVORS = "survivors.tsv"
@@ -82,8 +92,13 @@ def sha256_bytes(data: bytes) -> str:
 
 
 def read_bytes(path: str) -> bytes:
-    with open(path, "rb") as fh:
-        return fh.read()
+    try:
+        if os.path.getsize(path) > MAX_BYTES:
+            raise Defect(f"{path!r} is larger than {MAX_BYTES} bytes")
+        with open(path, "rb") as fh:
+            return fh.read()
+    except OSError as exc:
+        raise Defect(f"cannot read {path!r}: {exc}") from exc
 
 
 def read_text(path: str) -> str:
@@ -155,12 +170,22 @@ def heading_level(line: str) -> int:
     return len(m.group(1)) if m else 0
 
 
-def parse_anchor(cell: str) -> tuple[str, bool, int | None]:
+def parse_anchor(cell: str) -> tuple[str, bool, int | None, bool]:
+    """(heading, created by the phase, stop level, scan fenced text too)."""
     m = ANCHOR_RE.match(cell)
     text, flags = (m.group(1), m.group(2)) if m else (cell, "")
-    created = " @+" in flags
     stop = re.search(r" @stop=([1-6])", flags)
-    return text, created, int(stop.group(1)) if stop else None
+    return text, " @+" in flags, int(stop.group(1)) if stop else None, " @fenced" in flags
+
+
+def visible(lines: list[str], keep_fenced: bool) -> list[str]:
+    """The lines with comment spans (and, unless keep_fenced, fenced lines) blanked; the line
+    count is kept so a position in the result is a position in the file."""
+    if not keep_fenced:
+        inside = fence_map(lines)[0]
+        lines = ["" if inside[i] else ln for i, ln in enumerate(lines)]
+    text = COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), "\n".join(lines))
+    return text.split("\n")
 
 
 def cut_section(
@@ -227,7 +252,7 @@ def cut_row(lines: list[str], sel: str, where: str) -> list[str]:
         hits = [
             ln
             for i, ln in enumerate(lines)
-            if not inside[i] and ln.lstrip().startswith("|") and first_cell(ln).startswith(sel)
+            if not inside[i] and ln.lstrip().startswith("|") and first_cell(ln) == sel
         ]
         label = "table row"
     if not hits and created:
@@ -303,6 +328,7 @@ def resolve_scope(root: str, cell: str) -> tuple[list[str], list[str]]:
     """(existing files as root-relative paths, entries marked '+' that do not exist yet)."""
     files: list[str] = []
     missing: list[str] = []
+    real_root = os.path.realpath(root)
     entries = [e.strip() for e in cell.split(";") if e.strip()]
     if not entries:
         raise Defect("the scope is empty")
@@ -329,6 +355,11 @@ def resolve_scope(root: str, cell: str) -> tuple[list[str], list[str]]:
             missing.append(path)
         else:
             raise Defect(f"scope file {path} does not exist under the root")
+    for rel in files:
+        full = os.path.join(root, rel)
+        inside_root = os.path.realpath(full).startswith(real_root + os.sep)
+        if os.path.islink(full) or not inside_root:
+            raise Defect(f"scope file {rel!r} is a symlink or resolves outside the root")
     return files, missing
 
 
@@ -337,13 +368,15 @@ def spans(ctx: Ctx, row: dict[str, str]) -> list[tuple[str, list[str]]]:
     files, missing = resolve_scope(ctx.root, row["scope"])
     if missing:
         raise Content("file-created", f"created by this phase: {', '.join(missing)}")
-    anchor, created, stop = parse_anchor(row["anchor"])
+    anchor, created, stop, keep_fenced = parse_anchor(row["anchor"])
     out = []
     for rel in files:
         lines = load_prose(os.path.join(ctx.root, rel)).split("\n")
+        if row["kind"] in VISIBLE_KINDS:
+            lines = visible(lines, keep_fenced)
         if anchor:
             lines = cut_section(lines, anchor, created, stop, rel)
-        if row["row"] and row["kind"] in TEXT_KINDS:
+        if row["row"] and row["row"] != "exact" and row["kind"] in TEXT_KINDS:
             lines = cut_row(lines, row["row"], rel)
         out.append((rel, lines))
     return out
@@ -362,7 +395,10 @@ def k_count(ctx: Ctx, row: dict[str, str], n: int) -> None:
     want = {"once": 1, "absent": 0}.get(row["kind"], n)
     if row["kind"] in ("once", "absent") and n != want:
         raise Defect(f"{row['kind']} needs expect {want}")
-    got = text.count(needle)
+    if row["row"] == "exact":
+        got = sum(1 for ln in text.split("\n") if ln.strip() == needle)
+    else:
+        got = text.count(needle)
     if got == want:
         return
     if want == 0:
@@ -413,7 +449,7 @@ def k_bullet_last(ctx: Ctx, row: dict[str, str], n: int) -> None:
     exclude = {e for e in opts.get("exclude", "").split(",") if e}
     if want_len < 2:
         raise Defect("bullet-last needs len=N in the row cell")
-    anchor, _, stop = parse_anchor(row["anchor"])
+    anchor, _, stop, _ = parse_anchor(row["anchor"])
     if not anchor:
         raise Defect("bullet-last needs the cadence heading as its anchor")
     bullet = ctx.needle(row["needle"])
@@ -424,7 +460,7 @@ def k_bullet_last(ctx: Ctx, row: dict[str, str], n: int) -> None:
     for rel in files:
         if os.path.basename(rel) in exclude:
             continue
-        lines = load_prose(os.path.join(ctx.root, rel)).split("\n")
+        lines = visible(load_prose(os.path.join(ctx.root, rel)).split("\n"), True)
         if any(ln.strip() == anchor for ln in lines):
             roster.append((rel, cut_section(lines, anchor, False, stop, rel, fenced=False)))
     if len(roster) != n:
@@ -863,6 +899,12 @@ def ids_digest(rows: list[dict[str, str]]) -> str:
 # ---------------------------------------------------------------- run
 
 
+def safe(text: str) -> str:
+    """A message with every control character escaped (a file name may hold a newline, and a
+    line starting `ok ` would then read as a verdict)."""
+    return "".join(c if c.isprintable() else repr(c)[1:-1] for c in text)
+
+
 def usage(msg: str) -> int:
     print(f"check-edition-text.py: {msg}", file=sys.stderr)
     return 2
@@ -879,6 +921,7 @@ VALUE_FLAGS = (
     "--expect-ids",
     "--expect-table-sha256",
     "--expect-policy-sha256",
+    "--expect-reader-sha256",
 )
 
 
@@ -901,13 +944,13 @@ def default_table() -> str:
 
 def load_rows(table: str, edition: str) -> tuple[list[dict[str, str]], list[dict[str, str]], bytes]:
     if not os.path.isfile(table):
-        print(f"FAIL <table>: {table} is absent")
+        print(f"FAIL <table>: {safe(table)} is absent")
         raise SystemExit(1)
     data = read_bytes(table)
     rows, problems = parse_table(data)
     if problems:
         for p in problems:
-            print(f"FAIL <table>: {p}")
+            print(f"FAIL <table>: {safe(p)}")
         raise SystemExit(1)
     return rows, [r for r in rows if r["edition"] == edition], data
 
@@ -928,6 +971,9 @@ def run(opts: dict[str, str]) -> int:
             return usage("--done takes space-separated phase ids")
     table = os.path.abspath(opts.get("--table", default_table()))
     all_rows, mine, data = load_rows(table, edition)
+    if not mine:
+        print(f"FAIL <table>: the table holds no row for edition {edition}")
+        return 1
     if done is not None:
         legal = {r["phase"] for r in all_rows} - {"0"}
         bad = [d for d in done if d not in legal]
@@ -938,6 +984,9 @@ def run(opts: dict[str, str]) -> int:
     if not os.path.isdir(root) or (source is not None and not os.path.isdir(source)):
         print("FAIL <root>: the root or source is not a directory")
         return 1
+    same = source is not None and os.path.realpath(source) == os.path.realpath(root)
+    if same and edition != "orchestration":
+        return usage("--source is the same directory as --root: a port cannot be its own source")
     ctx = Ctx(edition, root, source, table)
     tally = {"ok": 0, "FAIL": 0, "PENDING": 0, "NEEDS-SOURCE": 0}
     pending: dict[str, int] = {}
@@ -977,12 +1026,12 @@ def report(
     try:
         evaluate(ctx, row)
     except Defect as exc:
-        print(f"FAIL {rid}: table defect: {exc}")
+        print(f"FAIL {rid}: table defect: {safe(str(exc))}")
         tally["FAIL"] += 1
         return
     except Content as exc:
         if due:
-            print(f"FAIL {rid}: {exc.cls}: {exc.detail}")
+            print(f"FAIL {rid}: {exc.cls}: {safe(exc.detail)}")
             tally["FAIL"] += 1
         else:
             print(f"PENDING {rid}: {exc.cls}")
@@ -1011,6 +1060,7 @@ def check_expectations(
         "--expect-ids": ids_digest(mine),
         "--expect-table-sha256": sha256_bytes(data),
         "--expect-policy-sha256": policy_digest(table, all_rows),
+        "--expect-reader-sha256": sha256_bytes(read_bytes(os.path.abspath(__file__))),
     }
     fails = 0
     for flag, value in got.items():
@@ -1031,6 +1081,7 @@ def cmd_hashes(argv: list[str]) -> int:
     print(f"--expect-ids {ids_digest(mine)}")
     print(f"--expect-table-sha256 {sha256_bytes(data)}")
     print(f"--expect-policy-sha256 {policy_digest(table, all_rows)}")
+    print(f"--expect-reader-sha256 {sha256_bytes(read_bytes(os.path.abspath(__file__)))}")
     return 0
 
 
@@ -1160,19 +1211,18 @@ def selftest_cases() -> list[tuple]:
         case("scope climbs out of the root", "defect", kind="once", scope="../a.md",
              needle="hello"),
         case("glob reaching only /fixtures/", "defect",
-             {"fixtures/x.md": "hello\n", "q/fixtures/y.md": "hello\n"},
-             kind="once", scope="**/fixtures/*.md", needle="hello"),
+             {"fixtures/x.md": "hello\n", "q/fixtures/y.md": "hello\n"}, kind="once",
+             scope="**/fixtures/*.md", needle="hello"),
         case("explicit /fixtures/ file", "ok", {"q/fixtures/y.md": "hello\n"}, kind="once",
              scope="q/fixtures/y.md", needle="hello"),
         case("duplicate anchor", "defect", kind="once", scope="dup.md", anchor="## Sec",
              needle="one"),
         case("anchor repeated inside a fence counts once", "ok", kind="once", scope="b.md",
              anchor="## Sec", needle="x"),
-        case("section ends at the next heading", "ok", kind="absent", scope="a.md",
-             anchor="## Sec", expect="0", needle="bye"),
-        case("section with a stop level", "ok", {"c.md": "## A\n### B\nz\n## C\n"},
-             kind="once", scope="c.md",
-             anchor="## A @stop=2", needle="z"),
+        case("section ends at the next heading", "ok", kind="absent", scope="a.md", anchor="## Sec",
+             expect="0", needle="bye"),
+        case("section with a stop level", "ok", {"c.md": "## A\n### B\nz\n## C\n"}, kind="once",
+             scope="c.md", anchor="## A @stop=2", needle="z"),
         case("absent but present", "content:stale-present", kind="absent", scope="a.md", expect="0",
              needle="bye"),
         case("count right", "ok", kind="count", scope="a.md", expect="2", needle="hello"),
@@ -1187,74 +1237,112 @@ def selftest_cases() -> list[tuple]:
         case("each-once one clause absent", "content:needle-absent", kind="each-once", scope="a.md",
              expect="2", needle="@miss.txt"),
         case("each-once clause twice", "content",
-             {"tw.md": "hello world\nhello world\nhello again\n"},
-             kind="each-once", scope="tw.md", expect="2", needle="@two.txt"),
+             {"tw.md": "hello world\nhello world\nhello again\n"}, kind="each-once", scope="tw.md",
+             expect="2", needle="@two.txt"),
         case("each-once cardinality", "defect", kind="each-once", scope="a.md", expect="3",
              needle="@two.txt"),
-        case("each-once literal needle", "defect", kind="each-once", scope="a.md",
-             expect="1", needle="hello"),
-        case("terms satisfied", "ok", kind="terms", scope="rows.md", row="xander",
+        case("each-once literal needle", "defect", kind="each-once", scope="a.md", expect="1",
+             needle="hello"),
+        case("terms satisfied", "ok", kind="terms", scope="rows.md", row="xander", expect="2",
+             needle=t),
+        case("terms only in another row", "content", kind="terms", scope="rows.md", row="ian",
              expect="2", needle=t),
-        case("terms only in another row", "content", kind="terms", scope="rows.md",
-             row="ian", expect="2", needle=t),
-        case("auth only as authorization", "content", kind="terms", scope="auth.md",
-             expect="2", needle=t),
+        case("auth only as authorization", "content", kind="terms", scope="auth.md", expect="2",
+             needle=t),
         case("terms bad pattern", "defect", kind="terms", scope="rows.md", expect="1",
              needle="@terms-bad.txt"),
-        case("row selector matches none", "defect", kind="once", scope="rows.md",
-             row="nobody", needle="auth"),
+        case("row selector matches none", "defect", kind="once", scope="rows.md", row="nobody",
+             needle="auth"),
         case("line selector", "ok", kind="once", scope="rows.md", row="line:| ian",
              needle="public API"),
         case("bullet-last ok", "ok", row="len=3", expect="2", scope="p*.md", **bl),
-        case("bullet before On return", "content", row="len=3", expect="1",
-             scope="bad-before.md", **bl),
-        case("bullet with trailing text", "content", row="len=3", expect="1",
-             scope="bad-trail.md", **bl),
-        case("bullet after a blank line", "content", row="len=3", expect="1",
-             scope="bad-break.md", **bl),
-        case("bullet in another section", "content", row="len=3", expect="1",
-             scope="bad-sec.md", **bl),
+        case("bullet before On return", "content", row="len=3", expect="1", scope="bad-before.md",
+             **bl),
+        case("bullet with trailing text", "content", row="len=3", expect="1", scope="bad-trail.md",
+             **bl),
+        case("bullet after a blank line", "content", row="len=3", expect="1", scope="bad-break.md",
+             **bl),
+        case("bullet in another section", "content", row="len=3", expect="1", scope="bad-sec.md",
+             **bl),
         case("bullet absent", "content:needle-absent", row="len=3", expect="1", scope="bad-none.md",
              **bl),
-        case("bullet list of the wrong length", "content", row="len=4", expect="1",
-             scope="p1.md", **bl),
-        case("bullet list length per persona", "ok", row="len=4;p1=3", expect="1",
-             scope="p1.md", **bl),
-        case("bullet roster of the wrong size", "content", row="len=3", expect="3",
-             scope="p*.md", **bl),
-        case("bullet roster exclusion", "ok", row="len=3;exclude=p2.md", expect="1",
-             scope="p*.md", **bl),
-        case("same-length fences nested by info string", "ok", {"n.md": NESTED},
-             kind="once", scope="n.md", anchor="## G", needle="x"),
+        case("bullet list of the wrong length", "content", row="len=4", expect="1", scope="p1.md",
+             **bl),
+        case("bullet list length per persona", "ok", row="len=4;p1=3", expect="1", scope="p1.md",
+             **bl),
+        case("bullet roster of the wrong size", "content", row="len=3", expect="3", scope="p*.md",
+             **bl),
+        case("bullet roster exclusion", "ok", row="len=3;exclude=p2.md", expect="1", scope="p*.md",
+             **bl),
+        case("same-length fences nested by info string", "ok", {"n.md": NESTED}, kind="once",
+             scope="n.md", anchor="## G", needle="x"),
         case("row created by the phase", "content", kind="once", scope="rows.md",
              row="line:| nobody @+", needle="auth"),
         case("bullet after an item that is not On return", "content:shape-mismatch",
-             {"nl.md": NOLAST},
-             row="len=3", expect="1", scope="nl.md", **bl),
+             {"nl.md": NOLAST}, row="len=3", expect="1", scope="nl.md", **bl),
         case("tree-src file sets differ", "content:shape-mismatch", {},
-             {"tr3/a.txt": "1\n", "tr3/b.txt": "2\n", "tr3/c.txt": "3\n"},
-             needle="tr3", **ts),
+             {"tr3/a.txt": "1\n", "tr3/b.txt": "2\n", "tr3/c.txt": "3\n"}, needle="tr3", **ts),
         case("scope climbing out to a file that exists", "defect", kind="once", scope="../s/cp.txt",
              needle="same"),
+        case("a clause in a fence is not seen", "content:needle-absent",
+             {"h.md": "x\n```\nCLAUSE\n```\n"}, kind="once", scope="h.md", needle="CLAUSE"),
+        case("a clause in a fence, @fenced", "ok", {"h.md": "## H\n```\nCLAUSE\n```\n"},
+             kind="once", scope="h.md", anchor="## H @fenced", needle="CLAUSE"),
+        case("a clause in a comment is not seen", "content:needle-absent",
+             {"h.md": "x\n<!-- CLAUSE -->\n"}, kind="once", scope="h.md", needle="CLAUSE"),
+        case("a clause in a multi-line comment is not seen", "content:needle-absent",
+             {"h.md": "x\n<!--\nCLAUSE\n-->\n"}, kind="once", scope="h.md", needle="CLAUSE"),
+        case("a comment heading is not an anchor", "defect", {"h.md": "<!--\n## H\n-->\nCLAUSE\n"},
+             kind="once", scope="h.md", anchor="## H", needle="CLAUSE"),
+        case("a comment heading does not make the anchor twice", "ok",
+             {"h.md": "<!--\n## H\n-->\n## H\nCLAUSE\n"}, kind="once", scope="h.md", anchor="## H",
+             needle="CLAUSE"),
+        case("absent still sees a fence", "content:stale-present", {"h.md": "```\nSTALE\n```\n"},
+             kind="absent", scope="h.md", expect="0", needle="STALE"),
+        case("absent still sees a comment", "content:stale-present", {"h.md": "<!-- STALE -->\n"},
+             kind="absent", scope="h.md", expect="0", needle="STALE"),
+        case("absent-re still sees a comment", "content:stale-present",
+             {"h.md": "<!-- HEAVY: always -->\n"}, scope="h.md", **rx),
+        case("each-once clause only in a fence", "content:needle-absent",
+             {"h.md": "hello world\n```\nhello again\n```\n"}, kind="each-once", scope="h.md",
+             expect="2", needle="@two.txt"),
+        case("terms only in a comment", "content:needle-absent",
+             {"h.md": "<!-- auth secrets -->\nx\n"}, kind="terms", scope="h.md", expect="2",
+             needle=t),
+        case("pair only in a fence", "content:needle-absent", {"h.md": "```\nhello\n```\n"},
+             kind="pair", scope="h.md", expect="1", needle="hello"),
+        case("exact line", "ok", {"h.md": "- **LIGHT**: run\n"}, kind="once", scope="h.md",
+             row="exact", needle="- **LIGHT**: run"),
+        case("exact line, a qualifier after it", "content:needle-absent",
+             {"h.md": "- **LIGHT**: runs only when asked\n"}, kind="once", scope="h.md",
+             row="exact", needle="- **LIGHT**: run"),
+        case("table row by first cell, not a prefix", "defect", kind="once", scope="rows.md",
+             row="xan", needle="auth"),
+        case("symlink in scope", "defect", {"ln.md": "SYMLINK:a.md"}, kind="once", scope="ln.md",
+             needle="hello"),
+        case("symlink resolving outside the root", "defect", {"ln.md": "SYMLINK:../s/cp.txt"},
+             kind="once", scope="ln.md", needle="same"),
+        case("a file over the size cap", "defect", {"big.md": "x" * (MAX_BYTES + 1)}, kind="once",
+             scope="big.md", needle="x"),
         case("bullet inside a TOML comment", "content",
-             {"c.toml": TOML_OPEN + "# " + BULLET + TOML_CLOSE},
-             row="len=3", expect="1", scope="c.toml", **bl),
+             {"c.toml": TOML_OPEN + "# " + BULLET + TOML_CLOSE}, row="len=3", expect="1",
+             scope="c.toml", **bl),
         case("bullet in a TOML string", "ok", {"c.toml": TOML_OPEN + BULLET + TOML_CLOSE},
              row="len=3", expect="1", scope="c.toml", **bl),
         case("absent-re survivor allowed", "ok", id="t-allow", scope="sv.md",
              row="mask=@mask.txt;allow=@survivors.tsv", **rx),
         case("absent-re stale line", "content", scope="sv.md", row="mask=@mask.txt", **rx),
-        case("absent-re only the masked sentence", "ok", scope="sv2.md",
-             row="mask=@mask.txt", **rx),
+        case("absent-re only the masked sentence", "ok", scope="sv2.md", row="mask=@mask.txt",
+             **rx),
         case("absent-re unmasked", "content", scope="sv2.md", **rx),
         case("pair in every file", "ok", kind="pair", scope="a.md;b.md", expect="2",
              needle="## Sec"),
-        case("pair one file lacks it", "content", kind="pair", scope="a.md;b.md",
-             expect="2", needle="hello"),
+        case("pair one file lacks it", "content", kind="pair", scope="a.md;b.md", expect="2",
+             needle="hello"),
         case("gaps clean", "ok", kind="gaps", scope="tbl.md", expect="0"),
         case("gaps line without LIGHT", "content", kind="gaps", scope="gap.md", expect="0"),
-        case("gaps survivor allowed", "ok", id="t-allow", kind="gaps", scope="gap.md",
-             expect="0", row="allow=@survivors.tsv"),
+        case("gaps survivor allowed", "ok", id="t-allow", kind="gaps", scope="gap.md", expect="0",
+             row="allow=@survivors.tsv"),
         case("shape ok", "ok", scope="tbl.md", expect="4",
              needle="header=A;first=TINY,LIGHT,STANDARD,HEAVY", **sh),
         case("shape ragged", "content:shape-mismatch", scope="tbl-rag.md", expect="2",
@@ -1263,8 +1351,8 @@ def selftest_cases() -> list[tuple]:
              needle="first=TINY,LIGHT", **sh),
         case("shape header lacks LIGHT", "content", scope="tbl.md", expect="4",
              needle="header=LIGHT", **sh),
-        case("shape no table in the span", "defect", scope="a.md", anchor="## Sec",
-             expect="1", needle="header=A", kind="shape"),
+        case("shape no table in the span", "defect", scope="a.md", anchor="## Sec", expect="1",
+             needle="header=A", kind="shape"),
         case("moved ok", "ok", expect="1", **mv),
         case("moved first line twice", "content", {"twin.md": "# Tpl first\n"}, expect="1", **mv),
         case("moved uncited", "content", expect="1", **{**mv, "needle": "tpl.md=other.md"}),
@@ -1272,8 +1360,8 @@ def selftest_cases() -> list[tuple]:
              **{**mv, "scope": "empty.md", "needle": "empty.md=host.md"}),
         case("moved template created by the phase", "content", expect="1",
              **{**mv, "scope": "nope.md+"}),
-        case("moved inline once", "ok", kind="moved", scope="a.md", row="inline=1",
-             expect="1", needle="bye"),
+        case("moved inline once", "ok", kind="moved", scope="a.md", row="inline=1", expect="1",
+             needle="bye"),
         case("moved inline twice", "content", kind="moved", scope="a.md", row="inline=1",
              expect="1", needle="hello"),
         case("file-eq equal", "ok", scope="skel.md", needle="@skel.txt", **fe),
@@ -1288,15 +1376,15 @@ def selftest_cases() -> list[tuple]:
         case("cmp-src equal", "ok", kind="cmp-src", scope="cp.txt", expect="1", needle="cp.txt"),
         case("cmp-src differs", "content", kind="cmp-src", scope="cp.txt", expect="1",
              needle="cp-diff.txt"),
-        case("cmp-src port file created by the phase", "content", kind="cmp-src",
-             scope="new.txt+", expect="1", needle="cp.txt"),
+        case("cmp-src port file created by the phase", "content", kind="cmp-src", scope="new.txt+",
+             expect="1", needle="cp.txt"),
         case("tree-src equal", "ok", needle="tr", **ts),
         case("tree-src ignores .DS_Store", "ok", {"tr/.DS_Store": "x"}, needle="tr", **ts),
         case("tree-src one byte", "content", needle="tr2", **ts),
         case("tree-src floor", "content:count-mismatch", needle="tr", **{**ts, "expect": "3"}),
         case("tree-src missing tree", "defect", needle="tr", **{**ts, "scope": "nodir"}),
-        case("diff-src held diff not written", "content",
-             needle="src=cp.txt;held=held-absent.diff", **ds),
+        case("diff-src held diff not written", "content", needle="src=cp.txt;held=held-absent.diff",
+             **ds),
         case("diff-src no difference, no section", "ok", expect="1",
              needle="src=cp.txt;held=held.diff", **ds),
         case("diff-src difference the held diff lacks", "content", expect="1",
@@ -1318,6 +1406,9 @@ def write_tree(base: str, files: dict[str, str]) -> None:
     for rel, content in files.items():
         path = os.path.join(base, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
+        if content.startswith("SYMLINK:"):
+            os.symlink(content[8:], path)
+            continue
         with open(path, "w", encoding="utf-8", newline="") as fh:
             fh.write(content)
 
@@ -1375,7 +1466,11 @@ def main(argv: list[str]) -> int:
     opts = parse_args(argv)
     if isinstance(opts, str):
         return usage(opts)
-    return run(opts)
+    try:
+        return run(opts)
+    except Defect as exc:
+        print(f"FAIL <input>: {safe(str(exc))}")
+        return 1
 
 
 if __name__ == "__main__":
