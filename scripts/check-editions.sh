@@ -17,9 +17,18 @@
 #              (codex and copilot). This repo's own scripts are checked against
 #              the corpus by the gate suite (V11, V10b), not again here.
 #
+#   text       tests/parity/editions.tsv, read by scripts/check-edition-text.py: the
+#              rules and layout this repo landed, by section and table row, in
+#              every edition (this repo's own rows are the reference). A row of a
+#              phase not yet done is PENDING, not failed: --done "<ids>" names the
+#              phases done (default: tests/parity/editions.done; empty means none).
+#              --table <path> replaces the shipped table for the run; with it and
+#              no --done every phase is due. A phase id the table lacks is a usage
+#              error (exit 2).
+#
 # Usage:
-#   check-editions.sh [--skip-behaviour] [<codex> <copilot> <local>]
-#   check-editions.sh [--skip-behaviour] codex=<path> copilot=<path> local=<path>
+#   check-editions.sh [--skip-behaviour] [--done "<ids>"] [--table <path>] [<codex> <copilot> <local>]
+#   check-editions.sh [--skip-behaviour] [--done "<ids>"] [--table <path>] codex=<path> copilot=<path> local=<path>
 #
 # Roots: arguments (three paths in that order, or NAME=PATH pairs for any
 # subset; an edition not named is skipped), else MOZART_EDITION_ROOTS (the same
@@ -34,6 +43,8 @@
 # Exit codes, in precedence order:
 #   1  a check failed (an existing but empty directory is a failure)
 #   3  no check failed but an edition was skipped (the path does not exist)
+#   5  no check failed, nothing skipped, but a text row of a phase not yet done is
+#      pending; the last line names the pending editions and phases
 #   4  everything run passed, but --skip-behaviour left the behaviour arm out
 #   0  all four editions ran every arm and passed
 #   2  usage error
@@ -48,6 +59,9 @@ S3_FILE="$SRC/tests/parity/snippets/S3.txt"
 CORPUS="$SRC/tests/fixtures/conductor"
 HARNESS="$SRC/scripts/check-field-note-parity.py"
 LIB="$SRC/scripts/lib-campaign.sh"
+READER="$SRC/scripts/check-edition-text.py"
+SHIPPED_TABLE="$SRC/tests/parity/editions.tsv"
+DONE_FILE="$SRC/tests/parity/editions.done"
 
 # Where each edition keeps the S3 host text. mozart-contract-gates.sh (V31)
 # builds its fake roots from this same table; a change here fails that gate.
@@ -57,8 +71,8 @@ S3_HOST_copilot=.github/mozart/manual/STATE.md
 S3_HOST_local=src/mozart_local/bundle/manual/STATE.md
 
 usage() {
-  echo "usage: $0 [--skip-behaviour] [<codex> <copilot> <local>]" >&2
-  echo "       $0 [--skip-behaviour] [codex=<path>] [copilot=<path>] [local=<path>]" >&2
+  echo "usage: $0 [--skip-behaviour] [--done \"<ids>\"] [--table <path>] [<codex> <copilot> <local>]" >&2
+  echo "       $0 [--skip-behaviour] [--done \"<ids>\"] [--table <path>] [codex=<path>] [copilot=<path>] [local=<path>]" >&2
   echo "       (else MOZART_EDITION_ROOTS, colon-separated; else ../mozart-{codex,copilot,local})" >&2
   exit 2
 }
@@ -103,13 +117,17 @@ take_items() {
 }
 
 items=()
-for a in "$@"; do
-  case $a in
+done_given=0; done_ids=""; table_arg=""
+while [ "$#" -gt 0 ]; do
+  case $1 in
     --skip-behaviour) skip_behaviour=1 ;;
+    --done) [ "$#" -ge 2 ] && [ "$done_given" = 0 ] || usage; done_given=1; done_ids=$2; shift ;;
+    --table) [ "$#" -ge 2 ] && [ -z "$table_arg" ] || usage; table_arg=$2; shift ;;
     -h|--help) usage ;;
     -*) usage ;;
-    *) items[${#items[@]}]=$a ;;
+    *) items[${#items[@]}]=$1 ;;
   esac
+  shift
 done
 
 if [ "${#items[@]}" -gt 0 ]; then
@@ -123,7 +141,7 @@ else
   set_named local "$SRC/../mozart-local"
 fi
 
-ran=0; skipped=0; failed=0
+ran=0; skipped=0; failed=0; pending_lines=""
 fail() { # fail <edition> <message>
   printf 'FAIL %s: %s\n' "$1" "$2"
   failed=$((failed + 1))
@@ -149,6 +167,25 @@ check_s3() { # check_s3 <edition> <root>
   fi
 }
 
+check_text() { # check_text <edition> <root>: the table rows of that edition
+  local out rc line
+  out=$(python3 "$READER" --edition "$1" --root "$2" --source "$SRC" --expect-source-rows "$(text_source_rows "$1")" "${reader_args[@]}" 2>&1); rc=$?
+  case $rc in
+    0|1|5) printf '%s\n' "$out" | grep -v '^pending: ' ;;
+    *) printf '%s\n' "$out" ;;
+  esac
+  case $rc in
+    0) ;;
+    5) line=$(grep '^pending: ' <<<"$out"); pending_lines="${pending_lines:+$pending_lines; }${line#pending: }" ;;
+    2) echo "usage error from the table reader" >&2; exit 2 ;;
+    *) failed=$((failed + 1)) ;;
+  esac
+}
+
+text_source_rows() { # text_source_rows <edition>: how many -src rows that edition's table has
+  awk -F'\t' -v ed="$1" 'NR > 1 && $2 == ed && ($4 == "cmp-src" || $4 == "diff-src" || $4 == "tree-src" || $4 == "lens-src") { n++ } END { print n + 0 }' "$table_abs"
+}
+
 check_lib() { # check_lib <edition> <root>
   if [ ! -f "$2/scripts/lib-campaign.sh" ]; then
     fail "$1" "scripts/lib-campaign.sh is absent from $2"
@@ -159,9 +196,20 @@ check_lib() { # check_lib <edition> <root>
   fi
 }
 
+# Which table and which phases. The shipped table reads editions.done unless --done
+# says otherwise; a --table run with no --done has every phase due (the reader's default).
+if [ -n "$table_arg" ]; then
+  table_abs=$(cd -- "$(dirname -- "$table_arg")" 2>/dev/null && pwd)/$(basename -- "$table_arg")
+else
+  table_abs=$SHIPPED_TABLE
+  if [ "$done_given" = 0 ] && [ -f "$DONE_FILE" ]; then done_given=1; done_ids=$(cat "$DONE_FILE"); fi
+fi
+reader_args=(--table "$table_abs")
+if [ "$done_given" = 1 ]; then reader_args[${#reader_args[@]}]=--done; reader_args[${#reader_args[@]}]=$done_ids; fi
+
 # The one precondition that is about this repo, not an edition.
 src_ok=1
-for f in "$S3_FILE" "$LIB" "$HARNESS" "$SRC/$S3_HOST_orchestration"; do
+for f in "$S3_FILE" "$LIB" "$HARNESS" "$READER" "$table_abs" "$SRC/$S3_HOST_orchestration"; do
   [ -s "$f" ] || { src_ok=0; fail orchestration "$f is absent or empty"; }
 done
 [ -d "$CORPUS" ] || { src_ok=0; fail orchestration "fixture corpus $CORPUS is absent"; }
@@ -170,6 +218,7 @@ command -v python3 >/dev/null 2>&1 || { src_ok=0; fail orchestration "python3 no
 echo "RUN orchestration $SRC (S3)"
 ran=$((ran + 1))
 [ "$src_ok" = 1 ] && check_s3 orchestration "$SRC"
+[ "$src_ok" = 1 ] && check_text orchestration "$SRC"
 
 behaviour_only=""
 bs_codex=$SRC; bs_copilot=$SRC
@@ -195,6 +244,7 @@ for ed in codex copilot local; do
   ran=$((ran + 1))
   [ "$src_ok" = 1 ] || continue
   check_s3 "$ed" "$abs"
+  check_text "$ed" "$abs"
   if [ "$ed" != local ]; then
     check_lib "$ed" "$abs"
     behaviour_only="${behaviour_only:+$behaviour_only,}$ed"
@@ -230,6 +280,10 @@ fi
 echo "editions: $ran run, $skipped skipped, $failed failed"
 if [ "$failed" -gt 0 ]; then exit 1; fi
 if [ "$skipped" -gt 0 ]; then exit 3; fi
+if [ -n "$pending_lines" ]; then
+  echo "pending: $pending_lines"
+  exit 5
+fi
 if [ "$partial" = 1 ]; then
   echo "PARTIAL: --skip-behaviour left the behaviour arm out; exit 4, never 0"
   exit 4

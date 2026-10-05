@@ -1,0 +1,4 @@
+the three fenced blocks below, one per file
+write each file with exactly its block's content
+don't retype a header from memory
+the report skeleton is the block under stage 13

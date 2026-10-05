@@ -1,0 +1,3 @@
+on HEAVY, also a phase that touches the recorded HEAVY surface
+every phase when the surface is auth, secrets or security
+once on escalation, over the cumulative diff since the base, uncommitted phase diff included

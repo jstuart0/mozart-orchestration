@@ -1,0 +1,53 @@
+edition	from	to	applies
+codex	codex r2	claude r2	SKILL.md:140 (new sentences; edited lines take that line's noun)
+codex	Codex r1 (plan)	Claude r1 (plan)	SKILL.md:618
+codex	Codex r2 (diff)	Claude r2 (diff)	SKILL.md:619
+codex	Codex on plan	Claude on plan	SKILL.md:634
+codex	Codex on diff	Claude on diff	SKILL.md:638
+codex	**Codex**:	**Claude**:	SKILL.md:1406
+codex	codex surfaced	claude surfaced	SKILL.md:1424
+codex	codex	claude	ledger lens value
+copilot	codex r2	sebastian r2	agents/valerie.agent.md:170 (new sentences; edited lines take that line's noun)
+copilot	Codex r1 (plan)	Counterpoint r1 (plan)	manual/STATE.md:93
+copilot	Codex r2 (diff)	Counterpoint r2 (diff)	manual/STATE.md:94
+copilot	Codex on plan	Counterpoint on plan	manual/STATE.md:111
+copilot	Codex on diff	Counterpoint on diff	manual/STATE.md:115
+copilot	**Codex**:	**Counterpoint**:	manual/DELIVER.md:411
+copilot	codex surfaced	sebastian surfaced	manual/DELIVER.md:429
+copilot	codex	sebastian	ledger lens value
+local	codex r2	sebastian r2	agents/valerie.md:168 (new sentences; edited lines take that line's noun)
+local	Codex r1 (plan)	sebastian r1 (plan)	manual/STATE.md:93
+local	Codex r2 (diff)	sebastian r2 (diff)	manual/STATE.md:94
+local	Codex on plan	sebastian on plan	manual/STATE.md:111
+local	Codex on diff	sebastian on diff	manual/STATE.md:115
+local	**Codex**:	**sebastian**:	TEMPLATE-REPORT.md (label per the ported template; local has no inline report block)
+local	codex surfaced	sebastian surfaced	TEMPLATE-REPORT.md (as the label)
+local	codex	sebastian	ledger lens value
+copilot	spawned	dispatched	manual/DELIVER.md (new sentences only)
+copilot	spawns	dispatches	manual/DELIVER.md (new sentences only)
+copilot	spawn	dispatch	manual/DELIVER.md (new sentences only)
+codex	CLAUDE.md	AGENTS.md	SKILL.md, INTEGRATION.md (instruction file)
+copilot	CLAUDE.md	AGENTS.md	INTEGRATION.md:3,5,106,241 (the noun section 5 uses)
+local	CLAUDE.md	{{mozart:base_instructions}}	manual/*.md (instruction file placeholder)
+codex	.mozart/	thoughts/shared/	SKILL.md:346 (listed sites only)
+codex	INTEGRATION.md section 6	INTEGRATION.md section 4	SKILL.md, INTEGRATION.md
+copilot	INTEGRATION.md section 6	.github/mozart/INTEGRATION.md section 6	manual/DELIVER.md, manual/FLOWS.md
+local	INTEGRATION.md section 6	{{mozart:manual_dir}}/FLOWS.md	manual/DELIVER.md (stanza is inline in FLOWS.md)
+codex	`DELIVER.md`	the named section of SKILL.md	SKILL.md (cross-references)
+copilot	`DELIVER.md`	`.github/mozart/manual/DELIVER.md`	manual/*.md, agents
+local	`DELIVER.md`	`{{mozart:manual_dir}}/DELIVER.md`	manual/*.md, agents
+codex	`STATE.md`	the named section of SKILL.md	SKILL.md (cross-references)
+copilot	`STATE.md`	`.github/mozart/manual/STATE.md`	manual/*.md, agents
+local	`STATE.md`	`{{mozart:manual_dir}}/STATE.md`	manual/*.md, agents
+codex	`FLOWS.md`	the named section of SKILL.md	SKILL.md (cross-references)
+copilot	`FLOWS.md`	`.github/mozart/manual/FLOWS.md`	manual/*.md, agents
+local	`FLOWS.md`	`{{mozart:manual_dir}}/FLOWS.md`	manual/*.md, agents
+codex	`CONTEXT-BUDGET.md`	the named section of SKILL.md	SKILL.md (cross-references)
+copilot	`CONTEXT-BUDGET.md`	`.github/mozart/manual/CONTEXT-BUDGET.md`	manual/*.md, agents
+local	`CONTEXT-BUDGET.md`	`{{mozart:manual_dir}}/CONTEXT-BUDGET.md`	manual/*.md, agents
+codex	`mozart.md`, *Task tiers*	the *Task tiers (DELIVER)* section	SKILL.md
+copilot	`mozart.md`, *Task tiers*	`.github/mozart/manual/INTAKE.md`, *Task tiers (DELIVER)*	manual/DELIVER.md
+local	`mozart.md`, *Task tiers*	`{{mozart:manual_dir}}/INTAKE.md`, *Task tiers (DELIVER)*	manual/DELIVER.md
+codex	*Orchestration discipline*	*Orchestration discipline*	SKILL.md
+copilot	*Orchestration discipline*	*Orchestration discipline*	conductor persona
+local	*Orchestration discipline*	*Working mode*	conductor persona
