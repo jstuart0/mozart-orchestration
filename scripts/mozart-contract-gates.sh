@@ -5103,7 +5103,7 @@ for e in ("copilot", "codex", "local"):
     need(sum(1 for r in rows if r[1] == e and r[2] == "0" and not r[0].startswith("ctl-")) == 0, f"{e}: a phase-0 row that is not ctl-*")
 phases = {r[2] for r in rows} - {"0"}
 done = open(os.path.join(root, "tests/parity/editions.done"), encoding="utf-8").read().split()
-need(all(d in phases for d in done) and len(done) == len(set(done)), f"editions.done holds {done}")
+need(done == ["1b", "2", "3", "4", "5", "6", "7"] and all(d in phases for d in done), f"editions.done must list every phase id, 1b 2 3 4 5 6 7, in that order (a removed id would turn a FAIL into PENDING): {done}")
 # ---- no rewrite token in a fragment; translate.tsv shape -----------------------------------------
 tr = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/translate.tsv"), encoding="utf-8")]
 need(tr[0] == ["edition", "from", "to", "applies"], "translate.tsv header")
