@@ -165,7 +165,7 @@ rule-xterms-p8-codex	codex	6	terms	PIPELINE.md	### Mid-build specialist triggers
 rule-xrow-p8-codex	codex	6	each-once	PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	xander	3	@pipeline-s8-xander-row.txt
 rule-ian-p8-codex	codex	6	once	PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	ian	1	recorded HEAVY surface
 rule-xterms-persona-codex	codex	6	terms	.codex/agents/xander.toml		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
-rule-pipe-shape-codex	codex	6	shape	PIPELINE.md	### Tier adjustments		7	header=LIGHT
+rule-pipe-shape-codex	codex	6	shape	PIPELINE.md	### Tier adjustments		6	header=LIGHT
 rule-pipe-tiers-codex	codex	6	once	PIPELINE.md			1	**Four DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY
 rule-r2-light-codex	codex	6	once	PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-codex	codex	6	once	PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
@@ -189,7 +189,7 @@ rule-traces-3-codex	codex	6	once	.codex/agents/scott.toml	 @fenced		1	@traces-to
 rule-traces-4-codex	codex	6	once	.codex/agents/dick.toml	 @fenced		1	@traces-to-grammar.txt
 rule-traces-5-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	@traces-to-grammar.txt
 rule-traces-6-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Diagnose-mode rules @fenced		1	@traces-to-grammar.txt
-rule-traces-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Incident-mode rules @fenced		1	@traces-to-grammar.txt
+rule-traces-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 6. Post-mortem (blameless) — scott @fenced		1	@traces-to-grammar.txt
 rule-traces-old-codex	codex	6	absent	.codex/agents/dick.toml			0	<originating-campaign-slug>
 rule-dead-codex	codex	6	absent	.codex/skills/mozart/SKILL.md			0	## Communicate as you work
 lay-skeleton-ledger-codex	codex	7	block-eq	.codex/skills/mozart/SKILL.md	### State file format	block=2	3	@ledger-skeleton.md
@@ -245,7 +245,7 @@ ctl-x2b-nocsp-d-local	local	0	absent	src/mozart_local/bundle/manual/DELIVER.md	#
 ctl-x2b-nocsp-p-local	local	0	absent	src/mozart_local/bundle/docs/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)	xander	0	CSP
 rule-phaserows-local	local	4	each-once	src/mozart_local/bundle/manual/STATE.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-local	local	4	each-once	src/mozart_local/bundle/agents/bob.md		line:- **On a LIGHT plan you review alone** @+	6	@bob-duty-clauses.txt
-rule-flags-local	local	4	each-once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		3	@flags-clauses.txt
+rule-flags-local	local	4	each-once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)	line:- **EVERY-PHASE**	3	@flags-clauses.txt
 rule-stanza-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	**Mozart reads this stanza and never writes it.**
 rule-variant-local	local	4	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md		mask=@heavy-variant.mask;allow=@survivors.tsv	0	@heavy-variant.re
 rule-example-local	local	4	absent-re	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md		allow=@survivors.tsv	0	@heavy-example.re

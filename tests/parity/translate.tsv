@@ -55,3 +55,12 @@ copilot	*Orchestration discipline*	*Orchestration discipline*	conductor persona
 local	*Orchestration discipline*	*Working mode*	conductor persona
 copilot	Codex on diff — codex CLI external review of final diff	Counterpoint on diff — sebastian's cross-model review of the final diff	PIPELINE.md stage-9 roster line (F44): copilot's own wording
 local	Codex on diff — codex CLI external review of final diff	Codex on diff — codex CLI external review of final diff	PIPELINE.md stage-9 roster line (F44): local keeps its pre-existing noun, frozen by ctl-leak-codexdiff-local
+copilot	Spawning	Dispatching	new example lines (mozart.md:330, WORKTREES.md:122); copilot's lines say Dispatching
+copilot	the escalation rule in `mozart.md`	the escalation rule in `.github/mozart/manual/INTAKE.md`	manual/DELIVER.md stage 4 and 7d
+copilot	(see `INTEGRATION.md`)	(see `.github/mozart/INTEGRATION.md`)	manual/FLOWS.md EVERY-PHASE bullet
+copilot	its sibling ledger and conductor files, hashed as `docs/EVAL.md` defines it	its sibling `<slug>.ledger.md` and `<slug>.conductor.md`, hashed as `.github/mozart/EVAL.md` defines it	manual/EVAL.md stage 1
+codex	the escalation rule in `mozart.md`	the escalation rule in the *Task tiers (DELIVER)* section	SKILL.md stage 4 and 7d
+codex	run codex round 2 on the diff	run claude r2 on the diff	valerie.toml: an edited line keeps its own noun (plan, Decision 10)
+local	the escalation rule in `mozart.md`	the escalation rule in `{{mozart:manual_dir}}/INTAKE.md`	manual/DELIVER.md stage 4 and 7d: local keeps the tier rules in manual/INTAKE.md
+local	(see `INTEGRATION.md`)	(documented in the stanza paragraph just below)	manual/FLOWS.md: local ships no INTEGRATION.md; the stanza is documented in the same section (Decision 9)
+local	its sibling ledger and conductor files, hashed as `docs/EVAL.md` defines it	its sibling `<slug>.ledger.md` and `<slug>.conductor.md`, hashed as the plugin's `docs/EVAL.md` defines it	manual/EVAL.md stage 1: the bundle ships no EVAL reference file, so the pointer names the plugin's
