@@ -1,0 +1,10 @@
+Phase 1**: ian and xander both run.
+each runs when its trigger below matches or the phase touches the recorded HEAVY surface.
+surface includes `auth`, `secrets` or `security`, xander is
+ on every phase**; only ian is trigger-gated.
+ecord every listed word that applies;
+any term in xander's stage-8 row maps to `security`.
+An absent, empty or unlisted word counts as touching the surface on every phase
+xander reviews the cumulative diff since the base once, uncommitted phase diff included, before further implementation;
+Record both lenses on the phase's `P<N>` conductor row
+both at every phase of a HEAVY campaign, whatever the triggers and the recorded surface say.

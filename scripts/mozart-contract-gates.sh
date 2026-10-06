@@ -4449,13 +4449,25 @@ else
   v31_has() { grep -qE "$2" <<<"$1" || v31_bad="$v31_bad [$3]"; }
   v31_hasnt() { ! grep -qE "$2" <<<"$1" || v31_bad="$v31_bad [$3]"; }
   v31_c="codex=$v31_tmp/codex"; v31_p="copilot=$v31_tmp/copilot"; v31_l="local=$v31_tmp/local"
+  # The existing arms below test exit codes and RUN/SKIP/FAIL lines, not the text rows. Each passes
+  # --table with one control row per edition that its fake root satisfies (the host file carries the
+  # state-persistence heading once), so their outcomes do not depend on the shipped table.
+  v31_ctl="$v31_tmp/ctl/parity/ctl.tsv"; mkdir -p "$v31_tmp/ctl/parity"
+  {
+    printf 'id\tedition\tphase\tkind\tscope\tanchor\trow\texpect\tneedle\n'
+    printf 'ctl-v31-%s\t%s\t0\tonce\t%s\t\t\t1\t%s\n' orchestration orchestration agents/STATE.md '## State persistence (crash-resume)'
+    printf 'ctl-v31-%s\t%s\t0\tonce\t%s\t\t\t1\t%s\n' codex codex "$v31_s3codex" '## State persistence (crash-resume)'
+    printf 'ctl-v31-%s\t%s\t0\tonce\t%s\t\t\t1\t%s\n' copilot copilot "$v31_s3copilot" '## State persistence (crash-resume)'
+    printf 'ctl-v31-%s\t%s\t0\tonce\t%s\t\t\t1\t%s\n' local local "$v31_s3local" '## State persistence (crash-resume)'
+  } > "$v31_ctl"
+  v31_t=(--table "$v31_ctl")
 
   # 9.1 everything present: four RUN lines, no SKIP, no FAIL, and local counted
   #     by its S3 run. Argument roots beat the environment. --skip-behaviour
   #     makes this a partial run, which exits 4 and never 0; the one arm that
   #     runs the behaviour arm too is the environment arm below.
   v31_arm "all present, partial" 4 env MOZART_EDITION_ROOTS=/nonexistent-v31-a:/nonexistent-v31-b:/nonexistent-v31-c \
-    bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
+    bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
   [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [all present: not exactly four RUN lines]"
   for v31_e in orchestration codex copilot local; do v31_has "$v31_out" "^RUN $v31_e " "all present: no RUN line for $v31_e"; done
   v31_hasnt "$v31_out" '^SKIP ' "all present: a SKIP line"
@@ -4467,7 +4479,7 @@ else
   #     spaced copilot root works, the roots arrive without any argument.
   mkdir -p "$v31_tmp/work dir" && mv "$v31_tmp/copilot" "$v31_tmp/work dir/copilot with space" \
     || v31_bad="$v31_bad [moving the copilot root to a spaced path failed]"
-  v31_arm "environment roots, relative and spaced paths" 0 bash -c 'cd "$1" && MOZART_EDITION_ROOTS="../codex:copilot with space:../local" bash "$2"' _ "$v31_tmp/work dir" "$v31_script"
+  v31_arm "environment roots, relative and spaced paths" 0 bash -c 'cd "$1" && MOZART_EDITION_ROOTS="../codex:copilot with space:../local" bash "$2" --table "$3"' _ "$v31_tmp/work dir" "$v31_script" "$v31_ctl"
   v31_has "$v31_out" "^RUN codex $v31_tmp/codex" "relative path not absolutised in the RUN line"
   v31_has "$v31_out" "^RUN copilot $v31_tmp/work dir/copilot with space" "spaced path not carried through"
   [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "4" ] || v31_bad="$v31_bad [environment roots: not exactly four RUN lines]"
@@ -4481,7 +4493,7 @@ else
       local) v31_set="$v31_c $v31_p" ;;
     esac
     # shellcheck disable=SC2086
-    v31_arm "$v31_omit omitted" 3 bash "$v31_script" --skip-behaviour $v31_set
+    v31_arm "$v31_omit omitted" 3 bash "$v31_script" "${v31_t[@]}" --skip-behaviour $v31_set
     v31_has "$v31_out" "^SKIP $v31_omit: checkout not found" "$v31_omit omitted: no SKIP line naming it"
     [ "$(grep -c '^SKIP ' <<<"$v31_out" || true)" = "1" ] || v31_bad="$v31_bad [$v31_omit omitted: not exactly one SKIP line]"
     [ "$(grep -c '^RUN ' <<<"$v31_out" || true)" = "3" ] || v31_bad="$v31_bad [$v31_omit omitted: not exactly three RUN lines]"
@@ -4492,38 +4504,38 @@ else
   cp -R "$v31_tmp/codex" "$v31_tmp/codex-s3" && cp -R "$v31_tmp/copilot" "$v31_tmp/copilot-s3x2" || v31_bad="$v31_bad [copying roots for the S3 mutations failed]"
   sed 's/Reversals append/Reversals appended/' "$v31_tmp/codex-s3/$v31_s3codex" > "$v31_tmp/m" && mv "$v31_tmp/m" "$v31_tmp/codex-s3/$v31_s3codex"
   cmp -s "$v31_tmp/codex-s3/$v31_s3codex" "$v31_tmp/codex/$v31_s3codex" && v31_bad="$v31_bad [CONTROL: the S3 mutation changed nothing]"
-  v31_arm "S3 mutated" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-s3" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_arm "S3 mutated" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_tmp/codex-s3" "$v31_tmp/copilot" "$v31_tmp/local"
   v31_has "$v31_out" '^FAIL codex' "S3 mutated: the output does not name codex"
   v31_hasnt "$v31_out" '^FAIL (copilot|local|orchestration)' "S3 mutated: a different edition is named as failing"
   { echo; cat "$gate_root/tests/parity/snippets/S3.txt"; } >> "$v31_tmp/copilot-s3x2/$v31_s3copilot"
-  v31_arm "S3 twice" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-s3x2" "$v31_tmp/local"
+  v31_arm "S3 twice" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-s3x2" "$v31_tmp/local"
   v31_has "$v31_out" '^FAIL copilot' "S3 twice: the output does not name copilot"
 
   # 9.4 failure outranks skip, and the skip is still reported.
-  v31_arm "mutated and omitted" 1 bash "$v31_script" --skip-behaviour "codex=$v31_tmp/codex-s3" "$v31_p"
+  v31_arm "mutated and omitted" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "codex=$v31_tmp/codex-s3" "$v31_p"
   v31_has "$v31_out" '^SKIP local: checkout not found' "mutated and omitted: the SKIP line is missing"
   v31_has "$v31_out" '^FAIL codex' "mutated and omitted: the output does not name codex"
 
   # 9.10 one byte of the shared library changed in a fake codex root; and the
   #     library absent from a fake copilot root.
   cp -R "$v31_tmp/codex" "$v31_tmp/codex-lib" && printf '#' >> "$v31_tmp/codex-lib/scripts/lib-campaign.sh"
-  v31_arm "library one byte off" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex-lib" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_arm "library one byte off" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_tmp/codex-lib" "$v31_tmp/copilot" "$v31_tmp/local"
   v31_has "$v31_out" '^FAIL codex.*lib-campaign\.sh' "library one byte off: the output does not name codex and the library"
   cp -R "$v31_tmp/copilot" "$v31_tmp/copilot-nolib" && rm "$v31_tmp/copilot-nolib/scripts/lib-campaign.sh"
-  v31_arm "library absent" 1 bash "$v31_script" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-nolib" "$v31_tmp/local"
+  v31_arm "library absent" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_tmp/codex" "$v31_tmp/copilot-nolib" "$v31_tmp/local"
   v31_has "$v31_out" '^FAIL copilot.*lib-campaign\.sh' "library absent: the output does not name copilot and the library"
 
   # 9.5 usage errors exit 2: an unknown flag, one positional root, four, an
   #     unknown edition name. A nonexistent path is a skip; an existing empty
   #     directory is a failure, never a skip and never a pass.
-  v31_arm "unknown flag" 2 bash "$v31_script" --no-such-flag
-  v31_arm "one positional root" 2 bash "$v31_script" "$v31_tmp/codex"
-  v31_arm "four positional roots" 2 bash "$v31_script" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local" "$v31_tmp/local"
-  v31_arm "unknown edition name" 2 bash "$v31_script" "rust=$v31_tmp/codex"
-  v31_arm "nonexistent path" 3 bash "$v31_script" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/no such dir"
+  v31_arm "unknown flag" 2 bash "$v31_script" "${v31_t[@]}" --no-such-flag
+  v31_arm "one positional root" 2 bash "$v31_script" "${v31_t[@]}" "$v31_tmp/codex"
+  v31_arm "four positional roots" 2 bash "$v31_script" "${v31_t[@]}" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local" "$v31_tmp/local"
+  v31_arm "unknown edition name" 2 bash "$v31_script" "${v31_t[@]}" "rust=$v31_tmp/codex"
+  v31_arm "nonexistent path" 3 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/no such dir"
   v31_has "$v31_out" '^SKIP local: checkout not found' "nonexistent path: no SKIP line"
   mkdir "$v31_tmp/empty"
-  v31_arm "empty directory" 1 bash "$v31_script" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/empty"
+  v31_arm "empty directory" 1 bash "$v31_script" "${v31_t[@]}" --skip-behaviour "$v31_c" "$v31_p" "local=$v31_tmp/empty"
   v31_has "$v31_out" '^FAIL local' "empty directory: the output does not name local"
   v31_hasnt "$v31_out" '^SKIP ' "empty directory: read as a skip"
 
@@ -4532,20 +4544,749 @@ else
   # copilot root beside it is healthy, and the harness's own exit status (1, for
   # the codex failure) must not be read as copilot's.
   cp -R "$v31_tmp/codex" "$v31_tmp/codex-bad" && printf '#!/bin/sh\necho "lint-stub: boom"\nexit 7\n' > "$v31_tmp/codex-bad/scripts/mozart-lint.sh"
-  v31_arm "port script exits 7" 1 bash "$v31_script" "codex=$v31_tmp/codex-bad" "$v31_p" "$v31_l"
+  v31_arm "port script exits 7" 1 bash "$v31_script" "${v31_t[@]}" "codex=$v31_tmp/codex-bad" "$v31_p" "$v31_l"
   v31_has "$v31_out" '^ok   copilot: behaviour' "port script exits 7: the healthy copilot edition is not reported ok"
   v31_has "$v31_out" 'exit=7' "port script exits 7: the harness line naming the exit code is not shown"
   v31_has "$v31_out" '^FAIL codex' "port script exits 7: the output does not name codex"
   v31_hasnt "$v31_out" '^FAIL (copilot|local)' "port script exits 7: a healthy edition is named as failing"
+
+  # ---- the table reader (phase 1a): inline tables over scratch roots --------------------------------
+  # check-editions.sh above ran with a one-row control table per edition; the arms below drive
+  # scripts/check-edition-text.py itself. Every arm names its inline table; none uses the shipped one
+  # except the bare-root arm, which exists to show the inline table is not the default.
+  v31_reader="$gate_root/scripts/check-edition-text.py"
+  v31_T=$'\t'
+  v31_hdr="id${v31_T}edition${v31_T}phase${v31_T}kind${v31_T}scope${v31_T}anchor${v31_T}row${v31_T}expect${v31_T}needle"
+  v31_row() { local IFS=$v31_T; printf '%s\n' "$*"; }  # nine fields, empty ones kept
+  v31_rt="$v31_tmp/rt"; v31_rsrc="$v31_tmp/rsrc"
+  mkdir -p "$v31_rt/fx/fixtures" "$v31_rsrc/tests/fixtures/lens" "$v31_rsrc/scripts" "$v31_tmp/tbl/policy"
+  printf '## Sec\nhello\n```\n## Sec\n```\n' > "$v31_rt/a.md"
+  printf 'same\n' > "$v31_rt/cp.txt"; printf 'same\n' > "$v31_rsrc/cp.txt"
+  printf 'hello\n' > "$v31_rt/fx/fixtures/x.md"
+  printf 'lens fixture\n' > "$v31_rsrc/tests/fixtures/lens/a.md"
+  # rd <label> <want rc> <table lines file> <reader args...>
+  v31_rd() {
+    local lbl=$1 want=$2 tf=$3; shift 3
+    v31_arm "$lbl" "$want" python3 "$v31_reader" --edition codex --root "$v31_rt" --table "$tf" "$@"
+  }
+  v31_tbl() { # v31_tbl <name> <row>...: writes $v31_tmp/tbl/parity/<name>.tsv with the header
+    local f="$v31_tmp/tbl/parity/$1.tsv"; shift
+    mkdir -p "$v31_tmp/tbl/parity"
+    { printf '%s\n' "$v31_hdr"; for r in "$@"; do printf '%s\n' "$r"; done; } > "$f"
+    v31_tf=$f
+  }
+  v31_ok="$(v31_row t-ok codex 0 once a.md "" "" 1 hello)"
+  v31_pend="$(v31_row t-pend codex 2 once a.md "" "" 1 nowhere)"
+  v31_passes="$(v31_row t-early codex 2 once a.md "" "" 1 hello)"
+
+  # selftest: every kind has planted inputs it must flag and clean ones it must not
+  v31_arm "reader selftest" 0 python3 "$v31_reader" selftest
+  v31_has "$v31_out" '^selftest ok: 78 planted inputs flagged, 36 clean inputs accepted$' "selftest: the planted/clean counts changed"
+  # the shipped table is not the default of the inline one: over a bare fake root it fails
+  v31_arm "shipped table, bare fake roots" 1 bash "$v31_script" --skip-behaviour --done "" "$v31_tmp/codex" "$v31_tmp/copilot" "$v31_tmp/local"
+  v31_has "$v31_out" '^FAIL ctl-noprogress-none-codex' "shipped table over a bare root: no FAIL for a phase-0 codex row"
+  v31_has "$v31_out" '^FAIL ctl-mirror-copilot' "shipped table over a bare root: ctl-mirror-copilot did not fail"
+  # --done: "" is legal, 1 is not (no phase-1 row), a malformed list is a usage error
+  v31_tbl done "$v31_ok" "$v31_pend"
+  v31_rd "--done empty" 5 "$v31_tf" --done ""
+  v31_rd "--done 1 is unknown" 2 "$v31_tf" --done "1"
+  v31_rd "--done malformed" 2 "$v31_tf" --done "2,3"
+  v31_arm "check-editions --done 1" 2 bash "$v31_script" --skip-behaviour --done "1" "$v31_c" "$v31_p" "$v31_l"
+  v31_arm "check-editions --done needs a value" 2 bash "$v31_script" --skip-behaviour --done
+  v31_rd "unknown flag" 2 "$v31_tf" --no-such-flag
+  python3 "$v31_reader" --edition rust --root "$v31_rt" --table "$v31_tf" >/dev/null 2>&1; [ "$?" -eq 2 ] || v31_bad="$v31_bad [unknown edition: not a usage error]"
+  v31_arms=$((v31_arms + 1))
+  # pending-only exits 5 with no FAIL and names the phase; a done phase makes the same row due
+  v31_rd "pending only" 5 "$v31_tf" --done ""
+  v31_has "$v31_out" '^PENDING t-pend: needle-absent' "pending-only: the pending row is not named with its reason"
+  v31_hasnt "$v31_out" '^FAIL ' "pending-only: a FAIL line"
+  v31_has "$v31_out" '^pending: codex phases 2 \(1 rows\)$' "pending-only: the last line does not name the phase"
+  v31_rd "pending row, phase done" 1 "$v31_tf" --done "2"
+  v31_has "$v31_out" '^FAIL t-pend: needle-absent' "a done phase did not make its failing row a FAIL"
+  v31_rd "no --done: every phase due" 1 "$v31_tf"
+  v31_tbl early "$v31_ok" "$v31_passes"
+  v31_rd "a pending row that passes" 1 "$v31_tf" --done ""
+  v31_has "$v31_out" '^FAIL t-early: passes before its phase' "a pending row that passes was not a FAIL"
+  v31_tbl defect "$v31_ok" "$(v31_row t-nofile codex 2 once nosuch.md "" "" 1 hello)"
+  v31_rd "pending row failing for a table defect" 1 "$v31_tf" --done ""
+  v31_has "$v31_out" '^FAIL t-nofile: table defect' "a scope with no file was read as pending"
+  v31_hasnt "$v31_out" '^PENDING t-nofile' "a scope with no file was pending"
+  # the six pending classes, and the twins that are table defects
+  printf '## Sec\nhello hello\n## Sec2\nstale\n| a | b |\n|--|--|\n| x |\n' > "$v31_rt/classes.md"
+  v31_tbl classes \
+    "$(v31_row c-needle codex 2 once classes.md "" "" 1 nowhere)" \
+    "$(v31_row c-stale codex 2 absent classes.md "" "" 0 stale)" \
+    "$(v31_row c-count codex 2 once classes.md "" "" 1 hello)" \
+    "$(v31_row c-shape codex 2 shape classes.md "## Sec2" "" 1 header=a)" \
+    "$(v31_row c-file codex 2 once newfile.md+ "" "" 1 hello)" \
+    "$(v31_row c-anchor codex 2 once classes.md "## Later @+" "" 1 hello)"
+  v31_rd "six pending classes" 5 "$v31_tf" --done ""
+  for v31_cls in 'c-needle: needle-absent' 'c-stale: stale-present' 'c-count: count-mismatch' 'c-shape: shape-mismatch' 'c-file: file-created' 'c-anchor: anchor-created'; do
+    v31_has "$v31_out" "^PENDING $v31_cls\$" "pending class not reported: $v31_cls"
+  done
+  v31_hasnt "$v31_out" '^FAIL ' "pending classes: a FAIL line"
+  v31_tbl twins \
+    "$(v31_row d-anchor codex 2 once classes.md "## Missing" "" 1 hello)" \
+    "$(v31_row d-file codex 2 once nosuch.md "" "" 1 hello)" \
+    "$(v31_row d-glob codex 2 once "zz/*.md" "" "" 1 hello)"
+  v31_rd "unmarked missing anchor, file and glob" 1 "$v31_tf" --done ""
+  for v31_id in d-anchor d-file d-glob; do v31_has "$v31_out" "^FAIL $v31_id: table defect" "$v31_id was not a table defect"; done
+  # an anchor that occurs once outside a fence and again inside one counts once
+  v31_tbl fenced "$(v31_row f-fence codex 0 once a.md "## Sec" "" 1 hello)"
+  v31_rd "anchor repeated inside a fence" 0 "$v31_tf"
+  # a glob that reaches only /fixtures/ matches nothing; an explicit fixture path works
+  v31_tbl fixtures "$(v31_row g-glob codex 0 once "fx/**/*.md" "" "" 1 hello)"
+  v31_rd "glob reaching only /fixtures/" 1 "$v31_tf"
+  v31_tbl fixtures2 "$(v31_row g-explicit codex 0 once fx/fixtures/x.md "" "" 1 hello)"
+  v31_rd "explicit /fixtures/ file" 0 "$v31_tf"
+  # table defects: each prints FAIL <table> and exits 1
+  v31_tbl dup "$v31_ok" "$(v31_row T-OK codex 0 once a.md "" "" 1 hello)"
+  v31_rd "duplicate id differing in case" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*duplicate' "duplicate id: no FAIL <table>"
+  v31_tbl badkind "$(v31_row t-k codex 0 nokind a.md "" "" 1 hello)"
+  v31_rd "unknown kind" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*unknown kind' "unknown kind: no FAIL <table>"
+  v31_tbl badedition "$(v31_row t-e rust 0 once a.md "" "" 1 hello)"
+  v31_rd "unknown edition in a row" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*unknown edition' "unknown edition: no FAIL <table>"
+  v31_tbl badcount "$(v31_row t-c codex 0 count a.md "" "" two hello)"
+  v31_rd "non-integer count" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*not an integer' "non-integer count: no FAIL <table>"
+  v31_tbl ragged "a${v31_T}b"
+  v31_rd "ragged table line" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: ' "ragged line: no FAIL <table>"
+  : > "$v31_tmp/tbl/parity/empty.tsv"
+  v31_rd "empty table" 1 "$v31_tmp/tbl/parity/empty.tsv"; v31_has "$v31_out" '^FAIL <table>: the table is empty' "empty table: no FAIL <table>"
+  v31_rd "missing table" 1 "$v31_tmp/tbl/parity/nosuch.tsv"; v31_has "$v31_out" '^FAIL <table>: ' "missing table: no FAIL <table>"
+  { printf '%s\r\n' "$v31_hdr"; printf '%s\r\n' "$v31_ok"; } > "$v31_tmp/tbl/parity/crlf.tsv"
+  v31_rd "CRLF table" 0 "$v31_tmp/tbl/parity/crlf.tsv"
+  # a root that is a file; a scope that climbs out of the root
+  v31_arm "root is a file" 1 python3 "$v31_reader" --edition codex --root "$v31_rt/a.md" --table "$v31_tmp/tbl/parity/crlf.tsv"
+  v31_tbl climb "$(v31_row t-up codex 0 once ../a.md "" "" 1 hello)"
+  v31_rd "scope climbing out of the root" 1 "$v31_tf"
+  # NEEDS-SOURCE: the count is never ignored
+  v31_tbl src "$(v31_row s-cmp codex 0 cmp-src cp.txt "" "" 1 cp.txt)"
+  v31_rd "-src row without --source, no count" 1 "$v31_tf"; v31_has "$v31_out" '^NEEDS-SOURCE s-cmp$' "no NEEDS-SOURCE line"
+  v31_rd "-src row without --source, count equal" 0 "$v31_tf" --expect-source-rows 1
+  v31_rd "-src row without --source, count unequal" 1 "$v31_tf" --expect-source-rows 2
+  v31_rd "-src row with --source" 0 "$v31_tf" --source "$v31_rsrc"; v31_has "$v31_out" '^ok s-cmp$' "cmp-src with --source did not pass"
+  printf 'diff\n' > "$v31_rsrc/cp.txt"
+  v31_rd "cmp-src one byte off" 1 "$v31_tf" --source "$v31_rsrc"
+  printf 'same\n' > "$v31_rsrc/cp.txt"
+  # lens-src: the helper's exits 0, 1 and 2, and not yet written
+  v31_tbl lens "$(v31_row l-lens codex 3 lens-src cp.txt "" "" 6 'scripts/check-edition-lens.sh+;tests/fixtures/lens+')"
+  v31_rd "lens helper not yet written" 5 "$v31_tf" --source "$v31_tmp/tbl" --done ""
+  for v31_code in 0 1 2; do
+    printf '#!/bin/bash\nexit %s\n' "$v31_code" > "$v31_rsrc/scripts/check-edition-lens.sh"
+    case $v31_code in 0) v31_want=0 ;; 1) v31_want=1 ;; 2) v31_want=1 ;; esac
+    v31_rd "lens helper exit $v31_code at its phase" "$v31_want" "$v31_tf" --source "$v31_rsrc" --done "3"
+  done
+  printf "#!/bin/bash\nexit 1\n" > "$v31_rsrc/scripts/check-edition-lens.sh"
+  v31_rd "lens helper exit 1 before its phase" 5 "$v31_tf" --source "$v31_rsrc" --done ""
+  printf '#!/bin/bash\nexit 0\n' > "$v31_rsrc/scripts/check-edition-lens.sh"
+  v31_rd "lens helper passes before its phase" 1 "$v31_tf" --source "$v31_rsrc" --done ""
+  v31_has "$v31_out" '^FAIL l-lens: passes before its phase' "a lens row that passes early was not a FAIL"
+  # call-site pins: each mismatch is a FAIL; the five printed literals hold
+  printf 'hello\n' > "$v31_tmp/tbl/policy/n.txt"
+  v31_tbl pins "$(v31_row p-ok codex 0 once a.md "" "" 1 @n.txt)"
+  v31_pins_tsha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$v31_tf")
+  v31_pins_ids=$(python3 -c 'import hashlib;print(hashlib.sha256(b"p-ok\n").hexdigest())')
+  v31_pins_pol=$(python3 -c 'import hashlib;print(hashlib.sha256(b"n.txt\0hello\n\0").hexdigest())')
+  v31_rd "all five pins right" 0 "$v31_tf" --expect-rows 1 --expect-source-rows 0 --expect-ids "$v31_pins_ids" --expect-table-sha256 "$v31_pins_tsha" --expect-policy-sha256 "$v31_pins_pol"
+  v31_rd "--expect-rows wrong" 1 "$v31_tf" --expect-rows 2 --expect-source-rows 0
+  v31_rd "--expect-ids wrong" 1 "$v31_tf" --expect-ids 0000
+  v31_rd "--expect-table-sha256 wrong" 1 "$v31_tf" --expect-table-sha256 0000
+  v31_rd "--expect-policy-sha256 wrong" 1 "$v31_tf" --expect-policy-sha256 0000
+  v31_rd "--expect-reader-sha256 wrong" 1 "$v31_tf" --expect-reader-sha256 0000
+  v31_rsha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$v31_reader")
+  v31_rd "--expect-reader-sha256 right" 0 "$v31_tf" --expect-reader-sha256 "$v31_rsha" --expect-source-rows 0
+  cp "$v31_reader" "$v31_tmp/tbl/reader-copy.py"; printf '#' >> "$v31_tmp/tbl/reader-copy.py"
+  v31_arm "a reader one byte off fails its own pin" 1 python3 "$v31_tmp/tbl/reader-copy.py" --edition codex --root "$v31_rt" --table "$v31_tf" --expect-reader-sha256 "$v31_rsha" --expect-source-rows 0
+  v31_has "$v31_out" '^FAIL expect-reader-sha256' "the modified reader did not fail the reader pin"
+  v31_rd "a port cannot be its own source" 2 "$v31_tf" --source "$v31_rt"
+  v31_tbl otheredition "$(v31_row t-o copilot 0 once a.md "" "" 1 hello)"
+  v31_rd "an edition with no row" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL <table>: .*no row for edition codex' "no-row edition: no FAIL <table>"
+  printf 'x\n' > "$v31_tmp/tbl/nl.md"; ln -s a.md "$v31_rt/link.md"
+  v31_tbl link "$(v31_row t-ln codex 0 once link.md "" "" 1 hello)"
+  v31_rd "a symlink in scope" 1 "$v31_tf"; v31_has "$v31_out" '^FAIL t-ln: table defect' "a symlink in scope was not a table defect"
+  rm -f "$v31_rt/link.md"
+  sed 's/@n.txt/hellp/' "$v31_tf" > "$v31_tmp/tbl/parity/pins2.tsv"
+  v31_rd "a changed needle is caught by the table pin" 1 "$v31_tmp/tbl/parity/pins2.tsv" --expect-table-sha256 "$v31_pins_tsha"
+  printf 'hellp\n' > "$v31_tmp/tbl/policy/n.txt"
+  v31_rd "a changed policy file is caught by the policy pin" 1 "$v31_tf" --expect-policy-sha256 "$v31_pins_pol"
+  printf 'hello\n' > "$v31_tmp/tbl/policy/n.txt"
+  v31_arm "hashes prints five literals" 0 python3 "$v31_reader" hashes --edition codex
+  for v31_k in rows source-rows ids table-sha256 policy-sha256 reader-sha256; do v31_has "$v31_out" "^--expect-$v31_k [0-9a-f]+\$|^--expect-$v31_k [0-9]+\$" "hashes: no --expect-$v31_k line"; done
+  [ "$(grep -c '^--expect-' <<<"$v31_out" || true)" = "6" ] || v31_bad="$v31_bad [hashes: not exactly six literals]"
+
+  # ---- the held-diff emitter (source-only): the format the reader's diff-src kind compares -----------
+  v31_emit="$gate_root/scripts/check-edition-diffs.py"
+  v31_es="$v31_tmp/emit/src"; v31_ep="$v31_tmp/emit/port"; v31_pd=".github/mozart/manual"
+  mkdir -p "$v31_es/agents" "$v31_es/tests/parity" "$v31_ep/$v31_pd"
+  for v31_n in STATE FLOW REPORT; do
+    printf '# %s\nline a\nCodex r1\nline c\n' "$v31_n" > "$v31_es/agents/TEMPLATE-$v31_n.md"
+    printf '# %s\nline a\nCounterpoint r1\nline c\nextra\n' "$v31_n" > "$v31_ep/$v31_pd/TEMPLATE-$v31_n.md"
+  done
+  v31_arm "emitter, three differing templates" 0 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_has "$v31_out" ': 3 chunk\(s\), 9 changed line\(s\)$' "emitter: not three chunks and nine changed lines"
+  v31_held="$v31_es/tests/parity/templates-copilot.diff"
+  [ "$(grep -c '^--- a/' "$v31_held" || true)" = "3" ] || v31_bad="$v31_bad [emitter: the held file does not hold three chunks]"
+  v31_tbl held \
+    "$(v31_row h-state codex 0 diff-src "$v31_pd/TEMPLATE-STATE.md" "" "" 1 'src=agents/TEMPLATE-STATE.md;held=tests/parity/templates-copilot.diff')" \
+    "$(v31_row h-flow codex 0 diff-src "$v31_pd/TEMPLATE-FLOW.md" "" "" 1 'src=agents/TEMPLATE-FLOW.md;held=tests/parity/templates-copilot.diff')" \
+    "$(v31_row h-report codex 0 diff-src "$v31_pd/TEMPLATE-REPORT.md" "" "" 1 'src=agents/TEMPLATE-REPORT.md;held=tests/parity/templates-copilot.diff')"
+  v31_arm "the reader accepts every chunk the emitter wrote" 0 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  v31_has "$v31_out" '^ok h-state$' "diff-src: first chunk not ok"; v31_has "$v31_out" '^ok h-report$' "diff-src: last chunk not ok"
+  awk '/^--- a\//{n++} n<=1' "$v31_held" > "$v31_es/tests/parity/first-only.diff"
+  cp "$v31_es/tests/parity/first-only.diff" "$v31_held"
+  v31_arm "a held file with only its first chunk fails the later templates" 1 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  v31_has "$v31_out" '^FAIL h-flow: ' "first-chunk-only: the second template did not fail"; v31_has "$v31_out" '^FAIL h-report: ' "first-chunk-only: the third template did not fail"
+  v31_has "$v31_out" '^ok h-state$' "first-chunk-only: the first template should still pass"
+  cp "$v31_es/agents/TEMPLATE-FLOW.md" "$v31_ep/$v31_pd/TEMPLATE-FLOW.md"
+  v31_arm "emitter: an identical template has no chunk" 0 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_has "$v31_out" ': 2 chunk\(s\), 6 changed line\(s\)$' "emitter: an identical template still wrote a chunk"
+  v31_arm "the reader accepts the identical template with no chunk" 0 python3 "$v31_reader" --edition codex --root "$v31_ep" --source "$v31_es" --table "$v31_tf"
+  rm "$v31_ep/$v31_pd/TEMPLATE-REPORT.md"
+  v31_arm "emitter: a missing port template" 2 python3 "$v31_emit" --edition copilot --root "$v31_ep" --source "$v31_es"
+  v31_arm "emitter: an unknown edition" 2 python3 "$v31_emit" --edition codex --root "$v31_ep" --source "$v31_es"
+
+  # ---- a planted violation per ctl-* family, run through the SHIPPED row definition ----------------
+  # Each family: the row's own line is lifted from the shipped table, a scratch root is built that
+  # satisfies it (rc 0, "ok <id>"), then one violation is planted (rc 1, "FAIL <id>"). A control that
+  # cannot fail is not a control; this shows each can.
+  v31_ctl_out=$(python3 - "$gate_root" "$v31_reader" "$v31_tmp" <<'V31_CTL_PY' 2>&1
+import os, shutil, subprocess, sys, tempfile
+root, reader, tmp = sys.argv[1:4]
+table = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/editions.tsv"), encoding="utf-8")]
+hdr, rows = table[0], {r[0]: r for r in table[1:]}
+pol = os.path.join(root, "tests/policy")
+def policy(name):
+    return open(os.path.join(pol, name), encoding="utf-8").read()
+def run(rid, files, source_files=None):
+    d = tempfile.mkdtemp(dir=tmp)
+    for sub in ("parity", "policy"):
+        os.makedirs(os.path.join(d, sub))
+    for f in os.listdir(pol):
+        shutil.copy(os.path.join(pol, f), os.path.join(d, "policy", f))
+    open(os.path.join(d, "parity/t.tsv"), "w", encoding="utf-8").write("\t".join(hdr) + "\n" + "\t".join(rows[rid]) + "\n")
+    port, src = os.path.join(d, "port"), os.path.join(d, "src")
+    for base, fs in ((port, files), (src, source_files or {})):
+        os.makedirs(base, exist_ok=True)
+        for rel, content in fs.items():
+            p = os.path.join(base, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            open(p, "w", encoding="utf-8").write(content)
+    ed = rows[rid][1]
+    r = subprocess.run([sys.executable, reader, "--edition", ed, "--root", port, "--source", src,
+                        "--table", os.path.join(d, "parity/t.tsv")], capture_output=True, text=True)
+    return r.returncode, r.stdout
+bullet = policy("no-progress.txt")
+s3 = policy("s3-snippet.txt")
+tree = {f"t/{i}.txt": f"{i}\n" for i in range(342)}
+families = [
+ ("ctl-noprogress-none-codex", {p: ('developer_instructions = """\nx\n"""\n' if p.endswith(".toml") else "x\n") for p in rows["ctl-noprogress-none-codex"][4].split(";")},
+  lambda f: {k: (v.replace("x\n", "x\n" + bullet, 1) if k.endswith(".toml") else v + bullet) for k, v in f.items()}, None),
+ ("ctl-choose-operate-copilot", {rows["ctl-choose-operate-copilot"][4]: rows["ctl-choose-operate-copilot"][8] + "\n"}, lambda f: {k: v + v for k, v in f.items()}, None),
+ ("ctl-sev-local", {rows["ctl-sev-local"][4]: rows["ctl-sev-local"][8] + "\n"}, lambda f: {k: "" for k in f}, None),
+ ("ctl-x2b-nocsp-p-copilot", {rows["ctl-x2b-nocsp-p-copilot"][4]: rows["ctl-x2b-nocsp-p-copilot"][5] + "\n| xander | auth |\n"}, lambda f: {k: v.replace("auth", "auth, CSP") for k, v in f.items()}, None),
+ ("ctl-s3-copilot", {rows["ctl-s3-copilot"][4]: s3}, lambda f: {k: v + "\n" + s3 for k, v in f.items()}, None),
+ ("ctl-moved-codex-1", {rows["ctl-moved-codex-1"][4]: rows["ctl-moved-codex-1"][8] + "\n"}, lambda f: {k: v + v for k, v in f.items()}, None),
+ ("ctl-nolabel-codex", {rows["ctl-nolabel-codex"][4]: "Claude r1 (plan)\n"}, lambda f: {k: v + "**Codex**: r1\n" for k, v in f.items()}, None),
+ ("ctl-index-members-copilot", {rows["ctl-index-members-copilot"][4]: "| `TICKETS.md` | x |\n"}, lambda f: {k: "" for k in f}, None),
+ ("ctl-leak-claudemd-copilot", {".github/mozart/manual/x.md": "ok\n", ".github/agents/a.agent.md": "x\n"}, lambda f: {k: v + "CLAUDE.md\n" for k, v in f.items()}, None),
+ ("ctl-mirror-copilot", {"tests/fixtures/campaign/conductor/" + k: v for k, v in tree.items()}, lambda f: {**f, "tests/fixtures/campaign/conductor/t/5.txt": "changed\n"},
+  {"tests/fixtures/conductor/" + k: v for k, v in tree.items()}),
+]
+bad = []
+for rid, files, plant, srcf in families:
+    good_rc, good_out = run(rid, files, srcf)
+    bad_rc, bad_out = run(rid, plant(files), srcf)
+    if good_rc != 0 or not good_out.startswith("ok " + rid):
+        bad.append(f"{rid}: the satisfying root did not pass ({good_rc}: {good_out[:80]!r})")
+    if bad_rc != 1 or ("FAIL " + rid) not in bad_out:
+        bad.append(f"{rid}: the planted violation was not a FAIL ({bad_rc}: {bad_out[:80]!r})")
+print(f"CTL {len(families)} families", "BAD " + "; ".join(bad) if bad else "all planted violations fail")
+V31_CTL_PY
+)
+  v31_arms=$((v31_arms + 1))
+  v31_has "$v31_ctl_out" '^CTL 10 families all planted violations fail$' "ctl families: ${v31_ctl_out:0:200}"
+
+  # ---- the clause-level run (phase 1c): scripts/check-edition-norm.py over a scratch git repo ------
+  # The source repo below has two tagged commits. x.md gains a rewritten line (its old sentence is
+  # unchanged), a list item, a table row, a sentence naming "codex r2", one naming a bare "codex" and
+  # a sentence under 40 characters; y.md is new. The copilot port root holds every one of them in the
+  # words the rewrite rows give, rewrapped, renumbered, with a sentence the source never had. Each
+  # arm then plants one change in a copy of that root, or in the map, and names what must follow.
+  v31_norm="$gate_root/scripts/check-edition-norm.py"
+  v31_nd="$v31_tmp/norm"
+  [ -f "$v31_norm" ] || v31_bad="$v31_bad [scripts/check-edition-norm.py is absent]"
+  mkdir -p "$v31_nd/src/agents" "$v31_nd/ok/.github" || v31_bad="$v31_bad [building the clause-level fixture failed]"
+  {
+    printf '# Notes\n'
+    printf 'Old sentence that stays exactly the same across both revisions of the file. Mozart will launch the reviewer on a heavy campaign when the surface matches.\n'
+    printf '**Bold lead sentence, old wording of the rule.** The second sentence stays exactly as it was in both revisions.\n'
+  } > "$v31_nd/src/agents/x.md"
+  v31_ng() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$v31_nd/src" -c user.name=v31 -c user.email=v31@example.invalid -c commit.gpgsign=false "$@"; }
+  v31_ng init -q . && v31_ng add -A && v31_ng commit -q -m base && v31_ng tag base || v31_bad="$v31_bad [the base commit of the clause-level fixture failed]"
+  {
+    printf '# Notes\n'
+    printf 'Old sentence that stays exactly the same across both revisions of the file. Mozart will spawn the reviewer on every phase of a heavy campaign, never skipping one.\n'
+    printf '**Bold lead sentence, new wording of the rule.** The second sentence stays exactly as it was in both revisions.\n'
+    printf -- '- Gate: the linter reports the escape when the origin block lacks a Traces-to line.\n'
+    printf '| LIGHT | bob alone reviews the plan, with tessa too when TDD is set on the campaign | run |\n'
+    printf 'The codex r2 verdict is recorded in the conductor row for the phase before commit.\n'
+    printf 'Ask codex to review the diff only after the validation report is written.\n'
+    printf -- 'Use the form <TINY \\| LIGHT \\| STANDARD \\| HEAVY> in the ticket field.\n'
+    printf '%s\n' 'Keep each phase small enough to review.'
+    printf '%s\n' 'Keep every phase small enough to review.'
+  } > "$v31_nd/src/agents/x.md"
+  printf 'Its skeleton is a file beside this one, not text in this manual: the template named TEMPLATE-REPORT.md.\n' > "$v31_nd/src/agents/y.md"
+  v31_ng add -A && v31_ng commit -q -m head && v31_ng tag head || v31_bad="$v31_bad [the head commit of the clause-level fixture failed]"
+  {
+    printf 'edition\tfrom\tto\tapplies\n'
+    printf 'copilot\tcodex\tsebastian\tscratch: the shortest row first, so a file-order or shortest-first rewrite is wrong\n'
+    printf 'copilot\tspawn\tdispatch\tscratch\n'
+    printf 'copilot\tcodex r2\tsebastian round 2\tscratch\n'
+  } > "$v31_nd/tr.tsv"
+  printf 'id\tfile\tlines\tclass\tcodex\tcopilot\tlocal\tnote\nn1\tagents/x.md\t2-10\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tscratch rules range\nn2\tagents/y.md\t1-1\tlayout\t.codex/y.md\t.github/y.md\tlocal/y.md\tscratch layout range\n' > "$v31_nd/map.tsv"
+  {
+    printf '# Port notes\n'
+    printf 'Mozart will dispatch the reviewer on every phase of a heavy campaign, never skipping one.\n'
+    printf '**Bold lead sentence, new wording of the rule.** The second sentence is worded otherwise in this port.\n'
+    printf '1. Gate: the linter reports the escape when the origin block lacks a Traces-to line.\n'
+    printf '| LIGHT | bob alone reviews the plan, with tessa too\n  when TDD is set on the campaign | skip |\n'
+    printf 'The sebastian round 2 verdict is recorded in the conductor row for the phase before commit.\n'
+    printf 'Ask sebastian to review the diff only after the validation report is written.\n'
+    printf -- 'Use the form <TINY \\| LIGHT \\| STANDARD \\| HEAVY> in the ticket field.\n'
+    printf '%s\n' 'Keep every phase small enough to review.'
+    printf 'A sentence that exists only in this port and that the check must never read or require.\n'
+  } > "$v31_nd/ok/.github/x.md"
+  cp "$v31_nd/src/agents/y.md" "$v31_nd/ok/.github/y.md"
+  v31_nmap="$v31_nd/map.tsv"
+  # v31_nrun <label> <want rc> <port root> <extra args...>
+  v31_nrun() {
+    v31_nl=$1; v31_nw=$2; v31_nroot=$3; shift 3
+    v31_arm "$v31_nl" "$v31_nw" python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nmap" --translate "$v31_nd/tr.tsv" \
+      --base base --head head --paths agents --edition copilot --root "$v31_nroot" "$@"
+  }
+  # mutated copy of the port: v31_nport <name> <sed expression> [file]
+  v31_nport() { rm -rf "$v31_nd/$1"; cp -R "$v31_nd/ok" "$v31_nd/$1" && sed "$2" "$v31_nd/ok/${3:-.github/x.md}" > "$v31_nd/$1/${3:-.github/x.md}"; }
+
+  v31_nrun "norm: a legitimate port, rules" 0 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^norm copilot rules: 0 missing, 0 allow-listed, 8 checked$' "norm legitimate port: the summary line, with its sentence count, is wrong: ${v31_out:0:200}"
+  v31_hasnt "$v31_out" '^MISSING' "norm legitimate port: a legitimate rewrite, renumbering, rewrap or extra sentence was printed"
+  v31_nrun "norm: a legitimate port, layout" 0 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^norm copilot layout: 0 missing, 0 allow-listed, 1 checked$' "norm layout: the summary line is wrong: ${v31_out:0:200}"
+  v31_nrun "norm: --all-added reads the unchanged sentence of a changed line" 1 "$v31_nd/ok" --class rules --all-added
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*Old sentence that stays exactly' "norm --all-added: the unchanged sentence was not printed"
+  v31_nport drift 's/reviewer on every phase/reviewer on each phase/'
+  v31_nrun "norm: a one-word drift" 1 "$v31_nd/drift" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*dispatch the reviewer on every phase of a heavy campaign' "norm one-word drift: not printed with the sentence the port should hold"
+  v31_has "$v31_out" '^norm copilot rules: 1 missing' "norm one-word drift: not exactly one sentence missing"
+  v31_nport untranslated 's/Mozart will dispatch/Mozart will spawn/'
+  v31_nrun "norm: an untranslated noun" 1 "$v31_nd/untranslated" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 .*dispatch the reviewer' "norm untranslated noun: not printed"
+  v31_nport reworded 's/Mozart will dispatch/Mozart will not dispatch/'
+  v31_nrun "norm: a clause intact inside a reworded sentence" 1 "$v31_nd/reworded" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:2 ' "norm reworded sentence: the clause being intact hid the rewording"
+  v31_nport dropped '/Gate:/d'
+  v31_nrun "norm: a dropped sentence" 1 "$v31_nd/dropped" --class rules
+  v31_has "$v31_out" '^MISSING agents/x\.md:4 ' "norm dropped sentence: not printed"
+  v31_nport nolayout '/skeleton/d' .github/y.md
+  v31_nrun "norm: rules never shows a layout sentence" 0 "$v31_nd/nolayout" --class rules
+  v31_hasnt "$v31_out" 'y\.md' "norm class rules: a layout sentence was printed"
+  v31_nrun "norm: layout shows its own sentence" 1 "$v31_nd/nolayout" --class layout
+  v31_has "$v31_out" '^MISSING agents/y\.md:1 ' "norm class layout: its sentence was not printed"
+  v31_nrun "norm: layout never shows a rules sentence" 0 "$v31_nd/drift" --class layout
+  v31_hasnt "$v31_out" 'x\.md' "norm class layout: a rules sentence was printed"
+  rm -rf "$v31_nd/notarget" && cp -R "$v31_nd/ok" "$v31_nd/notarget" && rm "$v31_nd/notarget/.github/x.md"
+  v31_nrun "norm: a target file that does not exist" 1 "$v31_nd/notarget" --class rules
+  v31_has "$v31_out" '^norm copilot rules: 8 missing' "norm absent target: its sentences were not all printed"
+  v31_has "$v31_out" 'target absent: \.github/x\.md' "norm absent target: the path is not named"
+  v31_hasnt "$v31_out" 'Traceback' "norm absent target: a traceback"
+  # the map: unmapped, allow-listed, malformed
+  printf 'id\tfile\tlines\tclass\tcodex\tcopilot\tlocal\tnote\nn1\tagents/x.md\t2-10\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tscratch\n' > "$v31_nd/m-unmapped.tsv"
+  v31_nmap="$v31_nd/m-unmapped.tsv"
+  v31_nrun "norm: an unmapped added range" 1 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^ERROR unmapped agents/y\.md:1-1' "norm unmapped range: not an error naming the range"
+  v31_nrun "norm: --check-map on an unmapped range" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR unmapped agents/y\.md:1-1' "norm --check-map: unmapped range not named"
+  v31_nmap="$v31_nd/map.tsv"
+  v31_nrun "norm: --check-map on the good map" 0 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^map ok: 2 rows' "norm --check-map: no ok line"
+  sed "s/^\(n2.*\)${v31_T}\.github\/y\.md${v31_T}/\1${v31_T}replaced:the port words this sentence its own way${v31_T}/" "$v31_nd/map.tsv" > "$v31_nd/m-replaced.tsv"
+  v31_nmap="$v31_nd/m-replaced.tsv"
+  v31_nrun "norm: an allow-listed sentence the port lacks" 0 "$v31_nd/nolayout" --class layout
+  v31_has "$v31_out" '^norm copilot layout: 0 missing, 1 allow-listed, 0 checked$' "norm allow-list: not counted as allow-listed"
+  v31_nrun "norm: --allowlist prints each entry with its reason" 0 "$v31_nd/ok" --allowlist
+  v31_has "$v31_out" '^replaced agents/y\.md:1-1 copilot: the port words this sentence its own way$' "norm --allowlist: entry and reason not printed"
+  sed 's/replaced:the port words this sentence its own way/replaced:/' "$v31_nd/m-replaced.tsv" > "$v31_nd/m-noreason.tsv"
+  v31_nmap="$v31_nd/m-noreason.tsv"
+  v31_nrun "norm: an allow-list cell with no reason" 1 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^ERROR .*reason' "norm empty reason: not an error naming the reason"
+  sed 's/replaced:the port words this sentence its own way/dropped/' "$v31_nd/m-replaced.tsv" > "$v31_nd/m-nocolon.tsv"
+  v31_nmap="$v31_nd/m-nocolon.tsv"
+  v31_nrun "norm: a cell that is neither a path nor kind:reason" 1 "$v31_nd/ok" --class layout
+  v31_has "$v31_out" '^ERROR ' "norm malformed cell: no error"
+  sed "s/${v31_T}rules${v31_T}/${v31_T}rule${v31_T}/" "$v31_nd/map.tsv" > "$v31_nd/m-class.tsv"
+  v31_nmap="$v31_nd/m-class.tsv"
+  v31_nrun "norm: an unknown class" 1 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^ERROR .*class' "norm unknown class: not an error naming the class"
+  { cat "$v31_nd/map.tsv"; printf 'n3\tagents/x.md\t40-50\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\tcovers no added line\n'; } > "$v31_nd/m-stale.tsv"
+  v31_nmap="$v31_nd/m-stale.tsv"
+  v31_nrun "norm: a row that covers no added line" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR .*n3.*no added line' "norm stale row: not named"
+  { cat "$v31_nd/map.tsv"; printf 'n3\tagents/x.md\t6-7\trules\t.codex/x.md\t.github/x.md\tlocal/x.md\toverlaps n1\n'; } > "$v31_nd/m-overlap.tsv"
+  v31_nmap="$v31_nd/m-overlap.tsv"
+  v31_nrun "norm: two rows over the same lines" 1 "$v31_nd/ok" --check-map
+  v31_has "$v31_out" '^ERROR .*overlap' "norm overlap: not named"
+  v31_nmap="$v31_nd/map.tsv"
+  # the rewrite rows: each must fire, or the table carries a row nothing needs
+  v31_nrun "norm: every rewrite row fires" 0 "$v31_nd/ok" --check-rewrites
+  v31_has "$v31_out" '^rewrites ok: copilot 3 rows' "norm --check-rewrites: no ok line"
+  { cat "$v31_nd/tr.tsv"; printf 'copilot\tnowhere in the source\tanywhere\tscratch\n'; } > "$v31_nd/tr-extra.tsv"
+  v31_arm "norm: a rewrite row that never fires" 1 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr-extra.tsv" \
+    --base base --head head --paths agents --edition copilot --check-rewrites
+  v31_has "$v31_out" '^ERROR rewrite never fires.*nowhere in the source' "norm unfired rewrite: not named"
+  v31_arm "norm: a revision that is not in this clone" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" \
+    --base no-such-revision --head head --paths agents --edition copilot --class rules --root "$v31_nd/ok"
+  v31_arm "norm: no --class" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" \
+    --base base --head head --paths agents --edition copilot --root "$v31_nd/ok"
+  v31_arm "norm: an unknown edition" 2 python3 "$v31_norm" --source "$v31_nd/src" --map "$v31_nd/map.tsv" --translate "$v31_nd/tr.tsv" \
+    --base base --head head --paths agents --edition rust --class rules --root "$v31_nd/ok"
+  { head -n 1 "$v31_nd/map.tsv"; sed -n 2p "$v31_nd/map.tsv" | sed "s#${v31_T}\.codex/x\.md${v31_T}#${v31_T}../escape.md${v31_T}#"; sed -n 3p "$v31_nd/map.tsv"; } > "$v31_nd/m-escape.tsv"
+  v31_nmap="$v31_nd/m-escape.tsv"
+  v31_nrun "norm: a target path that leaves the port root" 1 "$v31_nd/ok" --class rules
+  v31_has "$v31_out" '^ERROR .*escape\.md.*neither a relative path' "norm escaping target: not an error naming the path"
+  v31_nmap="$v31_nd/map.tsv"
+  # The lens helper itself (phase 1b), run for real: the source's lint passes all six arms, and a lint whose
+  # default date is planted wrong (later, earlier or never) fails the arm that pins that side of the boundary.
+  # A root with no lint script, and a call with no arguments, are "could not run" (2), never a content failure.
+  v31_lens="$gate_root/scripts/check-edition-lens.sh"
+  v31_lens_root() { # <dest> <default date>
+    mkdir -p "$1/scripts" || return 1
+    cp "$gate_root"/scripts/lib-campaign.sh "$1/scripts/" || return 1
+    sed "s/^LENS_SINCE=\"\${MOZART_LINT_LENS_SINCE:-[0-9-]*}\"/LENS_SINCE=\"\${MOZART_LINT_LENS_SINCE:-$2}\"/" "$gate_root/scripts/mozart-lint.sh" > "$1/scripts/mozart-lint.sh" || return 1
+  }
+  v31_lens_root "$v31_tmp/lens-ok" 2026-10-04 && v31_lens_root "$v31_tmp/lens-never" 9999-12-31 \
+    && v31_lens_root "$v31_tmp/lens-late" 2026-10-05 && v31_lens_root "$v31_tmp/lens-early" 2026-10-03 \
+    || v31_bad="$v31_bad [building the lens roots failed]"
+  cmp -s "$v31_tmp/lens-ok/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-lint.sh" || v31_bad="$v31_bad [CONTROL: the lens-ok root differs from the source lint]"
+  for v31_w in never late early; do
+    cmp -s "$v31_tmp/lens-$v31_w/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-lint.sh" && v31_bad="$v31_bad [CONTROL: the planted $v31_w default changed nothing]"
+  done
+  v31_arm "lens helper: the source's default" 0 bash "$v31_lens" orchestration "$v31_tmp/lens-ok"
+  for v31_k in a b c d e f; do v31_has "$v31_out" "^ok $v31_k( |\$)" "lens helper, source default: no ok line for arm $v31_k"; done
+  v31_hasnt "$v31_out" '^FAIL' "lens helper, source default: a FAIL line"
+  v31_arm "lens helper: a default of 9999-12-31" 1 bash "$v31_lens" codex "$v31_tmp/lens-never"
+  v31_has "$v31_out" '^FAIL b' "lens helper, default never: arm b did not fail"
+  v31_has "$v31_out" '^ok a( |$)' "lens helper, default never: arm a (the control side) did not pass"
+  v31_arm "lens helper: a default one day late" 1 bash "$v31_lens" copilot "$v31_tmp/lens-late"
+  v31_has "$v31_out" '^FAIL b' "lens helper, default one day late: arm b did not fail"
+  v31_arm "lens helper: a default one day early" 1 bash "$v31_lens" copilot "$v31_tmp/lens-early"
+  v31_has "$v31_out" '^FAIL a' "lens helper, default one day early: arm a did not fail"
+  v31_arm "lens helper: a root with no lint script" 2 bash "$v31_lens" codex "$v31_tmp/ctl"
+  v31_arm "lens helper: no arguments" 2 bash "$v31_lens"
 fi
 # D7: the script is named where contributors look for the cross-edition checks.
 v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" || true)
 [ "$v31_named" -ge 1 ] || v31_bad="$v31_bad [CONTRIBUTING.md does not name scripts/check-editions.sh]"
-[ "$v31_arms" -ge 17 ] || v31_bad="$v31_bad [only $v31_arms arms ran, want at least 17 -- the self-test shrank]"
+[ "$v31_arms" -eq 112 ] || v31_bad="$v31_bad [$v31_arms arms ran, want exactly 112 -- an arm was added or lost without the floor moving]"
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
-  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output}"
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper and the helper itself over a lint with its default right, never, a day late and a day early (0, 1, 1, 1) and over no lint script and no arguments (2), every call-site pin mismatch and the six printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
+
+# ---------------------------------------------------------------------------
+# V36_editions_table - the parity table, its reader and the policy files it names (phase 1a)
+#
+# tests/parity/editions.tsv is read by scripts/check-edition-text.py in every edition. This gate
+# pins what a port copies (the table, the reader, every policy file the table names) by content,
+# and ties V28's detectors to the policy files in the SAME shell: xander-terms.txt equals the
+# term table V28 applies, heavy-variant.re equals its variant regex, the mask is the sentence its
+# sed cuts out. V36 also keeps its own copies of those literals, so V28 and the files cannot be
+# weakened together without a second, visible edit here. (v32_ is taken by V30_layout_agreement.)
+# ---------------------------------------------------------------------------
+v36_bad=""
+v36_tsv="$gate_root/tests/parity/editions.tsv"
+v36_pol="$gate_root/tests/policy"
+v36_reader="$gate_root/scripts/check-edition-text.py"
+v36_tmp=$(mktemp -d) || { v36_bad="$v36_bad [mktemp failed]"; v36_tmp=/nonexistent-v36; }
+if [ ! -f "$v36_tsv" ]; then
+  v36_bad="$v36_bad [table absent: tests/parity/editions.tsv]"
+elif [ ! -f "$v36_reader" ]; then
+  v36_bad="$v36_bad [reader absent: scripts/check-edition-text.py]"
+elif ! command -v python3 >/dev/null 2>&1; then
+  v36_bad="$v36_bad [python3 missing (FAIL, not skip)]"
+else
+  # ---- V28's literals, compared as shell variables in this run ----------------------------------
+  v36_f_terms=$(cat "$v36_pol/xander-terms.txt")
+  [ "$v36_f_terms" = "$v28_terms" ] || v36_bad="$v36_bad [xander-terms.txt differs from V28's term table (\$v28_terms)]"
+  v36_f_variant=$(cat "$v36_pol/heavy-variant.re")
+  [ "$v36_f_variant" = "$v28_variant_re" ] || v36_bad="$v36_bad [heavy-variant.re differs from V28's \$v28_variant_re]"
+  v36_f_mask=$(cat "$v36_pol/heavy-variant.mask")
+  # the phrase V28's sed cuts out, built in two parts so that this line is not a third occurrence of it
+  v36_phrase="xander runs on every phase when ""that surface is"
+  [ "$v36_f_mask" = "$v36_phrase" ] || v36_bad="$v36_bad [heavy-variant.mask is not the sentence V28's sed cuts out]"
+  v36_mask_n=$(grep -cF -- "$v36_phrase" "$gatefile" || true)
+  [ "$v36_mask_n" = "4" ] || v36_bad="$v36_bad [the masked sentence occurs on $v36_mask_n line(s) of this file, want 4 (V28's three sed calls and its self-test)]"
+  # V36's own pins (so V28 and the files cannot be weakened together): twelve terms, by name
+  v36_names=$(cut -f1 <<<"$v36_f_terms" | tr '\n' ',')
+  [ "$v36_names" = "auth,secrets,untrusted input,encryption,sessions,RBAC,security headers,CSP,dependency changes,CI/CD workflow changes,authorization (ownership and tenant filters),outbound requests," ] \
+    || v36_bad="$v36_bad [xander-terms.txt names are not the twelve in V28's table: $v36_names]"
+  # one planted string per alternative of the variant regex: each must hit; the masked sentence alone must not
+  for v36_p in 'HEAVY: always' 'mandatory ian on every phase' 'ian and xander run on every phase' 'xander runs on every phase' \
+               'ian and xander on every phase regardless' 'mandatory; others conditional' 'ian (HEAVY-tier always)'; do
+    grep -qE -- "$v36_f_variant" <<<"$v36_p" || v36_bad="$v36_bad [self-test: the variant regex missed a planted variant: $v36_p]"
+  done
+  v36_cut=$(sed "s/$v36_phrase/XANDER-SURFACE-RULE/" <<<"and $v36_phrase auth")
+  ! grep -qE -- "$v36_f_variant" <<<"$v36_cut" || v36_bad="$v36_bad [self-test: the masked xander surface sentence alone was read as a variant]"
+  v36_cut=$(sed "s/$v36_phrase/XANDER-SURFACE-RULE/" <<<"HEAVY: always; $v36_phrase auth")
+  grep -qE -- "$v36_f_variant" <<<"$v36_cut" || v36_bad="$v36_bad [self-test: a variant beside the masked sentence was hidden by the mask]"
+  # ---- the table: counts, ids, kinds, phases, cardinalities, marks, files -------------------------
+  v28_rows "$v28_del_s4" xander > "$v36_tmp/d4"
+  v28_rows "$v28_del_s8" xander > "$v36_tmp/d8"
+  v28_rows "$v28_pipe_s4" xander > "$v36_tmp/p4"
+  v28_rows "$v28_pipe_s8" xander > "$v36_tmp/p8"
+  v36_py=$(python3 - "$gate_root" "$v36_tmp" <<'V36_PY' 2>&1
+import hashlib, os, re, sys, collections, importlib.util
+root = sys.argv[1]
+def sha(path):
+    return hashlib.sha256(open(os.path.join(root, path), "rb").read()).hexdigest()
+bad = []
+def need(cond, msg):
+    if not cond:
+        bad.append(msg)
+rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/editions.tsv"), encoding="utf-8")]
+hdr, rows = rows[0], rows[1:]
+need(hdr == ["id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle"], "table header changed")
+need(all(len(r) == 9 for r in rows), "a ragged table line")
+N = 409
+need(len(rows) == N, f"the table holds {len(rows)} rows, want {N}")
+per_ed = collections.Counter(r[1] for r in rows)
+need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 85}, f"rows per edition: {dict(per_ed)}")
+ids = sorted(r[0] for r in rows)
+need(len(set(i.lower() for i in ids)) == len(ids), "duplicate ids")
+need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "3c2f11aa186694d31c8cc4c439843b45bfc562168924d6cd3ce966b0217deef5", "the id list changed")
+kpe = sorted(f"{r[0]} {r[3]} {r[2]} {r[7]}" for r in rows)
+need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "b0271cc49b138baedbba0fff3694f7f982885058e449468dc01a4655e52d94d8", "a row's kind, phase or expect changed")
+def family(i):
+    i = re.sub(r"-(orchestration|copilot|codex|local)$", "", i)
+    i = re.sub(r"-\d+$", "", i)
+    return "rule-copies" if i.startswith("rule-copies-") else "witness" if i.startswith("witness-") else i
+matrix = sorted(f"{family(r[0])}:{r[1]}={n}" for (r), n in [(r, 1) for r in rows])
+cnt = collections.Counter((family(r[0]), r[1]) for r in rows)
+matrix = sorted(f"{f}:{e}={n}" for (f, e), n in cnt.items())
+need(len(set(f for f, _ in cnt)) == 95, f"{len(set(f for f, _ in cnt))} families, want 95")
+need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "334624ad889dca7988fec58624a63dd5d623246b940e4f3004b95d954bed13fe", "the family-by-edition matrix changed")
+marks = []
+for r in rows:
+    for col, name in ((4, "scope"), (5, "anchor"), (6, "row"), (8, "needle")):
+        v = r[col]
+        if name in ("scope", "needle"):
+            n = sum(1 for e in v.split(";") if e.endswith("+") and e != "+")
+            if r[3] != "lens-src" and name == "needle":
+                n = 0
+        else:
+            n = v.count(" @+")
+        if n:
+            marks.append(f"{r[0]} {name} {n}")
+marks.sort()
+need(len(marks) == 120, f"{len(marks)} cells carry a + mark, want 120")
+need(hashlib.sha256(("\n".join(marks) + "\n").encode()).hexdigest() == "8def551b3723875eea6b57c75e652ba2e16d954cd74c0b6b9778e37d79f5062e", "the + marks changed")
+byid = {r[0]: r for r in rows}
+for rid, kind, phase, expect in [('rule-noprogress-codex', 'bullet-last', '6', '17'), ('rule-xterms-s8-copilot', 'terms', '2', '12'), ('rule-tier-clauses-local', 'each-once', '4', '23'), ('rule-variant-codex', 'absent-re', '6', '0'), ('lay-moved-copilot', 'moved', '3', '5'), ('rule-bobduty-local', 'each-once', '4', '6'), ('lens-codex', 'lens-src', '7', '6')]:
+    r = byid.get(rid)
+    need(r is not None and (r[3], r[2], r[7]) == (kind, phase, expect), f"named member {rid}: {r and (r[3], r[2], r[7])}")
+kinds = {r[3] for r in rows}
+need(len(kinds) == 17, f"{len(kinds)} kinds in the table, want 17")
+orch_kinds = {r[3] for r in rows if r[1] == "orchestration" and r[2] == "0"}
+need(orch_kinds == kinds - {"lens-src"}, f"kinds without a phase-0 orchestration witness: {sorted(kinds - {'lens-src'} - orch_kinds)}")
+need(all(r[2] == "0" for r in rows if r[1] == "orchestration" and r[3] != "lens-src"), "an orchestration row that is not phase 0")
+need(byid["lens-orchestration"][2] == "1b", "lens-orchestration is not phase 1b")
+for e in ("copilot", "codex", "local"):
+    need(sum(1 for r in rows if r[1] == e and r[2] == "0" and not r[0].startswith("ctl-")) == 0, f"{e}: a phase-0 row that is not ctl-*")
+phases = {r[2] for r in rows} - {"0"}
+done = open(os.path.join(root, "tests/parity/editions.done"), encoding="utf-8").read().split()
+need(done == ["1b", "2", "3", "4", "5", "6", "7"] and all(d in phases for d in done), f"editions.done must list every phase id, 1b 2 3 4 5 6 7, in that order (a removed id would turn a FAIL into PENDING): {done}")
+# ---- no rewrite token in a fragment; translate.tsv shape -----------------------------------------
+tr = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parity/translate.tsv"), encoding="utf-8")]
+need(tr[0] == ["edition", "from", "to", "applies"], "translate.tsv header")
+tr = tr[1:]
+need(all(len(t) == 4 and all(t) for t in tr), "translate.tsv: a ragged or empty cell")
+need(dict(collections.Counter(t[0] for t in tr)) == {'codex': 22, 'copilot': 28, 'local': 20}, "translate.tsv rows per edition changed")
+need(len({(t[0], t[1]) for t in tr}) == len(tr), "translate.tsv: a repeated (edition, from)")
+frag_files = ['tier-clauses.txt', 'stage4-light-clauses.txt', 'stage7d-clauses.txt', 'stage8-clauses.txt', 'stage8-xander-row.txt', 'pipeline-s8-xander-row.txt', 'phaserows-clauses.txt', 'bob-duty-clauses.txt', 'flags-clauses.txt', 'layout-clauses.txt', 'codex-skeleton-clauses.txt', 'nolinter-clauses.txt', 'eval-sentences.txt']
+for fn in frag_files:
+    for ln in open(os.path.join(root, "tests/policy", fn), encoding="utf-8").read().split("\n"):
+        for t in tr:
+            if ln.strip() and t[1] in ln:
+                bad.append(f"{fn}: a fragment contains the rewrite token {t[1]!r}: {ln[:50]!r}")
+# ---- norm-map.tsv (phase 1c): source-only, never copied to a port ---------------------------------
+nm_path = os.path.join(root, "tests/parity/norm-map.tsv")
+need(os.path.isfile(nm_path), "tests/parity/norm-map.tsv is absent")
+if os.path.isfile(nm_path):
+    nm = [l.rstrip("\n").split("\t") for l in open(nm_path, encoding="utf-8")]
+    need(nm[0] == ["id", "file", "lines", "class", "codex", "copilot", "local", "note"], "norm-map.tsv header")
+    nm = nm[1:]
+    need(all(len(r) == 8 for r in nm), "norm-map.tsv: a ragged line")
+    need(len(nm) == 79, f"norm-map.tsv holds {len(nm)} rows, want 79")
+    need(len({r[0] for r in nm}) == len(nm), "norm-map.tsv: a repeated id")
+    need({r[3] for r in nm} <= {"rules", "layout"}, "norm-map.tsv: a class that is neither rules nor layout")
+    need(collections.Counter(r[3] for r in nm) == {"rules": 48, "layout": 31}, "norm-map.tsv: rows per class changed")
+    # The allow-list is the set of replaced:/dropped: cells. Its size per edition is pinned here, so
+    # growing it takes a visible edit in a second file; each entry carries a reason.
+    allow = collections.Counter()
+    for r in nm:
+        for ed, cell in zip(("codex", "copilot", "local"), r[4:7]):
+            for kind in ("replaced", "dropped"):
+                if cell == kind or cell.startswith(kind + ":"):
+                    allow[(ed, kind)] += 1
+                    need(len(cell) > len(kind) + 1 and cell[len(kind) + 1:].strip() != "", f"norm-map.tsv {r[0]}: a {kind} cell for {ed} with no reason")
+    need(dict(allow) == {("codex", "replaced"): 11, ("codex", "dropped"): 8, ("copilot", "replaced"): 4, ("copilot", "dropped"): 5,
+                         ("local", "replaced"): 3, ("local", "dropped"): 7}, f"norm-map.tsv allow-list size changed: {sorted(allow.items())}")
+# ---- shipped files: content pins, no host or user path -------------------------------------------
+pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': 'bb82ff23269667613814859557cf4a712ea67854ee70e756d0c044d511b16a18', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
+named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
+need(named == sorted(n.split("/", 2)[2] for n in pins if n.startswith("tests/policy/")), "the set of policy files the table names changed")
+for path, want in pins.items():
+    need(os.path.isfile(os.path.join(root, path)) and sha(path) == want, f"{path}: sha256 differs from V36's pin")
+    txt = open(os.path.join(root, path), encoding="utf-8").read()
+    need("mozart-local" not in txt and "/Users/" not in txt, f"{path} names mozart-local or a /Users/ path")
+need(sha("tests/parity/templates-allow.re") == "35deac6c8fb3016cf10cd272030bf5176e85a064d09ff2ce74bc0dc5b9a8c507", "templates-allow.re changed")
+need(open(os.path.join(root, "tests/policy/s3-snippet.txt"), "rb").read() == open(os.path.join(root, "tests/parity/snippets/S3.txt"), "rb").read(), "s3-snippet.txt differs from the frozen S3 snippet")
+for pol, src in (("ledger-skeleton.md", "agents/TEMPLATE-LEDGER.md"), ("conductor-skeleton.md", "agents/TEMPLATE-CONDUCTOR.md")):
+    need(open(os.path.join(root, "tests/policy", pol), "rb").read() == open(os.path.join(root, src), "rb").read(), f"{pol} differs from {src}")
+need(os.path.getsize(os.path.join(root, "tests/parity/witness.diff")) == 0, "witness.diff is not empty")
+# ctl-s3 hosts equal the S3_HOST_* table of check-editions.sh
+sh = open(os.path.join(root, "scripts/check-editions.sh"), encoding="utf-8").read()
+hosts = dict(re.findall(r"^S3_HOST_(\w+)=(\S+)$", sh, re.M))
+need(len(hosts) == 4, f"{len(hosts)} S3_HOST_ lines in check-editions.sh")
+for e, h in hosts.items():
+    need(byid.get(f"ctl-s3-{e}", [None] * 9)[4] == h, f"ctl-s3-{e} host differs from S3_HOST_{e}")
+# survivors: every orchestration survivor names a real line
+for ln in open(os.path.join(root, "tests/policy/survivors.tsv"), encoding="utf-8").read().split("\n"):
+    if ln.startswith(("rule-variant-orchestration", "rule-example-orchestration", "rule-gaps-orchestration")):
+        _, rel, text = ln.split("\t")
+        need(text in open(os.path.join(root, rel), encoding="utf-8").read().split("\n"), f"survivor line not found in {rel}: {text[:40]!r}")
+# the reader extracts the same xander rows V28 does (rows and sections passed in files)
+spec = importlib.util.spec_from_file_location("ced", os.path.join(root, "scripts/check-edition-text.py"))
+ced = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ced)
+ctx = ced.Ctx("orchestration", root, root, os.path.join(root, "tests/parity/editions.tsv"))
+for rid, fn in [('rule-xterms-s4-orchestration', 'd4'), ('rule-xterms-s8-orchestration', 'd8'), ('rule-xterms-p4-orchestration', 'p4'), ('rule-xterms-p8-orchestration', 'p8')]:
+    r = dict(zip(ced.COLUMNS, byid[rid]))
+    got = "\n".join(l for _, ls in ced.spans(ctx, r) for l in ls)
+    want = open(os.path.join(sys.argv[2], fn), encoding="utf-8").read().rstrip("\n") if len(sys.argv) > 2 else None
+    if want is not None:
+        need(got == want, f"{rid}: the reader's xander row differs from v28_rows")
+# held template diffs (contract 3.2b): the allow-regex is a closed set of whole lines; the changed-line floor and the six
+# label lines as named members are checked per edition. They run on planted diffs now (no real diff exists until phases 3
+# and 5 write one with scripts/check-edition-diffs.py) and on the real files once they do.
+allow = re.compile(open(os.path.join(root, "tests/parity/templates-allow.re"), encoding="utf-8").read().strip())
+label = re.compile(open(os.path.join(root, "tests/policy/reviewer-label.re"), encoding="utf-8").read().strip())
+LAB = {"src": ["- Codex r1 (plan): <path or \"not yet run\">", "- Codex r2 (diff): <path or \"not yet run\">", "- [ ] 5. Codex on plan — <timestamp>", "- [ ] 9. Codex on diff — <run|skip per tier>", "**Codex**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / codex surfaced that the user should know>"], "copilot": ["- Counterpoint r1 (plan): <path or \"not yet run\">", "- Counterpoint r2 (diff): <path or \"not yet run\">", "- [ ] 5. Counterpoint on plan — <timestamp>", "- [ ] 9. Counterpoint on diff — <run|skip per tier>", "**Counterpoint**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / sebastian surfaced that the user should know>"], "local": ["- sebastian r1 (plan): <path or \"not yet run\">", "- sebastian r2 (diff): <path or \"not yet run\">", "- [ ] 5. sebastian on plan — <timestamp>", "- [ ] 9. sebastian on diff — <run|skip per tier>", "**sebastian**: <r1-plan path>, <r2-diff path if run>", "<anything reviewers / specialists / sebastian surfaced that the user should know>"], "att": ["## Attestation ledger", "| stage | agent | role | attested model | matched frontmatter? |", "|-------|-------|------|-----------------|----------------------|", "| 5-counterpoint-r1 | sebastian | validation | <provider>/<model-id> | yes/no |", "| 7-implement-p1 | jackson | builders | <provider>/<model-id> | yes/no |", "One row per subagent dispatch this campaign. Populated from each response's `MODEL-ATTESTATION:` line — see D8/the cross-family invariant and each persona's Model attestation section. A `matched frontmatter?: no` row is a drift signal, not necessarily a failure; surface it, don't silently accept it."]}
+HELD_FLOOR = 12
+def held_problems(text, ed):
+    out = []
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    changed = [l for l in lines if l and l[0] in "+-" and not l.startswith(("+++ ", "--- "))]
+    if len(changed) < HELD_FLOOR:
+        out.append(f"{len(changed)} changed lines, floor {HELD_FLOOR}")
+    for l in lines:
+        if not l or not allow.match(l):
+            out.append(f"a line outside templates-allow.re: {l[:60]!r}")
+        if l.startswith("+") and not l.startswith("+++ ") and label.search(l):
+            out.append(f"an added line keeps a source reviewer label: {l[:60]!r}")
+    for s, t in zip(LAB["src"], LAB[ed]):
+        if "-" + s not in lines or "+" + t not in lines:
+            out.append(f"named label member missing: {t[:50]!r}")
+    if ed == "copilot" and "+## Attestation ledger" not in lines:
+        out.append("named member missing: copilot's ## Attestation ledger section")
+    for other in ("copilot", "local"):
+        for t in LAB[other]:
+            if other != ed and t not in LAB[ed] and "+" + t in lines:
+                out.append(f"another edition's label: {t[:50]!r}")
+    return out
+def planted(ed, extra=(), drop=()):
+    port = ".github/mozart/manual" if ed == "copilot" else "src/mozart_local/bundle/manual"
+    pairs = list(zip(LAB["src"], LAB[ed]))
+    L = ["--- a/agents/TEMPLATE-STATE.md", f"+++ b/{port}/TEMPLATE-STATE.md", "@@ -20,2 +20,2 @@"]
+    for s, t in pairs[:4]:
+        L += ["-" + s, "+" + t]
+    if ed == "copilot":
+        L += ["+"] + ["+" + a for a in LAB["att"]]
+    L += ["--- a/agents/TEMPLATE-REPORT.md", f"+++ b/{port}/TEMPLATE-REPORT.md", "@@ -7 +7 @@"]
+    for s, t in pairs[4:]:
+        L += ["-" + s, "+" + t]
+    L = [l for l in L if l not in drop]
+    return "\n".join(L + list(extra)) + "\n"
+for ed in ("copilot", "local"):
+    need(held_problems(planted(ed), ed) == [], f"a well-formed planted {ed} held diff was rejected: {held_problems(planted(ed), ed)[:2]}")
+other = "local" if True else "copilot"
+plants = [
+    ("copilot", ("+Counterpoint on plan: skip xander entirely",), (), "outside templates-allow.re"),
+    ("copilot", ("+an attestation line that says anything",), (), "outside templates-allow.re"),
+    ("copilot", ("+use AGENTS.md here",), (), "outside templates-allow.re"),
+    ("copilot", ("+.github/mozart/anything",), (), "outside templates-allow.re"),
+    ("copilot", ("+{{mozart:manual_dir}}/anything",), (), "outside templates-allow.re"),
+    ("local", ("+- Codex r1 (plan): kept",), (), "keeps a source reviewer label"),
+    ("local", (), ("+" + LAB["local"][5],), "changed lines"),
+    ("local", (), ("-" + LAB["src"][2], "+" + LAB["local"][2]), "changed lines"),
+    ("local", (), ("+" + LAB["local"][1],), "named label member missing"),
+    ("local", ("+" + LAB["copilot"][0],), (), "another edition's label"),
+    ("copilot", (), ("+## Attestation ledger",), "Attestation ledger"),
+    ("copilot", ("+- sebastian r1 (plan): x",), (), "outside templates-allow.re"),
+]
+for ed, extra, drop, want in plants:
+    got = held_problems(planted(ed, extra, drop), ed)
+    need(any(want in g for g in got), f"planted {ed} held diff {extra or drop} was not rejected for '{want}': {got[:2]}")
+need(sum(1 for l in "x\n+a\n".split("\n")[:-1] if l and l[0] in "+-") == 1, "the changed-line count reads the empty last line")
+for ed in ("copilot", "local"):
+    p = os.path.join(root, f"tests/parity/templates-{ed}.diff")
+    if os.path.isfile(p):
+        for g in held_problems(open(p, encoding="utf-8").read(), ed):
+            bad.append(f"templates-{ed}.diff: {g}")
+print("BAD " + "; ".join(bad) if bad else f"OK {len(rows)} rows")
+V36_PY
+)
+  case "$v36_py" in OK*) ;; *) v36_bad="$v36_bad [${v36_py:0:900}]" ;; esac
+  # ---- the reference rows hold against this repo alone: only the lens row waits for its phase -------
+  v36_done=$(cat "$gate_root/tests/parity/editions.done")
+  v36_out=$(python3 "$v36_reader" --edition orchestration --root "$gate_root" --source "$gate_root" --done "$v36_done" 2>&1); v36_rc=$?
+  v36_ok=$(grep -c '^ok ' <<<"$v36_out" || true)
+  v36_pend=$(grep -c '^PENDING ' <<<"$v36_out" || true)
+  v36_fail=$(grep -c '^FAIL ' <<<"$v36_out" || true)
+  if [ -z "$v36_done" ] || ! grep -qw 1b <<<"$v36_done"; then
+    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 84 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
+      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 84 1 0 with only lens-orchestration pending]"
+  else
+    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 85 ] && [ "$v36_fail" -eq 0 ]; } \
+      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 85 0]"
+  fi
+  # the clause-level script against this repo's history (phase 1c). The map must cover every added line of
+  # df2322d..3fdf576 and every translate.tsv row must fire (the three dead INTEGRATION.md rows of 1c were
+  # corrected: the source writes the file name in backticks). A shallow clone has no such history: the run says so.
+  v36_norm="$gate_root/scripts/check-edition-norm.py"
+  v36_norm_note="history-bound map and rewrite checks NOT RUN (this clone lacks df2322d or 3fdf576)"
+  if [ ! -f "$v36_norm" ]; then
+    v36_bad="$v36_bad [scripts/check-edition-norm.py is absent]"
+  elif git -C "$gate_root" cat-file -e "df2322d^{commit}" 2>/dev/null && git -C "$gate_root" cat-file -e "3fdf576^{commit}" 2>/dev/null; then
+    v36_cm=$(python3 "$v36_norm" --check-map 2>&1); v36_cm_rc=$?
+    { [ "$v36_cm_rc" -eq 0 ] && grep -q '^map ok: 79 rows, 338 added lines covered$' <<<"$v36_cm"; } \
+      || v36_bad="$v36_bad [norm-map.tsv against df2322d..3fdf576: rc=$v36_cm_rc ${v36_cm:0:300}]"
+    v36_cr=$(python3 "$v36_norm" --check-rewrites 2>&1); v36_cr_rc=$?
+    { [ "$v36_cr_rc" -eq 0 ] && ! grep -q '^ERROR ' <<<"$v36_cr" && [ "$(grep -c '^rewrites ok: ' <<<"$v36_cr" || true)" = "3" ]; } \
+      || v36_bad="$v36_bad [translate.tsv has a rewrite row that never fires (the known-dead pin is zero): rc=$v36_cr_rc ${v36_cr:0:400}]"
+    v36_norm_note="norm-map.tsv covers all 338 added lines of df2322d..3fdf576; every rewrite row fires"
+  fi
+  # the reader's call-site literals: six lines per edition, and the table's own row counts
+  for v36_e in orchestration codex copilot local; do
+    v36_h=$(python3 "$v36_reader" hashes --edition "$v36_e" 2>&1)
+    [ "$(grep -c '^--expect-[a-z0-9-]* [0-9a-f]*$' <<<"$v36_h" || true)" = "6" ] || v36_bad="$v36_bad [hashes --edition $v36_e does not print six literals]"
+  done
+fi
+rm -rf "$v36_tmp"
+
+report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
+  "${v36_bad:-409 rows (codex 105, copilot 111, local 108, orchestration 85), 95 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 79 rows, 48 rules and 31 layout, an allow-list of codex 11+8, copilot 4+5 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

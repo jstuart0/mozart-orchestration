@@ -1,0 +1,5 @@
+Phase rows when the surface is `auth`, `secrets` or `security`.
+the xander field must be `run`;
+the one other form is `no trigger — phase ran before escalation`
+so `through P2` does not cover `P2a`;
+requires a usable surface record

@@ -1,0 +1,6 @@
+you review alone
+flag any term
+`auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`
+any dependency manifest, lockfile or CI path,
+any otto or nina trigger
+A flag makes the campaign not LIGHT

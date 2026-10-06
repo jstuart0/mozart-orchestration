@@ -1,0 +1,71 @@
+edition	from	to	applies
+codex	codex r2	claude r2	SKILL.md:140 (new sentences; edited lines take that line's noun)
+codex	Codex r1 (plan)	Claude r1 (plan)	SKILL.md:618
+codex	Codex r2 (diff)	Claude r2 (diff)	SKILL.md:619
+codex	Codex on plan	Claude on plan	SKILL.md:634
+codex	Codex on diff	Claude on diff	SKILL.md:638
+codex	**Codex**:	**Claude**:	SKILL.md:1406
+codex	codex surfaced	claude surfaced	SKILL.md:1424
+codex	Codex r2	Claude r2	agents/mozart.md:422 (checkpoint list; each port's own lowercase/capital noun at its line)
+codex	codex	claude	ledger lens value
+copilot	codex r2	sebastian r2	agents/valerie.agent.md:170 (new sentences; edited lines take that line's noun)
+copilot	Codex r1 (plan)	Counterpoint r1 (plan)	manual/STATE.md:93
+copilot	Codex r2 (diff)	Counterpoint r2 (diff)	manual/STATE.md:94
+copilot	Codex on plan	Counterpoint on plan	manual/STATE.md:111
+copilot	Codex on diff	Counterpoint on diff	manual/STATE.md:115
+copilot	**Codex**:	**Counterpoint**:	manual/DELIVER.md:411
+copilot	codex surfaced	sebastian surfaced	manual/DELIVER.md:429
+copilot	Codex r2	counterpoint r2	agents/mozart.md:422 (checkpoint list; each port's own lowercase/capital noun at its line)
+copilot	codex	sebastian	ledger lens value
+local	codex r2	sebastian r2	agents/valerie.md:168 (new sentences; edited lines take that line's noun)
+local	Codex r1 (plan)	sebastian r1 (plan)	manual/STATE.md:93
+local	Codex r2 (diff)	sebastian r2 (diff)	manual/STATE.md:94
+local	Codex on plan	sebastian on plan	manual/STATE.md:111
+local	Codex on diff	sebastian on diff	manual/STATE.md:115
+local	**Codex**:	**sebastian**:	TEMPLATE-REPORT.md (label per the ported template; local has no inline report block)
+local	codex surfaced	sebastian surfaced	TEMPLATE-REPORT.md (as the label)
+local	Codex r2	counterpoint r2	agents/mozart.md:422 (checkpoint list; each port's own lowercase/capital noun at its line)
+local	codex	sebastian	ledger lens value
+copilot	spawned	dispatched	manual/DELIVER.md (new sentences only)
+copilot	spawns	dispatches	manual/DELIVER.md (new sentences only)
+copilot	spawn	dispatch	manual/DELIVER.md (new sentences only)
+codex	CLAUDE.md	AGENTS.md	SKILL.md, INTEGRATION.md (instruction file)
+copilot	CLAUDE.md	AGENTS.md	INTEGRATION.md:3,5,106,241 (the noun section 5 uses)
+local	CLAUDE.md	{{mozart:base_instructions}}	manual/*.md (instruction file placeholder)
+codex	.mozart/	thoughts/shared/	SKILL.md:346 (listed sites only)
+codex	`INTEGRATION.md` section 6	`INTEGRATION.md` section 4	SKILL.md, INTEGRATION.md
+copilot	`INTEGRATION.md` section 6	`.github/mozart/INTEGRATION.md` section 6	manual/DELIVER.md, manual/FLOWS.md
+codex	`DELIVER.md`	the *DELIVER pipeline* section	SKILL.md (cross-references; the section named is the heading codex keeps that text under)
+copilot	`DELIVER.md`	`.github/mozart/manual/DELIVER.md`	manual/*.md, agents
+local	`DELIVER.md`	`{{mozart:manual_dir}}/DELIVER.md`	manual/*.md, agents
+codex	`STATE.md`	the *State persistence (crash-resume)* section	SKILL.md (cross-references; the section named is the heading codex keeps that text under)
+copilot	`STATE.md`	`.github/mozart/manual/STATE.md`	manual/*.md, agents
+local	`STATE.md`	`{{mozart:manual_dir}}/STATE.md`	manual/*.md, agents
+codex	`FLOWS.md`	the *Build-time flags (orthogonal to operating mode)* section	SKILL.md (cross-references; the section named is the heading codex keeps that text under)
+copilot	`FLOWS.md`	`.github/mozart/manual/FLOWS.md`	manual/*.md, agents
+local	`FLOWS.md`	`{{mozart:manual_dir}}/FLOWS.md`	manual/*.md, agents
+codex	`CONTEXT-BUDGET.md`	the *Subagent context budget (large-AGENTS.md repos)* section	SKILL.md (cross-references; the section named is the heading codex keeps that text under)
+copilot	`CONTEXT-BUDGET.md`	`.github/mozart/manual/CONTEXT-BUDGET.md`	manual/*.md, agents
+local	`CONTEXT-BUDGET.md`	`{{mozart:manual_dir}}/CONTEXT-BUDGET.md`	manual/*.md, agents
+codex	`mozart.md`, *Task tiers*	the *Task tiers (DELIVER)* section	SKILL.md
+copilot	`mozart.md`, *Task tiers*	`.github/mozart/manual/INTAKE.md`, *Task tiers (DELIVER)*	manual/DELIVER.md
+local	`mozart.md`, *Task tiers*	`{{mozart:manual_dir}}/INTAKE.md`, *Task tiers (DELIVER)*	manual/DELIVER.md
+codex	*Orchestration discipline*	*Orchestration discipline*	SKILL.md
+copilot	*Orchestration discipline*	*Orchestration discipline*	conductor persona
+local	*Orchestration discipline*	*Working mode*	conductor persona
+copilot	Codex on diff — codex CLI external review of final diff	Counterpoint on diff — sebastian's cross-model review of the final diff	PIPELINE.md stage-9 roster line (F44): copilot's own wording
+local	Codex on diff — codex CLI external review of final diff	Codex on diff — codex CLI external review of final diff	PIPELINE.md stage-9 roster line (F44): local keeps its pre-existing noun, frozen by ctl-leak-codexdiff-local
+copilot	Spawning	Dispatching	new example lines (mozart.md:330, WORKTREES.md:122); copilot's lines say Dispatching
+copilot	the escalation rule in `mozart.md`	the escalation rule in `.github/mozart/manual/INTAKE.md`	manual/DELIVER.md stage 4 and 7d
+copilot	(see `INTEGRATION.md`)	(see `.github/mozart/INTEGRATION.md`)	manual/FLOWS.md EVERY-PHASE bullet
+copilot	its sibling ledger and conductor files, hashed as `docs/EVAL.md` defines it	its sibling `<slug>.ledger.md` and `<slug>.conductor.md`, hashed as `.github/mozart/EVAL.md` defines it	manual/EVAL.md stage 1
+codex	the escalation rule in `mozart.md`	the escalation rule in the *Task tiers (DELIVER)* section	SKILL.md stage 4 and 7d
+codex	run codex round 2 on the diff	run claude r2 on the diff	valerie.toml: an edited line keeps its own noun (plan, Decision 10)
+local	the escalation rule in `mozart.md`	the escalation rule in `{{mozart:manual_dir}}/INTAKE.md`	manual/DELIVER.md stage 4 and 7d: local keeps the tier rules in manual/INTAKE.md
+local	(see `INTEGRATION.md`)	(documented in the stanza paragraph just below)	manual/FLOWS.md: local ships no INTEGRATION.md; the stanza is documented in the same section (Decision 9)
+local	its sibling ledger and conductor files, hashed as `docs/EVAL.md` defines it	its sibling `<slug>.ledger.md` and `<slug>.conductor.md`, hashed as the plugin's `docs/EVAL.md` defines it	manual/EVAL.md stage 1: the bundle ships no EVAL reference file, so the pointer names the plugin's
+codex	(step 9 of *Resume from a state file*)	(step 7 of *Resume from a state file*)	SKILL.md: codex's Resume list ends at step 7 (the layout step is its 7)
+codex	creates state file (+ ledger and conductor siblings) + flow sketch;	creates state file (+ ledger and conductor siblings) + flow sketch	PIPELINE.md stage-1 line: codex has no worktree continuation line, so the line ends without the semicolon
+copilot	(per the *Directory convention*), together with	(per the Directory convention), together with	manual/DELIVER.md stage 1: copilot's manual names its sections without emphasis
+copilot	all three copied from their templates in one step per *State file format*	all three copied from their templates in one step per State file format	manual/DELIVER.md stage 1: no emphasis on the section name
+copilot	commit messages, and the repo's `CLAUDE.md`	commit messages, the delegated-write artifacts you persist on behalf of a grantless specialist (sebastian's counterpoint review, sarah's research brief, a delegated field-note append), and the repo's `AGENTS.md`	mozart.agent.md Don't-write-code bullet: copilot's persona lists the delegated-write artifacts it persists for grantless specialists

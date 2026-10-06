@@ -1,0 +1,12 @@
+auth	[Aa]uth([^a-z]|$)
+secrets	[Ss]ecrets
+untrusted input	[Uu]ntrusted input
+encryption	[Ee]ncryption
+sessions	[Ss]essions
+RBAC	RBAC
+security headers	[Ss]ecurity headers
+CSP	CSP
+dependency changes	[Dd]ependenc|lockfile
+CI/CD workflow changes	CI/CD
+authorization (ownership and tenant filters)	[Aa]uthorization [(]ownership and tenant filters[)]
+outbound requests	[Oo]utbound requests

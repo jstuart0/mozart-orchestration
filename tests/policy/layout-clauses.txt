@@ -1,0 +1,5 @@
+**Where the ledger and the conductor record live.** A new campaign is split
+Append a findings-ledger or conductor row to the end of its file without re-reading the file first.
+**Detect the layout; never split on resume.**
+is single-file for life: an old campaign is never split,
+The sibling of state file `F` is `F` with `.state.md` replaced by `.ledger.md` or `.conductor.md`,

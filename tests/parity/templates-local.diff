@@ -1,0 +1,21 @@
+--- a/agents/TEMPLATE-STATE.md
++++ b/src/mozart_local/bundle/manual/TEMPLATE-STATE.md
+@@ -20,2 +20,2 @@
+-- Codex r1 (plan): <path or "not yet run">
+-- Codex r2 (diff): <path or "not yet run">
++- sebastian r1 (plan): <path or "not yet run">
++- sebastian r2 (diff): <path or "not yet run">
+@@ -38 +38 @@
+-- [ ] 5. Codex on plan — <timestamp>
++- [ ] 5. sebastian on plan — <timestamp>
+@@ -42 +42 @@
+-- [ ] 9. Codex on diff — <run|skip per tier>
++- [ ] 9. sebastian on diff — <run|skip per tier>
+--- a/agents/TEMPLATE-REPORT.md
++++ b/src/mozart_local/bundle/manual/TEMPLATE-REPORT.md
+@@ -7 +7 @@
+-**Codex**: <r1-plan path>, <r2-diff path if run>
++**sebastian**: <r1-plan path>, <r2-diff path if run>
+@@ -25 +25 @@
+-<anything reviewers / specialists / codex surfaced that the user should know>
++<anything reviewers / specialists / sebastian surfaced that the user should know>

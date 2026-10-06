@@ -1,0 +1,7 @@
+"state_md5":"<md5 of the campaign's files, defined under Semantics>",
+Hash of the campaign's state file and its sibling files at examination time
+**`state_md5`**: the md5 of the state file; when `<slug>.ledger.md` or `<slug>.conductor.md` sits beside it,
+A single-file campaign hashes exactly as before, so its records stay valid.
+that diverges between checkouts is a finding for the report,
+LIGHT, STANDARD and HEAVY materially above it.
+in `<slug>.ledger.md` beside the state file,

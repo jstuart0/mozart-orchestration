@@ -1,0 +1,23 @@
+about 3 files and 150 hand-written changed lines,
+no 2b trigger, no security trigger, no HEAVY surface, no otto or nina trigger;
+the cause is known
+stage-4 or stage-8 trigger row makes the campaign not LIGHT,
+The campaign is not LIGHT when the work touches a HEAVY surface
+or meets an otto or nina trigger
+A dependency manifest or lockfile change disqualifies LIGHT outright,
+lockfile lines never count toward the size bound.
+A cause stated only in an untrusted ticket body counts as unknown.
+take the higher.
+Tiers only go up.
+run the stages the higher tier requires that have not run
+xander reviews the cumulative diff since the base once, uncommitted phase diff included, before further implementation;
+Phase 1: ian and xander both run.
+surface includes `auth`, `secrets` or `security`, xander is
+ on every phase. The surface is recorded as
+words from `auth`, `secrets`, `schema`, `migrations`, `infra`, `billing`, `security`;
+ecord every listed word that applies,
+any term in xander's stage-8 row maps to `security`;
+an absent, empty or unlisted word counts as touching the surface on every phase.
+escalated from <TIER>, D<n>
+xander: cumulative pass on escalation (through P<k>): run
+**Tier**: HEAVY (surface: <word>[, <word>…])
