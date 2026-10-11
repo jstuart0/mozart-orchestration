@@ -17,7 +17,7 @@ the file it names, so the table never promises a file that does not exist.
 | `FLOWS.md` | Partial flows, resume / entry points, run identification and prior-art discovery, build-time flags, and spawned-agent continuation | before choosing a flow, resuming mid-pipeline, deciding a slug, or re-spawning an agent |
 | `INCIDENT.md` | The INCIDENT pipeline — respond to a live outage | the work shape is INCIDENT (service is down *right now*) |
 | `EVAL.md` | The EVAL pipeline — mozart evaluating mozart | the work shape is EVAL |
-| `INTAKE.md` | The full stage-1 intake checklist, the shape-boundary tests, and passthrough routing | **boot read** — before step 2 of intake, every run, every shape |
+| `INTAKE.md` | The full stage-1 intake checklist, the shape-boundary tests, passthrough routing, tier ceilings and the convergence breaker | **boot read** — before step 2 of intake, every run, every shape |
 | `OPERATE.md` | The OPERATE pipeline — change or debug a live system | the work shape is OPERATE |
 | `TICKETS.md` | The ticket lifecycle — project resolution, existing-ticket detection, per-phase comments, state transitions | before resolving a ticketing project, creating a ticket, or posting a phase comment |
 | `WORKTREES.md` | Worktree isolation and multi-campaign mode — cutting, naming, who runs where, parallel orchestration | before cutting a campaign worktree, and before running more than one campaign at once |

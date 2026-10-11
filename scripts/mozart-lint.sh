@@ -628,8 +628,8 @@ END {
 
   # D12: the lens-record rules apply to campaigns dated on or after lens_since.
   lens_dated = (slug_date >= lens_since)
-  if (family == "DELIVER" && tier == "HEAVY" && lens_dated && !tier_surface_ok)
-    emit("conductor-row", "tier", "HEAVY tier line has no usable surface record (write the Tier value as HEAVY (surface: <word>[, <word>…]) with at least one of auth, secrets, schema, migrations, infra, billing, security)")
+  if (family == "DELIVER" && tier_is_heavy_class(tier) && lens_dated && !tier_surface_ok)
+    emit("conductor-row", "tier", tier " tier line has no usable surface record (write the Tier value as " tier " (surface: <word>[, <word>…]) with at least one of auth, secrets, schema, migrations, infra, billing, security)")
   # F62/F63/F65: an escalation is evidenced by the Tier line (escalated from <TIER>, D<n>) AND a conductor
   # row linked to exactly that D<n> whose claim is "xander: cumulative pass on escalation (through P<k>): run".
   # The pre-escalation exemption covers phase rows up to P<k> only (phase_order), never later ones.
@@ -664,10 +664,10 @@ END {
             }
           }
           if (!linked) emit("conductor-unlinked", pk, "ticked Phase line has no linked conductor row")
-          else if (heavy_only && tier == "HEAVY" && (tier_surface || lens_dated) && !lens_ok)
-            emit("conductor-row", first_row, "HEAVY phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
-          else if (heavy_only && tier == "HEAVY" && tier_xander_every && !xander_ok)
-            emit("conductor-row", first_row, "HEAVY phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation (through P<k>): run, with P<k> at or after this phase)")
+          else if (heavy_only && tier_is_heavy_class(tier) && (tier_surface || lens_dated) && !lens_ok)
+            emit("conductor-row", first_row, tier " phase row does not record ian and xander (write each as: ian: run, or ian: no trigger — <why>; the same for xander:)")
+          else if (heavy_only && tier_is_heavy_class(tier) && tier_xander_every && !xander_ok)
+            emit("conductor-row", first_row, tier " phase row with surface auth, secrets or security does not record xander as run (xander runs on every phase there; write xander: run. A phase that ran before an escalation may read xander: no trigger — phase ran before escalation only when the Tier line says escalated from <TIER>, D<n> and a conductor row linked to D<n> claims xander: cumulative pass on escalation (through P<k>): run, with P<k> at or after this phase)")
         }
       }
       continue
@@ -681,6 +681,15 @@ END {
       emit("conductor-unlinked", gkey, "ticked required key has no linked row")
     } else if (want_fact && linked_kind != "fact") {
       emit("conductor-unlinked", gkey, "linked row is kind=" linked_kind ", want fact")
+    } else if (gkey == "4" && family == "OPERATE" && tier == "CRITICAL") {
+      drill_ok = 0; first_row = ""
+      for (id in cr_id_known) {
+        if (cr_placeholder[id] || cr_links[id] != gkey) continue
+        if (first_row == "" || id < first_row) first_row = id
+        if (lens_recorded(cr_claim[id], "rehearsal") && lens_recorded(cr_claim[id], "rollback drill")) drill_ok = 1
+      }
+      if (!drill_ok)
+        emit("conductor-row", first_row, "CRITICAL pre-flight row does not record rehearsal and rollback drill (write each as: rehearsal: run, or rehearsal: no trigger — <why>; the same for rollback drill:)")
     }
   }
 

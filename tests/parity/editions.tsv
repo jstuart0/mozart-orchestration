@@ -6,7 +6,7 @@ rule-conductor-cp-orchestration	orchestration	0	once	agents/mozart.md	## Orchest
 rule-np-7-orchestration	orchestration	0	once	agents/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
 rule-np-cb-orchestration	orchestration	0	once	agents/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-orchestration	orchestration	0	each-once	agents/mozart.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
-rule-tier-shape-orchestration	orchestration	0	shape	agents/mozart.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
+rule-tier-shape-orchestration	orchestration	0	shape	agents/mozart.md	## Task tiers (DELIVER)		5	first=TINY,LIGHT,STANDARD,HEAVY,CRITICAL
 rule-choose-orchestration	orchestration	0	absent	agents/mozart.md	## Task tiers (DELIVER)		0	choose HEAVY
 ctl-choose-operate-orchestration	orchestration	0	once	agents/OPERATE.md			1	When unsure between STANDARD and HEAVY: choose HEAVY.
 ctl-sev-orchestration	orchestration	0	once	agents/INCIDENT.md			1	When unsure between SEV levels: choose the higher one.
@@ -26,13 +26,15 @@ rule-xrow-p8-orchestration	orchestration	0	each-once	agents/PIPELINE.md	### Mid-
 rule-ian-p8-orchestration	orchestration	0	once	agents/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	ian	1	recorded HEAVY surface
 rule-xterms-persona-orchestration	orchestration	0	terms	agents/xander.md		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
 rule-pipe-shape-orchestration	orchestration	0	shape	agents/PIPELINE.md	### Tier adjustments		7	header=LIGHT
-rule-pipe-tiers-orchestration	orchestration	0	once	agents/PIPELINE.md			1	**Four DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY
-rule-shiprow-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
+rule-pipe-tiers-orchestration	orchestration	0	once	agents/PIPELINE.md			1	**Five DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY / CRITICAL
+rule-shiprow-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
 rule-r2-light-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
 rule-r2-old-orchestration	orchestration	0	absent	agents/PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |
 ctl-x2b-nocsp-d-orchestration	orchestration	0	absent	agents/DELIVER.md	### 2b. Constraints (conditional — narrow)	line:1. The task changes **who may do what**	0	CSP
 ctl-x2b-nocsp-p-orchestration	orchestration	0	absent	agents/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)	xander	0	CSP
+ctl-x2b-narrow-d-orchestration	orchestration	0	absent-re	agents/DELIVER.md	### 2b. Constraints (conditional — narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+ctl-x2b-narrow-p-orchestration	orchestration	0	absent-re	agents/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
 rule-phaserows-orchestration	orchestration	0	each-once	agents/STATE.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-orchestration	orchestration	0	each-once	agents/bob.md		line:- **On a LIGHT plan you review alone**	6	@bob-duty-clauses.txt
 rule-flags-orchestration	orchestration	0	each-once	agents/FLOWS.md	## Build-time flags: the TDD pipeline and auto-detection		3	@flags-clauses.txt
@@ -406,5 +408,23 @@ rule-advisory-orchestration	orchestration	0	once	agents/INTAKE.md	### 1. Intake	
 rule-advisory-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	can only add review
 rule-stanza-nothing-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	If you declare nothing, that is the behaviour.
 rule-stanza-phase1-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	ian and xander both run on phase 1
+rule-crit-inherit-orchestration	orchestration	0	once	agents/mozart.md	## Task tiers (DELIVER)		1	**CRITICAL inherits HEAVY.**
+rule-crit-cost-orchestration	orchestration	0	once	agents/mozart.md	## Task tiers (DELIVER)		1	the tier follows the recovery cost
+rule-caphit-orchestration	orchestration	0	once	agents/mozart.md	## Orchestration discipline		1	lead with one recommendation
+rule-ceil-delta-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	**Every later round is a delta check**
+rule-ceil-grow-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	grew by more than half
+rule-ceil-crit-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	no lower than it was two rounds earlier
+rule-ceil-extend-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	a cap is extended only by a user instruction that states the new cap
+rule-ceil-noprom-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	nothing is promoted automatically
+rule-delta-6-orchestration	orchestration	0	once	agents/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
+rule-s9-crit-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
+rule-stanza-crit-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-restore-new-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	never overwriting, truncating or swapping one
+rule-restore-go-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	get an explicit go
+rule-restore-gone-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	record `scratch removed`
+rule-stanza-noauth-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	never authorizes a restore, a credential use or any production action
+rule-stanza-noauthint-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	never authorizes a restore, a credential use or any production action
+rule-op-crit-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPERATE)		1	rehearsal on a restored copy of the real data
+rule-op-proof-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPERATE)		1	the restore proof decides
 rule-stanza-nothing-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	If you declare nothing, that is the behaviour.
 rule-stanza-phase1-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	ian and xander both run on phase 1

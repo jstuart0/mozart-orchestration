@@ -186,7 +186,7 @@ Tickets are durable. Body must be rich enough that a reader six months later und
 | Field | Value |
 |---|---|
 | Type | <feature \| enhancement \| refactor \| tech-debt> |
-| Tier | <TINY \| LIGHT \| STANDARD \| HEAVY> |
+| Tier | <TINY \| LIGHT \| STANDARD \| HEAVY \| CRITICAL> |
 | Project context | <GREENFIELD \| BROWNFIELD> |
 | Mode | <AUTONOMOUS \| LOOP-IN> |
 
@@ -329,7 +329,7 @@ Re-running valerie INCREMENTAL.
 ```markdown
 **Shipped** ✓
 
-- Tier: <TINY \| LIGHT \| STANDARD \| HEAVY>
+- Tier: <TINY \| LIGHT \| STANDARD \| HEAVY \| CRITICAL>
 - Phases: <N>
 - Validation: SIGNOFF after <N> reconciliation rounds — validation report: `.mozart/plans/<slug>.validation.md`
 

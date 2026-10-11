@@ -2,7 +2,7 @@
 
 ### 2. Research (sarah, optional — and parallel)
 
-Skip in TINY and LIGHT. In STANDARD/HEAVY, run when:
+Skip in TINY and LIGHT. In STANDARD/HEAVY/CRITICAL, run when:
 - Unfamiliar domain, library, or pattern decision
 - "Best practices" or "modern way to X" framing
 - Multiple plausible approaches and the right one isn't obvious
@@ -45,6 +45,7 @@ Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `
   - **Below the cap (`Consult count` < 2)**: spawn the named lens (xander, ian, librarian, otto, or nina) with a **fresh `Task`**, briefed with the question and the task only (never the draft plan — none exists yet), and receive a **constraint card**: ≤5 bullets, each ≤2 lines, each a `must`/`must-not` rule citing `file:line` or a named external standard, each falsifiable against something that exists independently of this campaign (a published guarantee, an existing trust boundary, an external standard, a live manifest field) — no design recommendations, no severities. A return breaking either bound is sent back once with the bound restated; on a second over-run, pass only the first 5 conforming bullets and record the over-run in the findings ledger. Persist the card to `.mozart/plans/active/<slug>.constraints.md` (append-only, `## <lens> — consult r<N>` per card) and record the path in the state file's `Paths: Constraints` line. **Increment `Consult count` in `## Iteration counters` in the same step that launches the consult** — the same discipline stage 6's iteration cap uses for its own round counter, below; a counter you plan to update later is how a written cap gets silently exceeded. Then `SendMessage` harry with the card so he resumes drafting. Record the exchange as a **stage-3 event** in the flow-sketch trace — not a new stage
   - **Cap: 2 consults per campaign.** At the cap, don't spawn a third — **both** surface to the user that a consult was skipped at the cap **and** `SendMessage` harry telling him to resume drafting against his own stated **If declined** fallback. A consult must never actually stall him; his fallback is what makes that true, not just what his return format promises
 - If harry returns **open questions** (a distinct return shape from a consult request), surface them to the user before continuing
+- **Real-environment probe and restore proof.** When `INTAKE.md` requires the probe, mozart runs it on the drafted plan before stage 4, and a probe failure goes back to harry. On CRITICAL, the plan's deploy phase carries the restore proof, run only on the user's go under the guardrails in `INTAKE.md` (*Tier ceilings and the real-environment probe*).
 
 ### 4. Internal review (conditional, parallel)
 
@@ -100,8 +101,8 @@ Adapt to the installed codex CLI's invocation form if different — but always p
 - **Name the pre-revision sections in the revision message.** A revision invalidates the sections written before it, and nothing cross-reads them by default. When a round changes or adds a mechanism, the findings message must **name every artifact section authored before this round that the mechanism touches** — plan phases, the test contract, the verification list, any enumerated site list or registry — as sections the planner is required to re-read. Line-number floors, counted populations and named-producer registries are the three that go stale silently, because the phase that adds a new member never touches the section that counts them. A revision message naming no such sections is asserting there are none.
 
 - **Short-circuit**: if internal reviewers + codex are all clean (no Critical/High), proceed directly to implementation. Don't iterate for its own sake.
-- **Otherwise**: **message the live harry** (`SendMessage`, context intact — he still has the plan rationale loaded) with consolidated findings (cite the codex file path explicitly so harry reads it). Harry revises. Re-invoke only the reviewers whose concerns weren't addressed — message the live reviewer if it's the same one re-checking its own finding, spawn fresh only when you want an unanchored second look; re-run codex only if revisions are substantive (writes `<slug>.codex-r1b-plan.md`, etc.).
-- Cap: 3 rounds. **Increment the state file's iteration counter in the same step that launches the round** — a counter you plan to update later is how a written "0/3" cap gets silently exceeded (observed: six reconciliation rounds ran against an un-incremented `0/3`, ai-meeting June 2026). At the cap, present a forced decision to the user — ship with named residual risk, or stop — don't improvise an ad-hoc extension ("ship after r2g regardless" is not a convergence policy).
+- **Otherwise**: **message the live harry** (`SendMessage`, context intact — he still has the plan rationale loaded) with consolidated findings (cite the codex file path explicitly so harry reads it). Harry revises. Within the tier's full rounds (`INTAKE.md`, *Tier ceilings and the real-environment probe*), re-invoke the reviewers whose concerns weren't addressed — message the live reviewer for its own finding, spawn fresh for an unanchored second look — and re-run codex when revisions are substantive (writes `<slug>.codex-r1b-plan.md`, etc.). After them, every later round is a delta check (the same section), with no fresh spawn.
+- Cap: 3 rounds. **Increment the state file's iteration counter in the same step that launches the round** — a counter you plan to update later is how a written "0/3" cap gets silently exceeded (observed: six reconciliation rounds ran against an un-incremented `0/3`, ai-meeting June 2026). At the cap, present a forced decision to the user — ship with named residual risk, or stop — don't improvise an ad-hoc extension ("ship after r2g regardless" is not a convergence policy). Record each round's plan lines and distinct Critical count; the convergence breaker can stop the loop before the cap, and the stop message leads with a recommendation (`INTAKE.md`).
 - Before continuing, confirm the plan has explicit phases jackson can implement one at a time.
 
 ### 7. Implement (jackson, phase by phase)
@@ -174,6 +175,7 @@ After all phases are committed:
 - **LIGHT**: run
 - **STANDARD**: default-run (skip only on sub-50-LOC mechanical diffs where the plan was trivial and internal reviewers were clean; the skip is not available when any term in xander's stage-8 trigger row applies). The May-2026 multi-repo evaluation found "STANDARD codex r2 skipped" runs that later shipped Criticals the next audit had to catch; the prior "optional" framing trained mozart to skip-by-default, which was wrong.
 - **HEAVY**: **non-negotiable** — not "mandatory" with a soft override. Skipping codex r2 on HEAVY is a self-detected gate failure that requires escalation, never a runtime mozart decision. "Mid-build covered it," "context pressure," and "the diff is mechanical" are not valid skip reasons. Either codex r2 runs, or the campaign stops at `Status: stopped` with a state-file note explaining the blocker and resumes in a fresh session.
+- **CRITICAL**: as HEAVY
 
 ```bash
 # Kill-timer + closed stdin are MANDATORY (see External tool execution). GNU `timeout` shown;

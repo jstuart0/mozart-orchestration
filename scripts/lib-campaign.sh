@@ -98,9 +98,14 @@ function is_tier_line(line) { return (index(line, "**Tier**:") > 0 && line !~ /^
 # upper case ("heavy", "Standard"), a token followed by anything but the end of
 # the value, a space, "(", an em dash or ";" (so "STANDARD2", "STANDARD/HEAVY",
 # "TINY, LIGHT, STANDARD, HEAVY" are lists or typos, not values), and a
-# non-HEAVY token whose remaining text names HEAVY as a whole word
-# ("STANDARD (escalated to HEAVY)": the writer is saying HEAVY, so the line is
-# not read as STANDARD).
+# TINY, LIGHT or STANDARD token whose remaining text names HEAVY or CRITICAL as
+# a whole word ("STANDARD (escalated to HEAVY)": the writer is saying HEAVY, so
+# the line is not read as STANDARD). A HEAVY token whose remaining text names
+# CRITICAL reads as CRITICAL: reading up is the fail-safe side, because CRITICAL
+# carries every HEAVY check. A CRITICAL token may name HEAVY ("escalated from
+# HEAVY, D4").
+# A token that is not one of the five tiers ("CRITCAL", "HEAVEY") is no value, so
+# a typo reads as untiered and keeps every check instead of skipping the heavy ones.
 function tier_of(line,   t, rest, tok, after) {
   t = substr(line, index(line, "**Tier**:") + 9)
   if (t ~ /\|/) {
@@ -117,19 +122,33 @@ function tier_of(line,   t, rest, tok, after) {
   tok = substr(t, 1, RLENGTH)
   after = substr(t, RLENGTH + 1)
   if (after != "" && after !~ /^[ (;]/ && after !~ /^—/) return ""
-  if (tok != "HEAVY" && has_heavy_word(after)) return ""
+  if (tier_rank(tok) == 0) return ""
+  if (tok != "HEAVY" && tok != "CRITICAL" && has_tier_word(after, "HEAVY")) return ""
+  if (tok != "CRITICAL" && has_tier_word(after, "CRITICAL")) return (tok == "HEAVY") ? "CRITICAL" : ""
   return tok
 }
-# True when s holds HEAVY as a whole word: not preceded or followed by a letter
-# or digit ("HEAVYish" and "NOHEAVY" are not). The neighbours are tested as a
-# whole prefix and suffix, never as one byte: awk here splits bytes, and a lone
-# byte of a multibyte character next to HEAVY aborts it in a UTF-8 locale.
-function has_heavy_word(s,   i, n) {
-  n = length(s)
-  for (i = 1; i + 4 <= n; i++) {
-    if (substr(s, i, 5) != "HEAVY") continue
+# The rank of a tier value (TINY 1 ... CRITICAL 5), 0 for anything else, and the
+# class every HEAVY rule binds (HEAVY and CRITICAL).
+function tier_rank(t) {
+  if (t == "TINY") return 1
+  if (t == "LIGHT") return 2
+  if (t == "STANDARD") return 3
+  if (t == "HEAVY") return 4
+  if (t == "CRITICAL") return 5
+  return 0
+}
+function tier_is_heavy_class(t) { return tier_rank(t) >= 4 }
+# True when s holds the word w (HEAVY or CRITICAL) as a whole word: not preceded
+# or followed by a letter or digit ("HEAVYish" and "NOHEAVY" are not). The
+# neighbours are tested as a whole prefix and suffix, never as one byte: awk here
+# splits bytes, and a lone byte of a multibyte character next to the word aborts
+# it in a UTF-8 locale.
+function has_tier_word(s, w,   i, n, k) {
+  n = length(s); k = length(w)
+  for (i = 1; i + k - 1 <= n; i++) {
+    if (substr(s, i, k) != w) continue
     if (substr(s, 1, i - 1) ~ /[A-Za-z0-9]$/) continue
-    if (substr(s, i + 5) ~ /^[A-Za-z0-9]/) continue
+    if (substr(s, i + k) ~ /^[A-Za-z0-9]/) continue
     return 1
   }
   return 0
@@ -227,11 +246,15 @@ function escalation_pass_through(claim,   c) {
   return c
 }
 # The decision number of an escalation the Tier line records, as the text
-# "escalated from <TINY|LIGHT|STANDARD>, D<n>", or "" when it records none.
-function tier_escalation_d(line,   t, e) {
+# "escalated from <TINY|LIGHT|STANDARD|HEAVY>, D<n>", or "" when it records none.
+# It counts only when the tier it escalated from ranks below the tier the line
+# names, so "HEAVY ... escalated from HEAVY" records nothing.
+function tier_escalation_d(line,   t, e, from) {
   t = substr(line, index(line, "**Tier**:") + 9)
-  if (!match(t, /escalated from (TINY|LIGHT|STANDARD), D[0-9]+/)) return ""
+  if (!match(t, /escalated from (TINY|LIGHT|STANDARD|HEAVY), D[0-9]+/)) return ""
   e = substr(t, RSTART, RLENGTH)
+  from = e; sub(/^escalated from /, "", from); sub(/,.*$/, "", from)
+  if (!(tier_rank(from) < tier_rank(tier_of(line)))) return ""
   sub(/^.*, D/, "", e)
   return e
 }
