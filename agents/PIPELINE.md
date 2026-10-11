@@ -102,7 +102,9 @@ Support agents (tool specialists, not personas):
 
 ¹ Gated by the repo's `## Pull requests` stanza, not by tier — when enabled it runs on every tier, including TINY. It appears in this table because readers look here for "does this stage run for me?", not because it varies by tier; every other row does.
 
-On LIGHT, plan review is bob alone (tessa too when TDD is set), and bob flags any trigger term he sees in a LIGHT plan. A tripped stage-2b, xander, otto or nina trigger means the campaign is STANDARD, not LIGHT; a HEAVY surface means STANDARD at minimum, and HEAVY when the work is on that surface. `EVERY-PHASE` (see `FLOWS.md`) spawns ian and xander at every phase of a HEAVY campaign. CRITICAL runs every HEAVY cell; the probe, rehearsal, checklist and each tier's ceiling are in the manual (`INTAKE.md`).
+On LIGHT, plan review is bob alone (tessa too when TDD is set), and bob flags any trigger term he sees in a LIGHT plan. A tripped stage-2b, xander, otto or nina trigger means the campaign is STANDARD, not LIGHT; a HEAVY surface means STANDARD at minimum, and HEAVY when the work is on that surface. `EVERY-PHASE` (see `FLOWS.md`) spawns ian and xander at every phase of a HEAVY campaign.
+
+CRITICAL runs every HEAVY cell; the probe, rehearsal, checklist and each tier's ceiling are in the manual (`INTAKE.md`).
 
 ### Reviewer triggers (stage 4 — internal review of the plan)
 

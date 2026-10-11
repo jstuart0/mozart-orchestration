@@ -104,6 +104,8 @@ function is_tier_line(line) { return (index(line, "**Tier**:") > 0 && line !~ /^
 # CRITICAL reads as CRITICAL: reading up is the fail-safe side, because CRITICAL
 # carries every HEAVY check. A CRITICAL token may name HEAVY ("escalated from
 # HEAVY, D4").
+# A token that is not one of the five tiers ("CRITCAL", "HEAVEY") is no value, so
+# a typo reads as untiered and keeps every check instead of skipping the heavy ones.
 function tier_of(line,   t, rest, tok, after) {
   t = substr(line, index(line, "**Tier**:") + 9)
   if (t ~ /\|/) {
@@ -120,6 +122,7 @@ function tier_of(line,   t, rest, tok, after) {
   tok = substr(t, 1, RLENGTH)
   after = substr(t, RLENGTH + 1)
   if (after != "" && after !~ /^[ (;]/ && after !~ /^—/) return ""
+  if (tier_rank(tok) == 0) return ""
   if (tok != "HEAVY" && tok != "CRITICAL" && has_tier_word(after, "HEAVY")) return ""
   if (tok != "CRITICAL" && has_tier_word(after, "CRITICAL")) return (tok == "HEAVY") ? "CRITICAL" : ""
   return tok

@@ -2,7 +2,7 @@
 
 ### 2. Research (sarah, optional — and parallel)
 
-Skip in TINY and LIGHT. In STANDARD/HEAVY, run when:
+Skip in TINY and LIGHT. In STANDARD/HEAVY/CRITICAL, run when:
 - Unfamiliar domain, library, or pattern decision
 - "Best practices" or "modern way to X" framing
 - Multiple plausible approaches and the right one isn't obvious

@@ -27,7 +27,7 @@ rule-ian-p8-orchestration	orchestration	0	once	agents/PIPELINE.md	### Mid-build 
 rule-xterms-persona-orchestration	orchestration	0	terms	agents/xander.md		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
 rule-pipe-shape-orchestration	orchestration	0	shape	agents/PIPELINE.md	### Tier adjustments		7	header=LIGHT
 rule-pipe-tiers-orchestration	orchestration	0	once	agents/PIPELINE.md			1	**Five DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY / CRITICAL
-rule-shiprow-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
+rule-shiprow-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
 rule-r2-light-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
 rule-r2-old-orchestration	orchestration	0	absent	agents/PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |

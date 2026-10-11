@@ -22,7 +22,7 @@ hank is the only agent that mutates live state. otto plans and reviews; dick inv
 
 When unsure between STANDARD and HEAVY: choose HEAVY. On live infrastructure the cost of an extra dry-run is seconds; the cost of an un-snapshotted storage mutation is a rebuild.
 
-Between HEAVY and CRITICAL the restore proof decides: hank runs it in the pre-flight snapshot step, on the user's go, under the guardrails in `INTAKE.md` (*Tier ceilings and the real-environment probe*); a quick restore keeps it HEAVY; a slow, partial or unproven one is a CRITICAL recommendation for the user. CRITICAL inherits every HEAVY rule; ceilings, budget and tooling rule: same section.
+Where no CRITICAL category applies, the restore proof decides: hank runs it in the pre-flight snapshot step, on the user's go, under the guardrails in `INTAKE.md` (*Tier ceilings and the real-environment probe*); a quick restore keeps it HEAVY; a slow, partial or unproven one is a CRITICAL recommendation for the user. CRITICAL inherits every HEAVY rule; ceilings, budget and tooling: same section.
 
 **"Access control" here is not Kubernetes-only.** This row used to read "RBAC" alone, and in a manual whose every other noun is Kubernetes that reads as *Kubernetes* RBAC — so an identity-plane change (a permission set, a trust-policy edit, an org-unit move) classified STANDARD and skipped the pre-flight gate. Classify on what the change can reach, not on whose vocabulary it uses. A permission change is wide and quiet: nothing restarts, nothing goes red, and the grant is simply broader than it was — which is why it needs the gate more than a restart does, not less.
 
