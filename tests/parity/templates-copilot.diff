@@ -11,7 +11,7 @@
 @@ -42 +42 @@
 -- [ ] 9. Codex on diff — <run|skip per tier>
 +- [ ] 9. Counterpoint on diff — <run|skip per tier>
-@@ -59,0 +60,8 @@
+@@ -60,0 +61,8 @@
 +
 +## Attestation ledger
 +| stage | agent | role | attested model | matched frontmatter? |

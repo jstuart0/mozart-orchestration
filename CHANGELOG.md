@@ -16,6 +16,7 @@ Campaign `2026-10-11-deliver-critical-tier`. An upgrade campaign on a live syste
 - **Parse and lint.** `tier_of` reads CRITICAL; a HEAVY line that names CRITICAL reads as CRITICAL; a lower tier that names HEAVY or CRITICAL is no value; `escalated from X` counts only when X ranks below the tier. The three HEAVY lint checks bind CRITICAL and name the tier, and an OPERATE CRITICAL campaign's stage-4 row must record `rehearsal:` and `rollback drill:`. Six lint fixtures and eleven library cases cover it.
 - **The V28 detector migration** (decision D5 discharged). The twelve-term union, stage-2b narrowness and the every-phase variant scan now run only as orchestration rows of the edition table, each with a planted-violation proof; V28 keeps its checksum, once and named pins.
 - **Red window, accepted by the user.** After this merge `scripts/check-editions.sh` fails against the codex, copilot and local ports until the port campaign lands (library byte identity, the behaviour corpus, the policy copies and the new rows). That is a deviation from *Changing a rule* step 6 of CONTRIBUTING, taken as a user decision, with the port campaign queued next.
+- **Red window closed.** The port campaign `2026-10-11-deliver-critical-tier-ports` landed the CRITICAL tier in the codex, copilot and local ports (library byte identity, the behaviour corpus, the policy copies and the new rows), and `scripts/check-editions.sh` exits 0 against all three.
 
 ### Added — edition parity: one table, one reader, shipped in every edition
 
