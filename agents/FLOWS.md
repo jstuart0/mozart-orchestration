@@ -51,7 +51,7 @@ Run DIAGNOSE stages 1–3 only. Dick's findings document is the deliverable. Use
 
 When triggered:
 - Run stages 1–6 as in STANDARD/HEAVY (intake → research → plan → reviewers → codex → iterate), or as the LIGHT tier sets them when the task is LIGHT
-- Stop after stage 6 reaches convergence (no Critical/High findings remaining) or hits the iteration cap
+- Stop after stage 6 reaches convergence (no Critical/High findings remaining), hits the iteration cap, or is stopped by the convergence breaker
 - **Don't run jackson, mid-build specialists, codex r2, valerie, or commit anything**
 - Report cites: plan path, codex r1 path, any open questions, and the iteration count
 

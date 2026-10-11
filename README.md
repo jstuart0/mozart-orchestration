@@ -183,7 +183,7 @@ Mozart is pluggable for the surfaces that vary by team:
 3. **Code retrieval** — an LSP, IDE symbol index, or AST-backed MCP server, if you have one.
 4. **Worktrees** — where campaign worktrees live, what they branch from, and how they're named.
 5. **Pull requests** — whether mozart pushes the campaign branch and opens the PR at all, and whether it opens as draft or ready.
-6. **Pipeline flags** — `every_phase: true` (the `EVERY-PHASE` flag) spawns ian and xander at every phase of a HEAVY campaign.
+6. **Pipeline flags** — `every_phase: true` (the `EVERY-PHASE` flag) spawns ian and xander at every phase of a HEAVY campaign; `heavy_is_critical: true` raises HEAVY-surface work to CRITICAL.
 
 Configure them by adding stanzas to your repo's `CLAUDE.md`. See [`INTEGRATION.md`](./INTEGRATION.md) for templates and the contract mozart follows.
 

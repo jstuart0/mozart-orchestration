@@ -2347,6 +2347,12 @@ report "V15" "$([ -z "$v15_bad" ] && echo 0 || echo 1)" \
 # (+138, headroom was 0), to the exact new size.
 # agents/mozart.md gained under 800 bytes and stays under its 55000 ceiling, which is NOT raised.
 #
+# 2026-10-11-deliver-critical-tier, phase 3: the CRITICAL tier's ceilings, probe, restore proof and convergence
+# breaker (agents/INTAKE.md, the new section and one stanza clause) and the stage-3, stage-6 and stage-9 text that
+# points at them (agents/DELIVER.md) are reviewed content, so the raises are taken on the D21 rule, each to the exact
+# new size: agents/INTAKE.md 19900 -> 24908 (+5008, headroom was 1111) and agents/DELIVER.md 59830 -> 60525
+# (+695, headroom was 0). agents/mozart.md stays under its 55000 ceiling and is not raised.
+#
 # SCOPE: orchestration's own files only. The ports enforce their own ceilings
 # with their own tooling — copilot via scripts/check_agents.py against the
 # table in its check.yml, local via the 30,000-char cap on MANIFEST.jsonc's
@@ -2369,12 +2375,12 @@ agents/EVAL.md	6300
 agents/OPERATE.md	14991
 agents/INCIDENT.md	11700
 agents/STATE.md	47146
-agents/INTAKE.md	19900
+agents/INTAKE.md	24908
 agents/COUNTERPOINT.md	5400
 agents/FLOWS.md	16800
 agents/WORKTREES.md	18200
 agents/TICKETS.md	24700
-agents/DELIVER.md	59830
+agents/DELIVER.md	60525
 agents/hank.md	22300
 agents/dick.md	23751
 agents/otto.md	21700
@@ -3828,8 +3834,8 @@ for v28_f in agents/mozart.md agents/PIPELINE.md README.md; do
   [ "$(v28_tables "$v28_f" | grep -c .)" -ge 1 ] || v28_bad="$v28_bad [no tier table found in $v28_f]"
 done
 [ "$(v28_tables agents/PIPELINE.md | grep -c .)" = "2" ] || v28_bad="$v28_bad [agents/PIPELINE.md must hold exactly two tier tables (adjustments and codex policy)]"
-grep -qxF '| Stage | TINY | LIGHT | STANDARD | HEAVY |' agents/PIPELINE.md \
-  || v28_bad="$v28_bad [named member absent: agents/PIPELINE.md header row '| Stage | TINY | LIGHT | STANDARD | HEAVY |']"
+grep -qxF '| Stage | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |' agents/PIPELINE.md \
+  || v28_bad="$v28_bad [named member absent: agents/PIPELINE.md header row '| Stage | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |']"
 
 # ---- 2. enumeration lines ---------------------------------------------------
 # Exclusions are statements about a named tier or the OPERATE tier axis, not enumerations of the
@@ -3922,7 +3928,7 @@ v28_hi=$(v28_cut_scan "$v28_hi_re" $v28_docs INTEGRATION.md)
 # both halves of an uncertainty phrase and a tier name, a file outside the scanned set (agents/*.md, commands/*.md,
 # docs/*.md, README.md, INTEGRATION.md, CONTRIBUTING.md, SECURITY.md, PRIVACY.md, tracked files only), or a
 # rule hidden in a script's message text.
-v28_tier_t='(TINY|LIGHT|STANDARD|HEAVY|SEV)'
+v28_tier_t='(TINY|LIGHT|STANDARD|HEAVY|CRITICAL|SEV)'
 v28_tier_u='(unsure|uncertain|in doubt|any doubt|both fit|are close|tiebreak|tie-break|ties go)'
 v28_tier_re="higher|stricter|more cautious|round up|err toward|err on the side|${v28_tier_u}[^.]*${v28_tier_t}|${v28_tier_t}[^.]*${v28_tier_u}"
 v28_tier_allowed=$(cat <<'V28_TIER_ALLOWED_EOF'
@@ -3935,8 +3941,8 @@ agents/PIPELINE.md	418127979	264	SEV tiers line, incident severity
 agents/README.md	132093594	102	higher-level agents, roster table
 agents/WORKTREES.md	2965649099	269	higher-than-capacity wording in parallelism cap
 agents/ian.md	224804911	99	coverage risk wording
-agents/mozart.md	144801029	356	the one tier rule: When two tiers both fit
-agents/mozart.md	1069903660	699	escalation rule: stages the higher tier requires
+agents/mozart.md	1700378049	527	the one tier rule: When two tiers both fit
+agents/mozart.md	793756605	799	escalation rule: stages the higher tier requires
 agents/tessa.md	2264529813	238	severity/cost wording
 agents/tessa.md	2712955872	215	severity/cost wording
 V28_TIER_ALLOWED_EOF
@@ -3960,7 +3966,8 @@ v28_tier_gone=$(comm -23 <(printf '%s\n' "$v28_tier_want") <(printf '%s\n' "$v28
 # Self-tests: the eight shapes the reviewer wrote must be flagged, the allowed sites must not be, and a clause appended to an
 # allowed sentence must change its key.
 for v28_p in 'When two tiers both fit, settle on the higher tier.' 'If the tiers are close, go higher.' 'Ties go to the higher tier.' \
-             'the higher takes precedence' 'When unsure, escalate to the higher tier.' 'When unsure between LIGHT and STANDARD: choose STANDARD.'; do
+             'the higher takes precedence' 'When unsure, escalate to the higher tier.' 'When unsure between LIGHT and STANDARD: choose STANDARD.' \
+             'If in doubt, make it CRITICAL.'; do
   grep -qEi -- "$v28_tier_re" <<<"$v28_p" || v28_bad="$v28_bad [self-test: the tier-choice scan did not flag: $v28_p]"
 done
 v28_mz_rule=$(grep -F 'When two tiers both fit' agents/mozart.md)
@@ -5020,15 +5027,15 @@ rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parit
 hdr, rows = rows[0], rows[1:]
 need(hdr == ["id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle"], "table header changed")
 need(all(len(r) == 9 for r in rows), "a ragged table line")
-N = 411
+N = 427
 need(len(rows) == N, f"the table holds {len(rows)} rows, want {N}")
 per_ed = collections.Counter(r[1] for r in rows)
-need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 87}, f"rows per edition: {dict(per_ed)}")
+need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 103}, f"rows per edition: {dict(per_ed)}")
 ids = sorted(r[0] for r in rows)
 need(len(set(i.lower() for i in ids)) == len(ids), "duplicate ids")
-need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "2a79a7dd517a0ee3fa451441b9a9098ecffba51363a6762fe421b982e2b16355", "the id list changed")
+need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "1d49922b2204d79a3180c404d68a7a4775011dbafd9784e282fbad22dae65512", "the id list changed")
 kpe = sorted(f"{r[0]} {r[3]} {r[2]} {r[7]}" for r in rows)
-need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "370c06bde2bf1ce2c18ccb2b5fdc1782f3ff8e77226e4cad961a009a2bed33c5", "a row's kind, phase or expect changed")
+need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "44f834d6cbe6e71f8797d6837155dc37ca11a62b25e8c7d167af20e753a065e6", "a row's kind, phase or expect changed")
 def family(i):
     i = re.sub(r"-(orchestration|copilot|codex|local)$", "", i)
     i = re.sub(r"-\d+$", "", i)
@@ -5036,8 +5043,8 @@ def family(i):
 matrix = sorted(f"{family(r[0])}:{r[1]}={n}" for (r), n in [(r, 1) for r in rows])
 cnt = collections.Counter((family(r[0]), r[1]) for r in rows)
 matrix = sorted(f"{f}:{e}={n}" for (f, e), n in cnt.items())
-need(len(set(f for f, _ in cnt)) == 97, f"{len(set(f for f, _ in cnt))} families, want 97")
-need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "250b49f090e1479b2f2a196dbd636d13a4bb01c6662a69302622ce08bec21939", "the family-by-edition matrix changed")
+need(len(set(f for f, _ in cnt)) == 113, f"{len(set(f for f, _ in cnt))} families, want 113")
+need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "90c4f86a735e1076850631a70e440a3198a920d8d1d144e2ab1f8f53d30f2a3b", "the family-by-edition matrix changed")
 marks = []
 for r in rows:
     for col, name in ((4, "scope"), (5, "anchor"), (6, "row"), (8, "needle")):
@@ -5105,7 +5112,7 @@ if os.path.isfile(nm_path):
     need(dict(allow) == {("codex", "replaced"): 11, ("codex", "dropped"): 8, ("copilot", "replaced"): 4, ("copilot", "dropped"): 5,
                          ("local", "replaced"): 3, ("local", "dropped"): 7}, f"norm-map.tsv allow-list size changed: {sorted(allow.items())}")
 # ---- shipped files: content pins, no host or user path -------------------------------------------
-pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': '0dda29763d1bd262b50545e5028170d3db596dd93979891f4eb136db3ee5fdfe', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
+pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': '88196fbd76fb8d744e8f7d4a8ee2118e7376820691e25f82ae2124b11b8ed9af', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': 'a8c30124cf64cdd6c3d225fe79f2d5f2cdddb8a54627b2e0c29c398e947ef68f', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
 named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
 need(named == sorted(n.split("/", 2)[2] for n in pins if n.startswith("tests/policy/")), "the set of policy files the table names changed")
 for path, want in pins.items():
@@ -5219,11 +5226,11 @@ V36_PY
   v36_pend=$(grep -c '^PENDING ' <<<"$v36_out" || true)
   v36_fail=$(grep -c '^FAIL ' <<<"$v36_out" || true)
   if [ -z "$v36_done" ] || ! grep -qw 1b <<<"$v36_done"; then
-    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 86 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
-      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 86 1 0 with only lens-orchestration pending]"
+    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 102 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
+      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 102 1 0 with only lens-orchestration pending]"
   else
-    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 87 ] && [ "$v36_fail" -eq 0 ]; } \
-      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 87 0]"
+    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 103 ] && [ "$v36_fail" -eq 0 ]; } \
+      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 103 0]"
   fi
   # the clause-level script against this repo's history (phase 1c). The map must cover every added line of
   # df2322d..3fdf576 and every translate.tsv row must fire (the three dead INTEGRATION.md rows of 1c were
@@ -5250,7 +5257,7 @@ fi
 rm -rf "$v36_tmp"
 
 report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
-  "${v36_bad:-411 rows (codex 105, copilot 111, local 108, orchestration 87), 97 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask held by literals in this gate itself (the twelve names, seven variant plants and the masked sentence); 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 79 rows, 48 rules and 31 layout, an allow-list of codex 11+8, copilot 4+5 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
+  "${v36_bad:-427 rows (codex 105, copilot 111, local 108, orchestration 103), 113 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask held by literals in this gate itself (the twelve names, seven variant plants and the masked sentence); 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 79 rows, 48 rules and 31 layout, an allow-list of codex 11+8, copilot 4+5 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

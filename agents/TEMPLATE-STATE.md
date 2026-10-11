@@ -3,7 +3,7 @@
 **Last updated**: <ISO timestamp>
 **Status**: in-progress | stopped | complete | aborted
 **Flow**: FULL | PLAN-ONLY | RESEARCH-ONLY | VALIDATE-ONLY | INVESTIGATE-ONLY | OPERATE-FULL | OPERATE-PLAN-ONLY | INCIDENT-FULL | MITIGATE-ONLY
-**Tier**: TINY | LIGHT | STANDARD | HEAVY
+**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL
 **Context**: GREENFIELD | BROWNFIELD
 **Mode**: AUTONOMOUS | LOOP-IN
 **Authoritative checkout**: <path — the checkout where this state file is canonically maintained; copies in other worktrees are replicas>
@@ -57,6 +57,7 @@
 - Per-phase attempts (current phase): <N> / 3
 - Reconciliation round: <N> / 3
 - Consult count: <N> / 2
+- Plan lines / distinct Criticals per review round: <r1: L/C; r2: …>
 
 ## Escapes
 - (none yet) | Traces-to: <DIAGNOSE/audit slug that found a defect this campaign shipped>, <phase/sha if known>
