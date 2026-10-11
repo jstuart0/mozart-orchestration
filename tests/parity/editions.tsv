@@ -58,8 +58,8 @@ rule-traces-old-orchestration	orchestration	0	absent	agents/dick.md			0	<origina
 lay-moved-orchestration	orchestration	0	moved	agents/TEMPLATE-STATE.md;agents/TEMPLATE-LEDGER.md;agents/TEMPLATE-CONDUCTOR.md;agents/TEMPLATE-FLOW.md;agents/TEMPLATE-REPORT.md		pop=agents	5	TEMPLATE-STATE.md=agents/STATE.md;TEMPLATE-LEDGER.md=agents/STATE.md;TEMPLATE-CONDUCTOR.md=agents/STATE.md;TEMPLATE-FLOW.md=agents/STATE.md;TEMPLATE-REPORT.md=agents/DELIVER.md
 lay-skeleton-ledger-orchestration	orchestration	0	file-eq	agents/TEMPLATE-LEDGER.md			1	@ledger-skeleton.md
 lay-skeleton-conductor-orchestration	orchestration	0	file-eq	agents/TEMPLATE-CONDUCTOR.md			1	@conductor-skeleton.md
-lay-tier4-state-orchestration	orchestration	0	once	agents/TEMPLATE-STATE.md			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
-lay-tier4-flow-orchestration	orchestration	0	once	agents/TEMPLATE-FLOW.md			1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
+lay-tier4-state-orchestration	orchestration	0	once	agents/TEMPLATE-STATE.md			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL
+lay-tier4-flow-orchestration	orchestration	0	once	agents/TEMPLATE-FLOW.md			1	| Tier | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |
 lay-prline-orchestration	orchestration	0	once	agents/TEMPLATE-STATE.md			1	- PR:
 lay-index-orchestration	orchestration	0	once	agents/INDEX.md	## On-demand files, not members		1	None is a manual member or an agent.
 lay-pointer-report-orchestration	orchestration	0	once	agents/DELIVER.md			1	Its skeleton is a file beside this one
@@ -74,7 +74,7 @@ rule-conductor-cp-copilot	copilot	2	once	.github/agents/mozart.agent.md	## Orche
 rule-np-7-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
 rule-np-cb-copilot	copilot	2	once	.github/mozart/manual/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-copilot	copilot	2	each-once	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
-rule-tier-shape-copilot	copilot	2	shape	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
+rule-tier-shape-copilot	copilot	2	shape	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		5	first=TINY,LIGHT,STANDARD,HEAVY,CRITICAL
 rule-choose-copilot	copilot	2	absent	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		0	choose HEAVY
 ctl-choose-operate-copilot	copilot	0	once	.github/mozart/manual/OPERATE.md			1	When unsure between STANDARD and HEAVY: choose HEAVY.
 ctl-sev-copilot	copilot	0	once	.github/mozart/manual/INCIDENT.md			1	When unsure between SEV levels: choose the higher one.
@@ -94,8 +94,8 @@ rule-xrow-p8-copilot	copilot	2	each-once	.github/mozart/PIPELINE.md	### Mid-buil
 rule-ian-p8-copilot	copilot	2	once	.github/mozart/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	ian	1	recorded HEAVY surface
 rule-xterms-persona-copilot	copilot	2	terms	.github/agents/xander.agent.md		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
 rule-pipe-shape-copilot	copilot	2	shape	.github/mozart/PIPELINE.md	### Tier adjustments		7	header=LIGHT
-rule-pipe-tiers-copilot	copilot	2	once	.github/mozart/PIPELINE.md			1	**Four DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY
-rule-shiprow-copilot	copilot	2	once	.github/mozart/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
+rule-pipe-tiers-copilot	copilot	2	once	.github/mozart/PIPELINE.md			1	**Five DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY / CRITICAL
+rule-shiprow-copilot	copilot	2	once	.github/mozart/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
 rule-r2-light-copilot	copilot	2	once	.github/mozart/PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-copilot	copilot	2	once	.github/mozart/PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
 rule-r2-old-copilot	copilot	2	absent	.github/mozart/PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |
@@ -128,8 +128,8 @@ lay-skeleton-conductor-copilot	copilot	3	file-eq	.github/mozart/manual/TEMPLATE-
 lay-tdiff-state-copilot	copilot	3	diff-src	.github/mozart/manual/TEMPLATE-STATE.md+			1	src=agents/TEMPLATE-STATE.md;held=tests/parity/templates-copilot.diff
 lay-tdiff-flow-copilot	copilot	3	diff-src	.github/mozart/manual/TEMPLATE-FLOW.md+			1	src=agents/TEMPLATE-FLOW.md;held=tests/parity/templates-copilot.diff
 lay-tdiff-report-copilot	copilot	3	diff-src	.github/mozart/manual/TEMPLATE-REPORT.md+			1	src=agents/TEMPLATE-REPORT.md;held=tests/parity/templates-copilot.diff
-lay-tier4-state-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-STATE.md+			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
-lay-tier4-flow-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
+lay-tier4-state-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-STATE.md+			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL
+lay-tier4-flow-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |
 lay-prline-copilot	copilot	3	once	.github/mozart/manual/TEMPLATE-STATE.md+			1	- PR:
 lay-index-copilot	copilot	3	once	.github/mozart/manual/INDEX.md	## On-demand files, not members @+		1	None is a manual member or an agent.
 lay-gaps-copilot	copilot	3	gaps	.github/agents/*.agent.md;.github/mozart/*.md;.github/mozart/manual/*.md;README.md;.github/mozart/manual/TEMPLATE-STATE.md+;.github/mozart/manual/TEMPLATE-LEDGER.md+;.github/mozart/manual/TEMPLATE-CONDUCTOR.md+;.github/mozart/manual/TEMPLATE-FLOW.md+;.github/mozart/manual/TEMPLATE-REPORT.md+		allow=@survivors.tsv	0	
@@ -148,7 +148,7 @@ rule-conductor-cp-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Orchestrat
 rule-np-7-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
 rule-np-cb-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Subagent context budget (large-AGENTS.md repos)		1	A no-progress return counts as one failed
 rule-tier-clauses-codex	codex	6	each-once	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
-rule-tier-shape-codex	codex	6	shape	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
+rule-tier-shape-codex	codex	6	shape	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		5	first=TINY,LIGHT,STANDARD,HEAVY,CRITICAL
 rule-choose-codex	codex	6	absent	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		0	choose HEAVY
 ctl-choose-operate-codex	codex	0	once	.codex/skills/mozart/SKILL.md	## OPERATE pipeline		1	When unsure between STANDARD and HEAVY: choose HEAVY.
 ctl-sev-codex	codex	0	once	.codex/skills/mozart/SKILL.md	## INCIDENT pipeline		1	When unsure between SEV levels: choose the higher one.
@@ -168,7 +168,7 @@ rule-xrow-p8-codex	codex	6	each-once	PIPELINE.md	### Mid-build specialist trigge
 rule-ian-p8-codex	codex	6	once	PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	ian	1	recorded HEAVY surface
 rule-xterms-persona-codex	codex	6	terms	.codex/agents/xander.toml		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
 rule-pipe-shape-codex	codex	6	shape	PIPELINE.md	### Tier adjustments		6	header=LIGHT
-rule-pipe-tiers-codex	codex	6	once	PIPELINE.md			1	**Four DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY
+rule-pipe-tiers-codex	codex	6	once	PIPELINE.md			1	**Five DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY / CRITICAL
 rule-r2-light-codex	codex	6	once	PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-codex	codex	6	once	PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
 rule-r2-old-codex	codex	6	absent	PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |
@@ -197,9 +197,9 @@ rule-dead-codex	codex	6	absent	.codex/skills/mozart/SKILL.md			0	## Communicate 
 lay-skeleton-ledger-codex	codex	7	block-eq	.codex/skills/mozart/SKILL.md	### State file format	block=2	3	@ledger-skeleton.md
 lay-skeleton-conductor-codex	codex	7	block-eq	.codex/skills/mozart/SKILL.md	### State file format	block=3	3	@conductor-skeleton.md
 lay-skeleton-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	### State file format		4	@codex-skeleton-clauses.txt
-lay-tier4-state-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
-lay-tier4-flow-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## Pipeline flow sketch @fenced		1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
-lay-tier4-report-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### 13. Report @fenced		1	## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY>)
+lay-tier4-state-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### State file format @fenced		1	**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL
+lay-tier4-flow-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## Pipeline flow sketch @fenced		1	| Tier | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |
+lay-tier4-report-codex	codex	7	once	.codex/skills/mozart/SKILL.md	### 13. Report @fenced		1	## <slug>: shipped (tier: <TINY|LIGHT|STANDARD|HEAVY|CRITICAL>)
 lay-gaps-codex	codex	7	gaps	.codex/agents/*.toml;.codex/skills/mozart/SKILL.md;PIPELINE.md;INTEGRATION.md;README.md;docs/EVAL.md		allow=@survivors.tsv	0	
 lay-intake-codex	codex	7	once	.codex/skills/mozart/SKILL.md	## DELIVER pipeline		1	together with its two siblings
 lay-clauses-codex	codex	7	each-once	.codex/skills/mozart/SKILL.md	## State persistence (crash-resume)		5	@layout-clauses.txt
@@ -218,7 +218,7 @@ rule-conductor-cp-local	local	4	once	src/mozart_local/bundle/agents/mozart.md	##
 rule-np-7-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 7. Implement (jackson, phase by phase)		1	is not an attempt
 rule-np-cb-local	local	4	once	src/mozart_local/bundle/manual/CONTEXT-BUDGET.md			1	A no-progress return counts as one failed
 rule-tier-clauses-local	local	4	each-once	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		23	@tier-clauses.txt
-rule-tier-shape-local	local	4	shape	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		4	first=TINY,LIGHT,STANDARD,HEAVY
+rule-tier-shape-local	local	4	shape	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		5	first=TINY,LIGHT,STANDARD,HEAVY,CRITICAL
 rule-choose-local	local	4	absent	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		0	choose HEAVY
 ctl-choose-operate-local	local	0	once	src/mozart_local/bundle/manual/OPERATE.md			1	When unsure between STANDARD and HEAVY: choose HEAVY.
 ctl-sev-local	local	0	once	src/mozart_local/bundle/manual/INCIDENT.md			1	When unsure between SEV levels: choose the higher one.
@@ -238,8 +238,8 @@ rule-xrow-p8-local	local	4	each-once	src/mozart_local/bundle/docs/PIPELINE.md	##
 rule-ian-p8-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	### Mid-build specialist triggers (stage 8 — review the slice before commit)	ian	1	recorded HEAVY surface
 rule-xterms-persona-local	local	4	terms	src/mozart_local/bundle/agents/xander.md		line:Mozart invokes you on plans or slices	12	@xander-terms.txt
 rule-pipe-shape-local	local	4	shape	src/mozart_local/bundle/docs/PIPELINE.md	### Tier adjustments		7	header=LIGHT
-rule-pipe-tiers-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md			1	**Four DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY
-rule-shiprow-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
+rule-pipe-tiers-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md			1	**Five DELIVER tiers**: TINY / LIGHT / STANDARD / HEAVY / CRITICAL
+rule-shiprow-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	### Tier adjustments		1	| Ship (12b) | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ | opt-in¹ |
 rule-r2-light-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	### Tier policy		1	| LIGHT | skip | run |
 rule-r2-std-local	local	4	once	src/mozart_local/bundle/docs/PIPELINE.md	### Tier policy		1	| STANDARD | run | default-run |
 rule-r2-old-local	local	4	absent	src/mozart_local/bundle/docs/PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |
@@ -271,8 +271,8 @@ lay-skeleton-conductor-local	local	5	file-eq	src/mozart_local/bundle/manual/TEMP
 lay-tdiff-state-local	local	5	diff-src	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+			1	src=agents/TEMPLATE-STATE.md;held=tests/parity/templates-local.diff
 lay-tdiff-flow-local	local	5	diff-src	src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+			1	src=agents/TEMPLATE-FLOW.md;held=tests/parity/templates-local.diff
 lay-tdiff-report-local	local	5	diff-src	src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+			1	src=agents/TEMPLATE-REPORT.md;held=tests/parity/templates-local.diff
-lay-tier4-state-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY
-lay-tier4-flow-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY |
+lay-tier4-state-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+			1	**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL
+lay-tier4-flow-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+			1	| Tier | TINY | LIGHT | STANDARD | HEAVY | CRITICAL |
 lay-prline-local	local	5	once	src/mozart_local/bundle/manual/TEMPLATE-STATE.md+			1	- PR:
 lay-index-local	local	5	once	src/mozart_local/bundle/manual/INDEX.md	## On-demand files, not members @+		1	None is a manual member or an agent.
 lay-gaps-local	local	5	gaps	src/mozart_local/bundle/agents/*.md;src/mozart_local/bundle/manual/*.md;src/mozart_local/bundle/docs/PIPELINE.md;README.md;src/mozart_local/bundle/manual/TEMPLATE-STATE.md+;src/mozart_local/bundle/manual/TEMPLATE-LEDGER.md+;src/mozart_local/bundle/manual/TEMPLATE-CONDUCTOR.md+;src/mozart_local/bundle/manual/TEMPLATE-FLOW.md+;src/mozart_local/bundle/manual/TEMPLATE-REPORT.md+		allow=@survivors.tsv	0	
@@ -401,9 +401,49 @@ rule-readme-never-light-orchestration	orchestration	0	once	README.md			1	is neve
 rule-readme-light-r2-orchestration	orchestration	0	once	README.md			1	mid-build specialists on triggers; codex r2 runs
 rule-readme-never-light-codex	codex	6	once	README.md			1	is never LIGHT, and a tier only ever goes up.
 rule-readme-light-r2-codex	codex	6	once	README.md			1	mid-build specialists on triggers; claude r2 runs.
+rule-crit-inherit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		1	**CRITICAL inherits HEAVY.**
+rule-crit-cost-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Task tiers (DELIVER)		1	the tier follows the recovery cost
+rule-caphit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Orchestration discipline		1	lead with one recommendation
+rule-ceil-delta-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	**Every later round is a delta check**
+rule-ceil-grow-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	grew by more than half
+rule-ceil-crit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	no lower than it was two rounds earlier
+rule-ceil-extend-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	a cap is extended only by a user instruction that states the new cap
+rule-ceil-noprom-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	nothing is promoted automatically
+rule-delta-6-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
+rule-s9-crit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
+rule-stanza-crit-codex	codex	6	once	INTEGRATION.md	## 4. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-restore-new-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
+rule-restore-go-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
+rule-restore-gone-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
+rule-stanza-noauth-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	never authorizes a restore, a credential use or any production action
+rule-stanza-noauthint-codex	codex	6	once	INTEGRATION.md	## 4. Pipeline flags (stanza optional)		1	never authorizes a restore, a credential use or any production action
+rule-op-crit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Tiers (OPERATE)		1	rehearsal on a restored copy of the real data
+rule-op-proof-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### Tiers (OPERATE)		1	the restore proof decides
+ctl-x2b-narrow-d-codex	codex	0	absent-re	.codex/skills/mozart/SKILL.md	### 2b. Constraints (conditional — narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
 rule-readme-never-light-copilot	copilot	2	once	README.md			1	change is never LIGHT, and a
 rule-readme-up-copilot	copilot	2	once	README.md			1	tier only ever goes up.
 rule-readme-light-r2-copilot	copilot	2	once	README.md			1	and the sebastian round-2 review of the
+rule-crit-inherit-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		1	**CRITICAL inherits HEAVY.**
+rule-crit-cost-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Task tiers (DELIVER)		1	the tier follows the recovery cost
+rule-caphit-copilot	copilot	2	once	.github/agents/mozart.agent.md	## Orchestration discipline		1	lead with one recommendation
+rule-ceil-delta-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	**Every later round is a delta check**
+rule-ceil-grow-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	grew by more than half
+rule-ceil-crit-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	no lower than it was two rounds earlier
+rule-ceil-extend-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	a cap is extended only by a user instruction that states the new cap
+rule-ceil-noprom-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	nothing is promoted automatically
+rule-delta-6-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
+rule-s9-crit-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
+rule-stanza-crit-copilot	copilot	2	once	.github/mozart/INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-restore-new-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
+rule-restore-go-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
+rule-restore-gone-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
+rule-stanza-noauth-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never authorizes a restore, a credential use or any production action
+rule-stanza-noauthint-copilot	copilot	2	once	.github/mozart/INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	never authorizes a restore, a credential use or any production action
+rule-op-crit-copilot	copilot	2	once	.github/mozart/manual/OPERATE.md	### Tiers (OPERATE)		1	rehearsal on a restored copy of the real data
+rule-op-proof-copilot	copilot	2	once	.github/mozart/manual/OPERATE.md	### Tiers (OPERATE)		1	the restore proof decides
+ctl-x2b-narrow-d-copilot	copilot	0	absent-re	.github/mozart/manual/DELIVER.md	### 2b. Constraints (conditional — narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+ctl-x2b-narrow-p-copilot	copilot	0	absent-re	.github/mozart/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+rule-s9-crit-2-copilot	copilot	2	once	.github/mozart/manual/COUNTERPOINT.md	## Tier policy (verbatim from the Claude Code edition)		1	- **CRITICAL**: as HEAVY
 rule-advisory-orchestration	orchestration	0	once	agents/INTAKE.md	### 1. Intake		1	can only add review
 rule-advisory-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	can only add review
 rule-stanza-nothing-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	If you declare nothing, that is the behaviour.
@@ -428,3 +468,24 @@ rule-op-crit-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPE
 rule-op-proof-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPERATE)		1	the restore proof decides
 rule-stanza-nothing-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	If you declare nothing, that is the behaviour.
 rule-stanza-phase1-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	ian and xander both run on phase 1
+rule-crit-inherit-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		1	**CRITICAL inherits HEAVY.**
+rule-crit-cost-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Task tiers (DELIVER)		1	the tier follows the recovery cost
+rule-caphit-local	local	4	once	src/mozart_local/bundle/agents/mozart.md	## Working mode		1	lead with one recommendation
+rule-ceil-delta-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	**Every later round is a delta check**
+rule-ceil-grow-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	grew by more than half
+rule-ceil-crit-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	no lower than it was two rounds earlier
+rule-ceil-extend-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	a cap is extended only by a user instruction that states the new cap
+rule-ceil-noprom-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	nothing is promoted automatically
+rule-delta-6-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
+rule-s9-crit-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
+rule-stanza-crit-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	`heavy_is_critical: true`
+rule-restore-new-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
+rule-restore-go-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
+rule-restore-gone-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
+rule-stanza-noauth-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never authorizes a restore, a credential use or any production action
+rule-stanza-noauthint-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	never authorizes a restore, a credential use or any production action
+rule-op-crit-local	local	4	once	src/mozart_local/bundle/manual/OPERATE.md	### Tiers (OPERATE)		1	rehearsal on a restored copy of the real data
+rule-op-proof-local	local	4	once	src/mozart_local/bundle/manual/OPERATE.md	### Tiers (OPERATE)		1	the restore proof decides
+ctl-x2b-narrow-d-local	local	0	absent-re	src/mozart_local/bundle/manual/DELIVER.md	### 2b. Constraints (conditional — narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+ctl-x2b-narrow-p-local	local	0	absent-re	src/mozart_local/bundle/docs/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+rule-nolinter-crit-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 1. Intake		1	tier_is_heavy_class(tier)
