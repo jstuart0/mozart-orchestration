@@ -364,6 +364,11 @@ NAMED_PRESENT = (
     ("escape-unrecorded", "2099-05-23-deliver-esc-ext", "2099-09-23-diagnose-extslug"),
     ("escape-unrecorded", "2099-05-27-deliver-esc-wrap", "2099-09-27-diagnose-wrap2"),
     ("escape-unrecorded", "2099-05-28-deliver-esc-mb", "2099-09-28-diagnose-mbunrec"),
+    # CRITICAL is HEAVY-class: its tier line, its phase rows, a STANDARD line that says CRITICAL, and the OPERATE pre-flight row
+    ("conductor-row", "2099-12-22-phase-critlens", "CR1"),
+    ("conductor-row", "2099-12-24-phase-critbare", "tier"),
+    ("conductor-unlinked", "2099-12-25-phase-stdtocrit", "P1"),
+    ("conductor-row", "2099-12-26-operate-critnodrill", "CR2"),
 )
 NAMED_ABSENT_TRIPLES = (
     ("mutation-manifest", "2099-07-31-operate-ignore", "C2"),      # all-literal ignore paths
@@ -461,6 +466,9 @@ NAMED_MESSAGES = (
     ("2099-12-04-phase-baredated", "CR1", "HEAVY phase row does not record ian and xander"),
     ("2099-12-07-phase-authcase", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
     ("2099-12-08-phase-semisecrets", "CR1", "HEAVY phase row with surface auth, secrets or security does not record xander as run"),
+    ("2099-12-22-phase-critlens", "CR1", "CRITICAL phase row does not record ian and xander"),
+    ("2099-12-24-phase-critbare", "tier", "CRITICAL tier line has no usable surface record"),
+    ("2099-12-26-operate-critnodrill", "CR2", "CRITICAL pre-flight row does not record rehearsal and rollback drill"),
 )
 NAMED_ABSENT_SLUGS = (
     "2000-01-01-deliver-legacy", "2099-05-31-deliver-prebound",
@@ -487,6 +495,9 @@ NAMED_ABSENT_SLUGS = (
     "2099-12-09-phase-escok",
     "2099-12-19-phase-escorderok",
     "2099-12-21-phase-esctwodigitok",
+    # a CRITICAL escalation read in full, and an OPERATE CRITICAL row that records both
+    "2099-12-23-phase-critesc",
+    "2099-12-27-operate-critdrill",
 )
 OVERRIDE_CONTROL_TRIPLE = ("conductor-missing", "2099-05-31-deliver-prebound", "-")
 # F59: the spaced-path arm gets its own named member rather than borrowing

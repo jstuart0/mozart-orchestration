@@ -18,7 +18,7 @@
 #   b  HEAVY, slug 2026-10-04, no surface record      exactly one `no usable surface record` line
 #   c  HEAVY (surface: auth), both lens fields        neither lens message
 #   d  STANDARD, slug 2026-10-04                      neither lens message
-#   e  the conductor lint corpus, CONDUCTOR_SINCE=2099-06-01, lens date unset: exactly 10 such lines,
+#   e  the conductor lint corpus, CONDUCTOR_SINCE=2099-06-01, lens date unset: exactly 11 such lines,
 #      and a second run prints the same bytes (the count means nothing if the output is not stable)
 #   f  HEAVY (surface: auth), one lens field missing  the lens-field message; (f) is what gives (c) meaning
 # Fixtures are copied to scratch and touched to now first: stale-active is mtime-based.
@@ -123,10 +123,10 @@ run_lint "$corpus" MOZART_LINT_CONDUCTOR_SINCE=2099-06-01
 n=$(count "$first_out" "$MSG_SURFACE")
 if [ "$first_out" != "$lint_out" ]; then
   fail e "control: two runs over the corpus printed different bytes, so the count proves nothing"
-elif [ "$n" -ne 10 ]; then
-  fail e "the corpus draws $n \`$MSG_SURFACE\` line(s) with the lens date unset, want exactly 10"
+elif [ "$n" -ne 11 ]; then
+  fail e "the corpus draws $n \`$MSG_SURFACE\` line(s) with the lens date unset, want exactly 11"
 else
-  ok e "the corpus draws exactly 10 surface findings with the lens date unset, identically twice"
+  ok e "the corpus draws exactly 11 surface findings with the lens date unset, identically twice"
 fi
 
 # (f) one lens field missing on a ticked row: the lens-field message, and not the surface one

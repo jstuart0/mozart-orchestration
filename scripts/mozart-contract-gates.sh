@@ -3285,6 +3285,10 @@ if [ -d "$v34_corpus" ]; then
   v34_case 2099-12-21-phase-esctwodigitok 0 HEAVY 0
   v34_case 2099-12-19-phase-escorderok 0 HEAVY 0
   v34_case 2099-12-09-phase-escok 0 HEAVY 0
+  v34_case 2099-12-22-phase-critlens 0 CRITICAL 1
+  v34_case 2099-12-23-phase-critesc 0 CRITICAL 0
+  v34_case 2099-12-24-phase-critbare 0 CRITICAL 1
+  v34_case 2099-12-25-phase-stdtocrit 1 UNTIERED
   v34_loc=C
   v34_case 2099-11-16-phase-lensemdash 0 HEAVY
   v34_case 2099-11-17-phase-heavyrepeat 0 HEAVY 1
@@ -3416,6 +3420,15 @@ BEGIN {
   chk("**Tier**: STANDARD — now “HEAVY”", "")
   chk("**Tier**: STANDARD—HEAVY", "")
   chk("**Tier**: STANDARD (“HEAVYish”)", "STANDARD")
+  chk("**Tier**: CRITICAL", "CRITICAL")
+  chk("**Tier**: CRITICAL (surface: auth; escalated from HEAVY, D4)", "CRITICAL")
+  chk("**Tier**: **CRITICAL** — why", "CRITICAL")
+  chk("**Tier**: STANDARD (escalated to CRITICAL)", "")
+  chk("**Tier**: LIGHT; CRITICAL after review", "")
+  chk("**Tier**: HEAVY (escalated to CRITICAL)", "CRITICAL")
+  chk("**Tier**: TINY | LIGHT | STANDARD | HEAVY | CRITICAL", "")
+  chk("**Tier**: CRITICALish", "")
+  chk("**Tier**: STANDARD (CRITICALish is not a word)", "STANDARD")
   printf "[%s]", is_tier_line("| CR1 | fact | the doc says **Tier**: HEAVY | - |")
   printf "[%s]", is_tier_line("**Tier**: STANDARD")
   printf "[%s]", tier_has_surface("**Tier**: HEAVY (surface: billing)")
@@ -3494,9 +3507,11 @@ BEGIN {
   printf "[%s]", escalation_pass_through("x-xander: cumulative pass on escalation (through P99): run")
   printf "[%s]", escalation_pass_through("ian: run; xander: cumulative pass on escalation (through P7): run")
   printf "[%s]", escalation_pass_through("xander: cumulative pass on escalation (through P7): run")
+  printf "[%s]", tier_escalation_d("**Tier**: CRITICAL (surface: auth; escalated from HEAVY, D4)")
+  printf "[%s]", tier_escalation_d("**Tier**: CRITICAL (surface: auth; escalated from CRITICAL, D4)")
   printf "{%d}", n
 }'
-v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][][1][1][1][1][0][1][1][1][1][1][1][1][0][0][0][12][4][200][201][202][300][1202][P2][P2a][][][P2][][][][P10b][1][1][1][1][0][0][0][][P99][P7][P7]{56}"
+v34_want="[0][1][1][0][1][1][1][0][1][1][0][1][1][1][1][1][1][0][0][1][1][1][1][1][0][0][0][1][1][0][1][4][][][12][][1][1][1][1][0][1][1][1][1][1][1][1][0][0][0][12][4][200][201][202][300][1202][P2][P2a][][][P2][][][][P10b][1][1][1][1][0][0][0][][P99][P7][P7][4][]{65}"
 for v34_l in "$gate_utf8" C; do
   v34_got=$( . "$v34_lib" 2>/dev/null; LC_ALL="$v34_l" awk "$CAMPAIGN_AWK_LIB"$'\n'"$v34_prog" </dev/null 2>&1 )
   [ "$v34_got" = "$v34_want" ] \
@@ -3552,7 +3567,7 @@ for v34_s in mozart-lint mozart-metrics; do
 done
 rm -rf "$v34_tmp"
 report "V34_phase_rows" "$([ -z "$v34_bad" ] && echo 0 || echo 1)" \
-  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 56 library tier_of cases and 33 tier_surface_wants_xander, 8 tier_surface_usable and 5 tier_escalation_d, phase_order and escalation_pass_through cases (case, punctuation, backticks, slashes, a word after a semicolon, an unlisted word failing safe, multibyte text beside a word), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
+  "${v34_bad:-$v34_n fixtures each run alone through lint and metrics (both exit statuses read; the helper shown able to fail): Phase rows required on HEAVY and on a missing, placeholder, list, suffixed, escalation-text or unparseable tier, silent on TINY/LIGHT/STANDARD, first Tier line wins, combined header parses, a balanced bold wrapper is stripped and italic or backticked values are no value; 65 library tier_of cases (CRITICAL and the escalated-to-CRITICAL forms included) and 33 tier_surface_wants_xander, 8 tier_surface_usable and 7 tier_escalation_d, phase_order and escalation_pass_through cases (case, punctuation, backticks, slashes, a word after a semicolon, an unlisted word failing safe, multibyte text beside a word), each run under a UTF-8 locale and under C (multibyte beside HEAVY, every whitelist member alone, the HEAVY-lead and preceding-letter edges); the multibyte lens and HEAVY-repeat fixtures also run under C; neither script spells the Tier field}"
 
 # ---------------------------------------------------------------------------
 # V35_escapes - Check N, and the one rule for what an escape is (phase 5)
@@ -4148,7 +4163,7 @@ for v28_p in '`external — …` origins in `Traces-to` lines' 'the escalation p
   v28_once "$v28_ev" "$v28_p" "docs/EVAL.md Findings paragraph"
 done
 grep -qF 'escalation_pass_through(cr_claim[id])' scripts/mozart-lint.sh || v28_bad="$v28_bad [scripts/mozart-lint.sh no longer reads the escalation-pass claim through the library's escalation_pass_through]"
-grep -qF 'escalated from (TINY|LIGHT|STANDARD), D' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh no longer reads the Tier clause 'escalated from <TIER>, D<n>' the docs name]"
+grep -qF 'escalated from (TINY|LIGHT|STANDARD|HEAVY), D' scripts/lib-campaign.sh || v28_bad="$v28_bad [scripts/lib-campaign.sh no longer reads the Tier clause 'escalated from <TIER>, D<n>' the docs name]"
 v28_once "$v28_pipe_adj" 'STANDARD at minimum, and HEAVY when the work is on that surface' "PIPELINE tier adjustments"
 # F55: the xander-on-every-phase rule is pinned at every copy, not only in DELIVER stage 8.
 v28_once "$v28_pipe_s8" 'every phase when the surface is auth, secrets or security' "PIPELINE stage 8"
