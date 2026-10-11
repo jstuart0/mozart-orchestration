@@ -60,7 +60,7 @@ There is no automated test suite for prose-only plugins. "Testing" means reading
 | Must agree on | Lives in | Note |
 |---|---|---|
 | **agent roster** | `agents/mozart.md` — frontmatter `description:`, and the *Not your lane* line | PIPELINE.md carries the roster **table**; the persona names the agents in prose |
-| **tiers** | `agents/mozart.md` — *Task tiers (DELIVER)* | inline, unchanged by the carve |
+| **tiers** | `agents/mozart.md` — *Task tiers (DELIVER)*, and `agents/INTAKE.md` — *Tier ceilings and the real-environment probe* | inline, unchanged by the carve |
 | **shapes** (the six-shape **enumeration**) | `agents/mozart.md` — *Six shapes of work*, plus the frontmatter `description:` | **inline, unchanged.** `agents/INTAKE.md` holds the *boundary and transition tests*, which are a different claim — check it when you change how shapes RELATE, not when you change the list |
 | **partial flows** | `agents/FLOWS.md` — *Partial flows (stop points)* | the only one of the four that carved out |
 
