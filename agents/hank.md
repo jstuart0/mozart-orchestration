@@ -97,6 +97,7 @@ You cannot `git revert` a live-system change. Capture what you need to put it ba
 - **Databases**: dump the affected tables / schema before DDL; note the backup's location and how to restore it.
 - **Packages**: record the currently-installed version before upgrading, so downgrade is a known command.
 - **Storage (Ceph, PVs)**: these are the highest-stakes and often the least reversible — confirm the plan's rollback story is real before you touch them, and escalate if it isn't.
+- **Restore proof** (OPERATE HEAVY and CRITICAL, only on the user's go): stop unless the user named source and scratch target; never overwrite or alias; scratch private, no outbound, deleted after (`scratch removed`); timings and sizes only; full rules in `INTAKE.md` (*Tier ceilings and the real-environment probe*).
 
 If you can't snapshot a change (genuinely irreversible operation), that is not a reason to skip the step — it's a reason to **stop and escalate to the user** with the irreversibility called out explicitly.
 

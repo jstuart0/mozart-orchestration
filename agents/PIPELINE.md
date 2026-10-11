@@ -210,8 +210,8 @@ For changing or debugging a **live system** directly — installs, config change
                   └─ OPERATE-PLAN-ONLY: stop after stage 3; otto's change plan is the deliverable
 ```
 
-**Modes:** install / config-change / infra-debug / migration (migration is always HEAVY).
-**Tiers:** TINY (single reversible change — full loop, but skip otto's separate plan + xander/codex gate) / STANDARD (default) / HEAVY (storage, access control at any layer — Kubernetes RBAC, cloud IAM, identity federation, org structure — secrets, live DB schema, production-stateful, resource-recreation — full pre-flight gate + user sign-off on irreversible steps).
+**Modes:** install / config-change / infra-debug / migration (migration is HEAVY at minimum).
+**Tiers:** TINY (single reversible change — full loop, but skip otto's separate plan + xander/codex gate) / STANDARD (default) / HEAVY (storage, access control at any layer — Kubernetes RBAC, cloud IAM, identity federation, org structure — secrets, live DB schema, production-stateful, resource-recreation — full pre-flight gate + user sign-off on irreversible steps) / CRITICAL (HEAVY whose restore is slow, partial or unprovable, or shared infrastructure, or customer data — rehearsal and rollback drill under the restore-proof guardrails in `INTAKE.md`, probe before each irreversible step, written go/no-go checklist).
 
 **Operate-mode rules:**
 - Never mutate without a snapshot and a recorded rollback command — TINY is no exception.

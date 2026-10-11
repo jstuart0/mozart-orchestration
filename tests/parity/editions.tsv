@@ -424,5 +424,7 @@ rule-restore-go-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceil
 rule-restore-gone-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	record `scratch removed`
 rule-stanza-noauth-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	never authorizes a restore, a credential use or any production action
 rule-stanza-noauthint-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	never authorizes a restore, a credential use or any production action
+rule-op-crit-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPERATE)		1	rehearsal on a restored copy of the real data
+rule-op-proof-orchestration	orchestration	0	once	agents/OPERATE.md	### Tiers (OPERATE)		1	the restore proof decides
 rule-stanza-nothing-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	If you declare nothing, that is the behaviour.
 rule-stanza-phase1-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	ian and xander both run on phase 1
