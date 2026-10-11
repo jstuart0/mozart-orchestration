@@ -3685,7 +3685,9 @@ report "V35_escapes" "$([ -z "$v35_bad" ] && echo 0 || echo 1)" \
 #      asserted-present exclusion list;
 #   3. the codex r2 wording, in the tables by header and in the prose by line;
 #   4. the stage-8 and stage-4 trigger rows, by heading, exactly one row each,
-#      carrying the surface phrase and the twelve-term security union.
+#      carrying the surface phrase. The twelve-term security union, stage-2b
+#      narrowness and the every-phase variant scan run as rows of
+#      tests/parity/editions.tsv under V36, not here.
 # Every extractor is run on planted input it must reject before it is trusted
 # on the tree, so an empty extraction cannot read as a pass.
 # ---------------------------------------------------------------------------
@@ -3753,21 +3755,6 @@ v28_cell() { # $1 = table text, $2 = first-cell prefix, $3 = column header -> th
       if (index(norm(c[2]), pre) == 1 && col_at) { print norm(c[col_at]); exit }
     }'
 }
-v28_terms=$(cat <<'V28_TERMS_EOF'
-auth	[Aa]uth([^a-z]|$)
-secrets	[Ss]ecrets
-untrusted input	[Uu]ntrusted input
-encryption	[Ee]ncryption
-sessions	[Ss]essions
-RBAC	RBAC
-security headers	[Ss]ecurity headers
-CSP	CSP
-dependency changes	[Dd]ependenc|lockfile
-CI/CD workflow changes	CI/CD
-authorization (ownership and tenant filters)	[Aa]uthorization [(]ownership and tenant filters[)]
-outbound requests	[Oo]utbound requests
-V28_TERMS_EOF
-)
 v28_occ() { # $1 = text, $2 = ERE -> occurrences (not lines) of it, case-insensitive
   printf '%s\n' "$1" | grep -oiE -- "$2" | grep -c . || true
 }
@@ -3775,13 +3762,6 @@ v28_has() { # $1 = text, $2 = fixed phrase -> true when it occurs, case-insensit
   grep -qiF -- "$2" <<<"$1"
 }
 v28_hi_re='((take|choose|pick|select|use|prefer|go with|opt for|default to|err toward|err on the side of|round up to) the higher|the higher (tier|one) (wins|applies))'
-v28_missing() { # $1 = text -> the union terms it lacks, one per line
-  local name pat
-  while IFS=$'\t' read -r name pat; do
-    [ -n "$name" ] || continue
-    grep -qE -- "$pat" <<<"$1" || printf '%s\n' "$name"
-  done < <(printf '%s\n' "$v28_terms")
-}
 v28_once() { # $1 = text, $2 = fixed phrase (case-insensitive), $3 = label -> appends to v28_bad unless it occurs on exactly one line
   local n
   n=$(printf '%s\n' "$1" | grep -ciF -- "$2")
@@ -3809,10 +3789,6 @@ printf '%s\n' 'Tiers: TINY / LIGHT / STANDARD / HEAVY' > "$v28_tmp/nogap.md"
 v28_row_plant=$(printf '%s\n' '| **xander** | a |' '| xander | b |' '| ian | c |')
 [ "$(v28_rows "$v28_row_plant" xander | grep -c .)" = "2" ] || v28_bad="$v28_bad [self-test: the bold and plain xander rows were not both found]"
 [ "$(v28_rows "$v28_row_plant" ian | grep -c .)" = "1" ] || v28_bad="$v28_bad [self-test: the ian row was not found once]"
-[ "$(v28_missing 'Auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization (ownership and tenant filters), outbound requests; dependency lockfile; CI/CD' | grep -c .)" = "0" ] \
-  || v28_bad="$v28_bad [self-test: a row carrying all twelve terms was reported as missing some]"
-[ "$(v28_missing 'auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, authorization (ownership and tenant filters), outbound requests; dependency lockfile; CI/CD' | tr '\n' ' ')" = "CSP " ] \
-  || v28_bad="$v28_bad [self-test: a row without CSP did not report exactly CSP missing]"
 [ "$(v28_occ 'a take the higher; b take the higher' 'take the higher')" = "2" ] || v28_bad="$v28_bad [self-test: two occurrences on one line were not counted as two]"
 [ "$(v28_occ 'nothing here' 'take the higher')" = "0" ] || v28_bad="$v28_bad [self-test: no occurrence was not counted as zero]"
 for v28_p in 'Where any two tiers both fit, take the higher.' 'we choose the higher tier' 'Pick the higher one' 'go with the higher' 'default to the higher'; do
@@ -4003,22 +3979,10 @@ for v28_f in agents/INTAKE.md README.md commands/mozart.md; do
   grep -F 'DIAGNOSE first' "$v28_f" | grep -qF 'STANDARD/HEAVY' || v28_bad="$v28_bad [control: $v28_f must keep its bug-shaped line naming DIAGNOSE first on STANDARD/HEAVY]"
 done
 
-# ---- 4. every-phase variants and the HEAVY mid-build rows ------------------
-v28_variant_re='HEAVY: always|mandatory[^|.]{0,40}every phase|(run|runs) on every phase|on every phase regardless|mandatory;? others|HEAVY-tier always'
-v28_variant=$(for v28_f in $v28_docs INTEGRATION.md; do
-  # the one legitimate sentence is cut out of the line before matching, so a variant written beside it on the same line still hits
-  sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' "$v28_f" | grep -nE "$v28_variant_re" | sed "s|^|$v28_f:|"
-done)
-for v28_p in 'HEAVY: always run xander' 'ian and xander run on every phase regardless'; do
-  printf '%s\n' "$v28_p; xander runs on every phase when that surface is auth" | sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' | grep -qE "$v28_variant_re" \
-    || v28_bad="$v28_bad [self-test: a variant beside the xander surface rule was masked: $v28_p]"
-done
-printf '%s\n' 'and xander runs on every phase when that surface is auth' | sed 's/xander runs on every phase when that surface is/XANDER-SURFACE-RULE/' | grep -qE "$v28_variant_re" \
-  && v28_bad="$v28_bad [self-test: the xander surface rule alone was read as an every-phase variant]"
-[ -z "$v28_variant" ] || v28_bad="$v28_bad [every-phase wording survives: $(printf '%s' "$v28_variant" | cut -c1-70 | tr '\n' ';')]"
-# The scan also covers commands/*.md, docs/*.md and INTEGRATION.md (W2's own population). INTEGRATION.md's one hit is the
-# xander-on-every-phase rule for an auth, secrets or security surface, not the old unconditional rule; it is subtracted by
-# fingerprint and pinned present in section 6 below, so the allow-list names real text.
+# ---- 4. HEAVY mid-build rows --------------------------------------------
+# The every-phase variant scan runs as a row of tests/parity/editions.tsv under V36 (rule-variant-orchestration, the masked
+# xander surface sentence cut out first); V28 no longer applies the regex. INTEGRATION.md's one legitimate every-phase sentence
+# (xander on every phase for an auth, secrets or security surface) is pinned present in section 6 below.
 # The three W2 allow-list lines do not match the variant regex; each is asserted still present so the
 # allow-list names real, unedited text rather than a line that has since moved.
 for v28_a in 'agents/valerie.md|By the time you run, every phase has been committed' 'agents/OPERATE.md|mandatory xander at the pre-flight gate' 'agents/FLOWS.md|every phase gate returned a needs-revision test punch list'; do
@@ -4061,19 +4025,9 @@ done
 for v28_pair in "DELIVER stage-8 xander:$v28_x_del8" "DELIVER stage-8 ian:$v28_i_del8" "PIPELINE stage-8 xander:$v28_x_pip8" "PIPELINE stage-8 ian:$v28_i_pip8"; do
   grep -qF 'touches the recorded HEAVY surface' <<<"${v28_pair#*:}" || v28_bad="$v28_bad [${v28_pair%%:*} row lacks the surface-trigger phrase 'touches the recorded HEAVY surface']"
 done
-for v28_pair in "DELIVER stage-4:$v28_x_del4" "DELIVER stage-8:$v28_x_del8" "PIPELINE stage-4:$v28_x_pip4" "PIPELINE stage-8:$v28_x_pip8"; do
-  v28_m=$(v28_missing "${v28_pair#*:}" | tr '\n' ',')
-  [ -z "$v28_m" ] || v28_bad="$v28_bad [${v28_pair%%:*} xander row lacks union term(s): $v28_m]"
-done
-v28_n_terms=$(printf '%s\n' "$v28_terms" | grep -c .)
-[ "$v28_n_terms" = "12" ] || v28_bad="$v28_bad [the union term table holds $v28_n_terms terms, want 12]"
-grep -qF 'CSP' <<<"$v28_x_pip4$v28_x_del4" || v28_bad="$v28_bad [named member CSP absent from the stage-4 rows]"
-grep -qF 'outbound requests' <<<"$v28_x_pip8$v28_x_del8" || v28_bad="$v28_bad [named member 'outbound requests' absent from the stage-8 rows]"
 # The stage-2b trigger is deliberately narrower: asserted, so the exclusion is a fact and not an omission.
 grep -qF 'CSP' <<<"$v28_x_pip2b" && v28_bad="$v28_bad [PIPELINE stage-2b xander row carries CSP: it must stay narrower than stage 4 and stage 8]"
 grep -qF 'CSP' <<<"$v28_del_s2b" && v28_bad="$v28_bad [DELIVER stage-2b section carries CSP: it must stay narrower than stage 4 and stage 8]"
-v28_xm=$(v28_missing "$(sed -n '/^Mozart invokes you on plans or slices/p' agents/xander.md)" | tr '\n' ',')
-[ -z "$v28_xm" ] || v28_bad="$v28_bad [agents/xander.md trigger paragraph lacks union term(s): $v28_xm]"
 grep -q '^Mozart invokes you on plans or slices' agents/xander.md || v28_bad="$v28_bad [agents/xander.md trigger paragraph moved: its first words changed]"
 # The stage-8 section holds each HEAVY rule once, and the closed list in the same words as mozart.md.
 v28_once "$v28_del_s8" 'ian and xander both run' "DELIVER stage 8"
@@ -4176,11 +4130,6 @@ grep '^Mozart invokes you on plans or slices' <<<"$v28_xan" | grep -qF 'every ph
 grep -F 'Your DELIVER stages' <<<"$v28_xan" | grep -qF 'makes it not LIGHT' \
   || v28_bad="$v28_bad [agents/xander.md stages line does not say a xander trigger makes the campaign not LIGHT]"
 grep -qF 'LIGHT and STANDARD: on triggers' <<<"$v28_xan" && v28_bad="$v28_bad [agents/xander.md still says LIGHT runs xander on triggers]"
-# F55: stage 2b stays narrow term by term: every union term the narrow trigger does not name is absent from both 2b texts.
-v28_2b_missing=$( { v28_missing "$v28_x_pip2b"; v28_missing "$v28_del_s2b"; } | sort | uniq -c | awk '$1 == 2 { sub(/^ *2 /, ""); print }')
-for v28_t in 'auth' 'secrets' 'untrusted input' 'encryption' 'sessions' 'RBAC' 'security headers' 'CSP' 'authorization (ownership and tenant filters)' 'outbound requests'; do
-  grep -qxF -- "$v28_t" <<<"$v28_2b_missing" || v28_bad="$v28_bad [a stage-2b text (PIPELINE row or DELIVER section) names the stage-4/8 union term '$v28_t': 2b must stay narrower]"
-done
 # F56: a xander-row term removes the STANDARD codex r2 skip.
 v28_std9=$(printf '%s\n' "$v28_del_s9" | grep -E '^- [*][*]STANDARD[*][*]:')
 v28_has "$v28_std9" "not available when any term in xander's stage-8 trigger row applies" \
@@ -4253,7 +4202,7 @@ v28_libc=$(awk '/^function tier_of[(]/ { for (i = n; i >= 1 && c[i] ~ /^#/; i--)
 grep -q 'LIGHT' <<<"$v28_libc" || v28_bad="$v28_bad [scripts/lib-campaign.sh's tier comment (the block directly above tier_of) does not name LIGHT]"
 rm -rf "$v28_tmp"
 report "V28_tiers" "$([ -z "$v28_bad" ] && echo 0 || echo 1)" \
-  "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum lines name TINY and STANDARD, all but agents/OPERATE.md and 2 asserted-present exclusions name LIGHT, $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each) carry the $v28_n_terms-term union, surface phrase in the stage-8 ian and xander rows of both files, EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
+  "${v28_bad:-$v28_ntab tier tables rectangular and naming LIGHT, $v28_nenum lines name TINY and STANDARD, all but agents/OPERATE.md and 2 asserted-present exclusions name LIGHT, $v28_cells LIGHT cells and the codex r2 cells read by header, xander rows by heading (exactly one each), surface phrase in the stage-8 ian and xander rows of both files (the 12-term union, stage-2b narrowness and the every-phase variant scan run as table rows under V36), EVERY-PHASE defined once and named in six files, LIGHT metrics bucket; every extractor rejected its planted input first}"
 
 # ---------------------------------------------------------------------------
 # V29_noprogress - the no-progress stop (P4, phase 8)
@@ -4799,6 +4748,8 @@ families = [
  ("ctl-choose-operate-copilot", {rows["ctl-choose-operate-copilot"][4]: rows["ctl-choose-operate-copilot"][8] + "\n"}, lambda f: {k: v + v for k, v in f.items()}, None),
  ("ctl-sev-local", {rows["ctl-sev-local"][4]: rows["ctl-sev-local"][8] + "\n"}, lambda f: {k: "" for k in f}, None),
  ("ctl-x2b-nocsp-p-copilot", {rows["ctl-x2b-nocsp-p-copilot"][4]: rows["ctl-x2b-nocsp-p-copilot"][5] + "\n| xander | auth |\n"}, lambda f: {k: v.replace("auth", "auth, CSP") for k, v in f.items()}, None),
+ ("ctl-x2b-narrow-d-orchestration", {rows["ctl-x2b-narrow-d-orchestration"][4]: rows["ctl-x2b-narrow-d-orchestration"][5] + "\nA clean line.\n"}, lambda f: {k: v + "Secrets\n" for k, v in f.items()}, None),
+ ("ctl-x2b-narrow-p-orchestration", {rows["ctl-x2b-narrow-p-orchestration"][4]: rows["ctl-x2b-narrow-p-orchestration"][5] + "\nA clean line.\n"}, lambda f: {k: v + "Secrets\n" for k, v in f.items()}, None),
  ("ctl-s3-copilot", {rows["ctl-s3-copilot"][4]: s3}, lambda f: {k: v + "\n" + s3 for k, v in f.items()}, None),
  ("ctl-moved-codex-1", {rows["ctl-moved-codex-1"][4]: rows["ctl-moved-codex-1"][8] + "\n"}, lambda f: {k: v + v for k, v in f.items()}, None),
  ("ctl-nolabel-codex", {rows["ctl-nolabel-codex"][4]: "Claude r1 (plan)\n"}, lambda f: {k: v + "**Codex**: r1\n" for k, v in f.items()}, None),
@@ -4819,7 +4770,7 @@ print(f"CTL {len(families)} families", "BAD " + "; ".join(bad) if bad else "all 
 V31_CTL_PY
 )
   v31_arms=$((v31_arms + 1))
-  v31_has "$v31_ctl_out" '^CTL 10 families all planted violations fail$' "ctl families: ${v31_ctl_out:0:200}"
+  v31_has "$v31_ctl_out" '^CTL 12 families all planted violations fail$' "ctl families: ${v31_ctl_out:0:200}"
 
   # ---- the clause-level run (phase 1c): scripts/check-edition-norm.py over a scratch git repo ------
   # The source repo below has two tagged commits. x.md gains a rewritten line (its old sentence is
@@ -5005,17 +4956,17 @@ v31_named=$(grep -c 'scripts/check-editions\.sh' "$gate_root/CONTRIBUTING.md" ||
 rm -rf "$v31_tmp"
 
 report "V31_editions_selftest" "$([ -z "$v31_bad" ] && echo 0 || echo 1)" \
-  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper and the helper itself over a lint with its default right, never, a day late and a day early (0, 1, 1, 1) and over no lint script and no arguments (2), every call-site pin mismatch and the six printed literals, and a planted violation for ten ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
+  "${v31_bad:-check-editions.sh over $v31_arms arms: all present with four RUN lines and arguments beating the environment, a partial run 4 and never 0, environment roots with a relative and a spaced path and the whole check including behaviour 0, each edition omitted 3 with its own SKIP line, S3 changed or doubled 1 naming the edition, failure outranks skip, a one-byte or absent library 1, usage errors 2, a nonexistent path 3, an empty directory 1, a port script exiting 7 1 with its output; the table reader: its selftest (planted inputs flagged, clean ones accepted, counts pinned), the shipped table over bare fake roots 1, an empty --done 5, and --done 1 or a malformed list 2, pending-only 5, a pending row that passes or fails for a table defect 1, the six pending classes and their table-defect twins, a fenced anchor repeat, /fixtures/ globs, ten table-defect and usage cases, the NEEDS-SOURCE exit rules, the three exits of the lens helper and the helper itself over a lint with its default right, never, a day late and a day early (0, 1, 1, 1) and over no lint script and no arguments (2), every call-site pin mismatch and the six printed literals, and a planted violation for twelve ctl families through their shipped row; the clause-level script over a scratch git repo: a legitimate port (a rewrite, a renumbered list, a rewrapped cell, an extra sentence, a 39-character sentence) 0 with its count of 8 sentences, a one-word drift, an untranslated noun, a reworded sentence and a dropped one each printed, --all-added reading the unchanged sentence of a changed line, rules never shown a layout sentence and layout never a rules one, an absent target file, an unmapped range, a replaced cell counted and listed, an empty reason, a malformed cell, an unknown class, an escaping path, a stale row and an overlap, a rewrite row that never fires, a missing revision 2 and a missing class or edition 2}"
 
 # ---------------------------------------------------------------------------
 # V36_editions_table - the parity table, its reader and the policy files it names (phase 1a)
 #
 # tests/parity/editions.tsv is read by scripts/check-edition-text.py in every edition. This gate
-# pins what a port copies (the table, the reader, every policy file the table names) by content,
-# and ties V28's detectors to the policy files in the SAME shell: xander-terms.txt equals the
-# term table V28 applies, heavy-variant.re equals its variant regex, the mask is the sentence its
-# sed cuts out. V36 also keeps its own copies of those literals, so V28 and the files cannot be
-# weakened together without a second, visible edit here. (v32_ is taken by V30_layout_agreement.)
+# pins what a port copies (the table, the reader, every policy file the table names) by content.
+# The twelve-term union and the every-phase variant detectors run only as rows of that table, so
+# V36 holds their literals itself: xander-terms.txt by the twelve names, heavy-variant.re by seven
+# planted variants, the mask by the sentence its self-tests cut out. A policy file cannot be
+# weakened without a visible edit here. (v32_ is taken by V30_layout_agreement.)
 # ---------------------------------------------------------------------------
 v36_bad=""
 v36_tsv="$gate_root/tests/parity/editions.tsv"
@@ -5029,17 +4980,15 @@ elif [ ! -f "$v36_reader" ]; then
 elif ! command -v python3 >/dev/null 2>&1; then
   v36_bad="$v36_bad [python3 missing (FAIL, not skip)]"
 else
-  # ---- V28's literals, compared as shell variables in this run ----------------------------------
+  # ---- the policy literals the detector rows read, held by V36 itself ---------------------------
   v36_f_terms=$(cat "$v36_pol/xander-terms.txt")
-  [ "$v36_f_terms" = "$v28_terms" ] || v36_bad="$v36_bad [xander-terms.txt differs from V28's term table (\$v28_terms)]"
   v36_f_variant=$(cat "$v36_pol/heavy-variant.re")
-  [ "$v36_f_variant" = "$v28_variant_re" ] || v36_bad="$v36_bad [heavy-variant.re differs from V28's \$v28_variant_re]"
   v36_f_mask=$(cat "$v36_pol/heavy-variant.mask")
-  # the phrase V28's sed cuts out, built in two parts so that this line is not a third occurrence of it
+  # the masked sentence, built in two parts so that this line is not a second occurrence of it
   v36_phrase="xander runs on every phase when ""that surface is"
-  [ "$v36_f_mask" = "$v36_phrase" ] || v36_bad="$v36_bad [heavy-variant.mask is not the sentence V28's sed cuts out]"
+  [ "$v36_f_mask" = "$v36_phrase" ] || v36_bad="$v36_bad [heavy-variant.mask is not the masked xander surface sentence]"
   v36_mask_n=$(grep -cF -- "$v36_phrase" "$gatefile" || true)
-  [ "$v36_mask_n" = "4" ] || v36_bad="$v36_bad [the masked sentence occurs on $v36_mask_n line(s) of this file, want 4 (V28's three sed calls and its self-test)]"
+  [ "$v36_mask_n" = "1" ] || v36_bad="$v36_bad [the masked sentence occurs on $v36_mask_n line(s) of this file, want 1 (V28's INTEGRATION section 6 once-pin): a second scan of it has been written back into the gates]"
   # V36's own pins (so V28 and the files cannot be weakened together): twelve terms, by name
   v36_names=$(cut -f1 <<<"$v36_f_terms" | tr '\n' ',')
   [ "$v36_names" = "auth,secrets,untrusted input,encryption,sessions,RBAC,security headers,CSP,dependency changes,CI/CD workflow changes,authorization (ownership and tenant filters),outbound requests," ] \
@@ -5071,15 +5020,15 @@ rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(root, "tests/parit
 hdr, rows = rows[0], rows[1:]
 need(hdr == ["id", "edition", "phase", "kind", "scope", "anchor", "row", "expect", "needle"], "table header changed")
 need(all(len(r) == 9 for r in rows), "a ragged table line")
-N = 409
+N = 411
 need(len(rows) == N, f"the table holds {len(rows)} rows, want {N}")
 per_ed = collections.Counter(r[1] for r in rows)
-need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 85}, f"rows per edition: {dict(per_ed)}")
+need(dict(per_ed) == {'codex': 105, 'copilot': 111, 'local': 108, 'orchestration': 87}, f"rows per edition: {dict(per_ed)}")
 ids = sorted(r[0] for r in rows)
 need(len(set(i.lower() for i in ids)) == len(ids), "duplicate ids")
-need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "3c2f11aa186694d31c8cc4c439843b45bfc562168924d6cd3ce966b0217deef5", "the id list changed")
+need(hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest() == "2a79a7dd517a0ee3fa451441b9a9098ecffba51363a6762fe421b982e2b16355", "the id list changed")
 kpe = sorted(f"{r[0]} {r[3]} {r[2]} {r[7]}" for r in rows)
-need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "b0271cc49b138baedbba0fff3694f7f982885058e449468dc01a4655e52d94d8", "a row's kind, phase or expect changed")
+need(hashlib.sha256(("\n".join(kpe) + "\n").encode()).hexdigest() == "370c06bde2bf1ce2c18ccb2b5fdc1782f3ff8e77226e4cad961a009a2bed33c5", "a row's kind, phase or expect changed")
 def family(i):
     i = re.sub(r"-(orchestration|copilot|codex|local)$", "", i)
     i = re.sub(r"-\d+$", "", i)
@@ -5087,8 +5036,8 @@ def family(i):
 matrix = sorted(f"{family(r[0])}:{r[1]}={n}" for (r), n in [(r, 1) for r in rows])
 cnt = collections.Counter((family(r[0]), r[1]) for r in rows)
 matrix = sorted(f"{f}:{e}={n}" for (f, e), n in cnt.items())
-need(len(set(f for f, _ in cnt)) == 95, f"{len(set(f for f, _ in cnt))} families, want 95")
-need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "334624ad889dca7988fec58624a63dd5d623246b940e4f3004b95d954bed13fe", "the family-by-edition matrix changed")
+need(len(set(f for f, _ in cnt)) == 97, f"{len(set(f for f, _ in cnt))} families, want 97")
+need(hashlib.sha256(("\n".join(matrix) + "\n").encode()).hexdigest() == "250b49f090e1479b2f2a196dbd636d13a4bb01c6662a69302622ce08bec21939", "the family-by-edition matrix changed")
 marks = []
 for r in rows:
     for col, name in ((4, "scope"), (5, "anchor"), (6, "row"), (8, "needle")):
@@ -5156,7 +5105,7 @@ if os.path.isfile(nm_path):
     need(dict(allow) == {("codex", "replaced"): 11, ("codex", "dropped"): 8, ("copilot", "replaced"): 4, ("copilot", "dropped"): 5,
                          ("local", "replaced"): 3, ("local", "dropped"): 7}, f"norm-map.tsv allow-list size changed: {sorted(allow.items())}")
 # ---- shipped files: content pins, no host or user path -------------------------------------------
-pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': 'bb82ff23269667613814859557cf4a712ea67854ee70e756d0c044d511b16a18', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
+pins = {'scripts/check-edition-text.py': '76fc6bb130496bb2fc43b4d2eaddf35f75895825cec38d2b28da0e1a9eeb81f7', 'tests/parity/editions.tsv': '0dda29763d1bd262b50545e5028170d3db596dd93979891f4eb136db3ee5fdfe', 'tests/policy/bob-duty-clauses.txt': '6b478760e1b7b51f407e936c69310bd25d0c6ced1801b7349f2a586228097341', 'tests/policy/codex-skeleton-clauses.txt': '552c6d7270b632fad6f92179b990a61ff646a0461a1628cc9bfc5d2289ed02a3', 'tests/policy/conductor-skeleton.md': '0d4c60d6831cf734ab09b369c74b0dbb8fa788df45bbfb274ee6f8debb72e3a4', 'tests/policy/eval-sentences.txt': '0ca00f4d933f9f562c5e02f7b94241dd08ab3d16971c2f4ba6152ab6af39cf57', 'tests/policy/flags-clauses.txt': 'af6fe8effa8ac176a2924600af05f15eef51bb788a07fdb098cfdc15b52657b2', 'tests/policy/heavy-example.re': '2d91efe6669d8c0db322b49bd96f93fc66113d1c8ec7ae9443808ff6d2d017e2', 'tests/policy/heavy-variant.mask': 'e25b4613ad8fc627a17b30da511b7daefb2842e329bc4297bc856f2abbd768b7', 'tests/policy/heavy-variant.re': 'cd56b6cd0333cff7ef9574fa7c0671743bf1b46c5d3f9d13590e5c4209e566b2', 'tests/policy/label-forms.re': '2072d1b51d70f3f26dda69e8057b4eadc66ad8807db09fd12bac6f996e22de1d', 'tests/policy/layout-clauses.txt': '5c13b9e0af95c8ef2b7d5f26cdaf93a0427d797131625a828c63b0a5f821e407', 'tests/policy/ledger-skeleton.md': 'ef5a4b4058103f37763149bc2915925ca17ce0ceb12e542436ca7dddd5b4cfd5', 'tests/policy/no-progress.txt': 'fcdc92472fc9af1db105b23fc4a50ebbc77c037f23ce3dffc7ca46872f88fd2b', 'tests/policy/nolinter-clauses.txt': '2cf234cd490d048034001f721bc16cbc3201f4a1902188cfb74745f8a95b9f4a', 'tests/policy/phaserows-clauses.txt': '7229525492717d06d7c9f52fad2edae4b99361ea68d093463224cc4533098168', 'tests/policy/pipeline-flags-stanza.md': '7eae3fe89c3a62aad1ab320c105deb1e009990ce4d32cc65cc4d7a5b49124d96', 'tests/policy/pipeline-s8-xander-row.txt': '041e8ea14ebf4196681f58fcf7b0e39182a4d3ebfe8286848e2991c9044fd5c3', 'tests/policy/reviewer-label.re': '0e9dd6998fa0f20d9d42e4be5b2355575917f42146bc7445bc57217655f0fe2c', 'tests/policy/s3-snippet.txt': '1f3f8aea013e733877a752aa270453d3a72e11383808a2868de31fadd3b1ae70', 'tests/policy/stage4-light-clauses.txt': '8397fa50fe094c8cfd9b8756c61f37e750c4d10855892d8a5f3aaa9b3cdd0e1b', 'tests/policy/stage7d-clauses.txt': 'cbea3a534839c96c6545e1dbcc1b76ae917cb4c3ea5c4950b37dc662aacfa2b6', 'tests/policy/stage8-clauses.txt': '922c14f91f5b73cdb67ab709bfe6c6c5ce9f55093572ca3022e3b67abc9711c6', 'tests/policy/stage8-xander-row.txt': '9f7df240ac5f5103065817f64283dca4eb624317f5fc5a55075a3e164a58ddb2', 'tests/policy/survivors.tsv': 'e8739249e4836fbd2864e4e7281109466148cd114712f2f9aab1c2caff81a5a9', 'tests/policy/tier-clauses.txt': '22f688a9ed7905a09a0cf34c38c0ca9b40e7ba7237b8fff66b10f1a11b664344', 'tests/policy/traces-to-grammar.txt': '4eaa67900b160688104ce20039912a0b26635daec456928fea164540d213cb74', 'tests/policy/xander-terms.txt': '7bbbff4a89df0d40ea12b2916d15d0ad78c540f09a7d7e60421e295acb88fcc4'}
 named = sorted({n for r in rows for c in (r[8], r[6]) for n in re.findall(r"(?:^|[=;])@([A-Za-z0-9._-]+)", c)})
 need(named == sorted(n.split("/", 2)[2] for n in pins if n.startswith("tests/policy/")), "the set of policy files the table names changed")
 for path, want in pins.items():
@@ -5270,11 +5219,11 @@ V36_PY
   v36_pend=$(grep -c '^PENDING ' <<<"$v36_out" || true)
   v36_fail=$(grep -c '^FAIL ' <<<"$v36_out" || true)
   if [ -z "$v36_done" ] || ! grep -qw 1b <<<"$v36_done"; then
-    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 84 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
-      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 84 1 0 with only lens-orchestration pending]"
+    { [ "$v36_rc" -eq 5 ] && [ "$v36_ok" -eq 86 ] && [ "$v36_pend" -eq 1 ] && [ "$v36_fail" -eq 0 ] && grep -q '^PENDING lens-orchestration: file-created$' <<<"$v36_out"; } \
+      || v36_bad="$v36_bad [the orchestration rows: rc=$v36_rc ok=$v36_ok pending=$v36_pend FAIL=$v36_fail, want 5 86 1 0 with only lens-orchestration pending]"
   else
-    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 85 ] && [ "$v36_fail" -eq 0 ]; } \
-      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 85 0]"
+    { [ "$v36_rc" -eq 0 ] && [ "$v36_ok" -eq 87 ] && [ "$v36_fail" -eq 0 ]; } \
+      || v36_bad="$v36_bad [the orchestration rows with 1b done: rc=$v36_rc ok=$v36_ok FAIL=$v36_fail, want 0 87 0]"
   fi
   # the clause-level script against this repo's history (phase 1c). The map must cover every added line of
   # df2322d..3fdf576 and every translate.tsv row must fire (the three dead INTEGRATION.md rows of 1c were
@@ -5301,7 +5250,7 @@ fi
 rm -rf "$v36_tmp"
 
 report "V36_editions_table" "$([ -z "$v36_bad" ] && echo 0 || echo 1)" \
-  "${v36_bad:-409 rows (codex 105, copilot 111, local 108, orchestration 85), 95 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask equal to V28's own literals in this shell and to V36's twelve names, seven variant plants and the masked sentence; 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 79 rows, 48 rules and 31 layout, an allow-list of codex 11+8, copilot 4+5 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
+  "${v36_bad:-411 rows (codex 105, copilot 111, local 108, orchestration 87), 97 row families by edition, the id list, the kind, phase and expect of every row and the + marks pinned by content; the seven named members; xander-terms.txt, heavy-variant.re and heavy-variant.mask held by literals in this gate itself (the twelve names, seven variant plants and the masked sentence); 26 policy files, the reader, the table and templates-allow.re pinned by sha256; no fragment holds a rewrite token; no host or user path in a shipped file; ctl-s3 hosts equal S3_HOST_*; the orchestration rows ok (the lens row waits for 1b until editions.done lists it, then runs the six fixtures); norm-map.tsv: 79 rows, 48 rules and 31 layout, an allow-list of codex 11+8, copilot 4+5 and local 3+7 replaced+dropped cells each with a reason; $v36_norm_note}"
 
 # ---------------------------------------------------------------------------
 # V18-V23 - the carved manual bundle (phase 6). Conservation proves text still

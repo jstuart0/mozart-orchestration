@@ -33,6 +33,8 @@ rule-r2-std-orchestration	orchestration	0	once	agents/PIPELINE.md	### Tier polic
 rule-r2-old-orchestration	orchestration	0	absent	agents/PIPELINE.md	### Tier policy		0	| STANDARD | run | optional |
 ctl-x2b-nocsp-d-orchestration	orchestration	0	absent	agents/DELIVER.md	### 2b. Constraints (conditional — narrow)	line:1. The task changes **who may do what**	0	CSP
 ctl-x2b-nocsp-p-orchestration	orchestration	0	absent	agents/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)	xander	0	CSP
+ctl-x2b-narrow-d-orchestration	orchestration	0	absent-re	agents/DELIVER.md	### 2b. Constraints (conditional — narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
+ctl-x2b-narrow-p-orchestration	orchestration	0	absent-re	agents/PIPELINE.md	### Constraints triggers (stage 2b — conditional push, narrow)		0	[Aa]uth([^a-z]|$)|[Ss]ecrets|[Uu]ntrusted input|[Ee]ncryption|[Ss]essions|RBAC|[Ss]ecurity headers|CSP|[Aa]uthorization [(]ownership and tenant filters[)]|[Oo]utbound requests
 rule-phaserows-orchestration	orchestration	0	each-once	agents/STATE.md	### State file format		5	@phaserows-clauses.txt
 rule-bobduty-orchestration	orchestration	0	each-once	agents/bob.md		line:- **On a LIGHT plan you review alone**	6	@bob-duty-clauses.txt
 rule-flags-orchestration	orchestration	0	each-once	agents/FLOWS.md	## Build-time flags: the TDD pipeline and auto-detection		3	@flags-clauses.txt
