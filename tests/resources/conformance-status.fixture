@@ -1,0 +1,56 @@
+{
+ "schema": "remote.status",
+ "cases": [
+  {
+   "name": "running",
+   "valid": true,
+   "value": {
+    "launch_id": "l0123456789abcdef",
+    "state": "running"
+   }
+  },
+  {
+   "name": "exited with a code",
+   "valid": true,
+   "value": {
+    "launch_id": "l0123456789abcdef",
+    "state": "exited",
+    "exit_code": 0
+   }
+  },
+  {
+   "name": "status.exited without exit_code (named member)",
+   "valid": false,
+   "value": {
+    "launch_id": "l0123456789abcdef",
+    "state": "exited"
+   }
+  },
+  {
+   "name": "running with an exit code",
+   "valid": false,
+   "value": {
+    "launch_id": "l0123456789abcdef",
+    "state": "running",
+    "exit_code": 1
+   }
+  },
+  {
+   "name": "an exit code of 256",
+   "valid": false,
+   "value": {
+    "launch_id": "l0123456789abcdef",
+    "state": "exited",
+    "exit_code": 256
+   }
+  },
+  {
+   "name": "a bad launch id",
+   "valid": false,
+   "value": {
+    "launch_id": "x",
+    "state": "running"
+   }
+  }
+ ]
+}

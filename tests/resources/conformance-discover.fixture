@@ -1,0 +1,574 @@
+{
+ "schema": "hook.discover.response",
+ "cases": [
+  {
+   "name": "one host",
+   "valid": true,
+   "value": {
+    "hosts": [
+     {
+      "label": "web",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "no hosts",
+   "valid": true,
+   "value": {
+    "hosts": []
+   }
+  },
+  {
+   "name": "an unknown top-level key",
+   "valid": false,
+   "value": {
+    "hosts": [],
+    "extra": 1
+   }
+  },
+  {
+   "name": "a label with a slash",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "a/b",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "an address key on a host (named member)",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "web",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      },
+      "address": "203.0.113.9"
+     }
+    ]
+   }
+  },
+  {
+   "name": "an unknown fact (enabled)",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "web",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "enabled": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "cpus as a bool",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "web",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "cpus": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "cpus as a float",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "web",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "cpus": 8.0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "65 hosts",
+   "valid": false,
+   "value": {
+    "hosts": [
+     {
+      "label": "h0",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h1",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h2",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h3",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h4",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h5",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h6",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h7",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h8",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h9",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h10",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h11",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h12",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h13",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h14",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h15",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h16",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h17",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h18",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h19",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h20",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h21",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h22",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h23",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h24",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h25",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h26",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h27",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h28",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h29",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h30",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h31",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h32",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h33",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h34",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h35",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h36",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h37",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h38",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h39",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h40",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h41",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h42",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h43",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h44",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h45",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h46",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h47",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h48",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h49",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h50",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h51",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h52",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h53",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h54",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h55",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h56",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h57",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h58",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h59",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h60",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h61",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h62",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h63",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     },
+     {
+      "label": "h64",
+      "probed_at": "2026-10-26T12:00:00Z",
+      "facts": {
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

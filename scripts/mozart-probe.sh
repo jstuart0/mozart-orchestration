@@ -6,7 +6,7 @@
 # their own caches or logs.
 #
 # Run it by streaming it after the shared helpers, never by path:
-#   cat mozart-lib-host.sh mozart-probe.sh | sh -s -- [--total-timeout N]
+#   cat mozart-lib-host.sh mozart-probe.sh | sh -s -- [--total-timeout N] [--kube-context NAME]...
 #
 # The output keys are exactly the "facts" in mozart-schemas.json plus
 # probe_version, probed_at and probe_errors. It always exits 0: a fact it could
@@ -39,6 +39,11 @@ MP_BADARG=
 MP_RC=127
 MP_OUT=
 MP_SEQ=0
+MP_PID=$$  # the probe's own pid: a watchdog (a subshell, whose $$ is the same) stops when it is gone
+MP_WANT=
+MP_WANT_N=0
+MP_WANT_CAPPED=
+MP_WANT_REJECTED=
 MP_SPENT=0
 
 for mp_k in $MP_KEYS; do
@@ -62,6 +67,26 @@ while [ $# -gt 0 ]; do
       if mp_intarg "${2-}" 60; then MP_EACH=$2; else MP_BADARG=1; fi
       [ $# -ge 2 ] && shift
       ;;
+    --kube-context)
+      # A context name the request asks about; the probe answers true or false for it and
+      # never prints a name it was not given. Invalid or surplus names are dropped.
+      if [ $# -ge 2 ] && mz_name_ok "$2"; then
+        case "$MP_NL$MP_WANT" in
+          *"$MP_NL$2$MP_NL"*) ;;
+          *)
+            if [ "$MP_WANT_N" -lt 16 ]; then
+              MP_WANT=$MP_WANT$2$MP_NL
+              MP_WANT_N=$((MP_WANT_N + 1))
+            else
+              MP_WANT_CAPPED=1
+            fi
+            ;;
+        esac
+      else
+        MP_WANT_REJECTED=1
+      fi
+      [ $# -ge 2 ] && shift
+      ;;
     *) MP_BADARG=1 ;;
   esac
   shift
@@ -77,6 +102,8 @@ mp_err() { # mp_err <code>: record a probe error once
 }
 
 [ -z "$MP_BADARG" ] || mp_err bad-argument
+[ -z "$MP_WANT_REJECTED" ] || mp_err kube_context-rejected
+[ -z "$MP_WANT_CAPPED" ] || mp_err kube_context-capped
 
 if command -v mktemp >/dev/null 2>&1 && command -v sleep >/dev/null 2>&1; then
   MP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/mozart-probe.XXXXXX" 2>/dev/null </dev/null)
@@ -142,17 +169,29 @@ mp_run() {
     MP_RC=124
     return 1
   fi
+  # One fresh directory per call. A call made inside $(...) (host_id's helpers) counts in a
+  # subshell, so a counter would hand the same name to two calls, and a watchdog still alive
+  # from the first would then act on the second.
   MP_SEQ=$((MP_SEQ + 1))
-  mp_pidf=$MP_DIR/pid.$MP_SEQ
-  mp_hitf=$MP_DIR/hit.$MP_SEQ
-  mp_outf=$MP_DIR/out.$MP_SEQ
-  # A call made inside $(...) (host_id's helpers) counts in a subshell, so its
-  # numbers are not seen here and the next call can reuse them: clear them first.
-  rm -f "$mp_pidf" "$mp_hitf" "$mp_outf" </dev/null 2>/dev/null
+  mp_cd=$(mktemp -d "$MP_DIR/c.XXXXXX" 2>/dev/null </dev/null)
+  if [ -z "$mp_cd" ]; then
+    mp_err "$mp_label-unrunnable"
+    return 1
+  fi
+  mp_pidf=$mp_cd/pid
+  mp_hitf=$mp_cd/hit
+  mp_outf=$mp_cd/out
+  mp_donef=$mp_cd/done
+  # The watchdog is never signalled: it ends by itself once the command is done or the
+  # scratch directory is gone. (Signalling a just-forked bash subshell can run the parent's
+  # TERM trap inside it, and that trap deletes the scratch directory.)
   (
     mp_i=0
     while [ "$mp_i" -lt "$mp_secs" ]; do
       sleep 1
+      if [ -e "$mp_donef" ] || [ ! -d "$MP_DIR" ] || ! kill -0 "$MP_PID" 2>/dev/null; then
+        exit 0
+      fi
       mp_i=$((mp_i + 1))
     done
     mp_p=
@@ -160,18 +199,22 @@ mp_run() {
     case $mp_p in
       ''|*[!0-9]*) exit 0 ;;
     esac
+    # Look again immediately before acting: the command may have finished, or the probe
+    # itself may be gone, since the last look inside the loop.
+    if [ -e "$mp_donef" ] || ! kill -0 "$MP_PID" 2>/dev/null || ! kill -0 "$mp_p" 2>/dev/null; then
+      exit 0
+    fi
     : >"$mp_hitf"
     kill -TERM "$mp_p"
     sleep 1
-    kill -KILL "$mp_p"
+    [ -e "$mp_donef" ] || kill -KILL "$mp_p"
   ) >/dev/null 2>&1 </dev/null &
-  mp_wd=$!
   # ulimit -f counts 512-byte blocks in dash and bash --posix (128 = 64 KiB) but 1024-byte
   # blocks in plain bash (128 = 128 KiB): the cap is 64 to 128 KiB depending on the shell.
-  /bin/sh -c 'echo $$ >"$0"; ulimit -f 128; exec "$@"' "$mp_pidf" "$@" </dev/null >"$mp_outf" 2>/dev/null
+  # The outer 2>/dev/null is for the shell itself: bash and ksh print "Terminated" when the watchdog kills the command.
+  { /bin/sh -c 'echo $$ >"$0"; ulimit -f 128; exec "$@"' "$mp_pidf" "$@" </dev/null >"$mp_outf" 2>/dev/null; } 2>/dev/null
   MP_RC=$?
-  kill "$mp_wd" 2>/dev/null
-  wait "$mp_wd" 2>/dev/null
+  : >"$mp_donef"
   if [ -e "$mp_hitf" ]; then
     MP_SPENT=$((MP_SPENT + mp_secs))
     MP_RC=124
@@ -566,24 +609,23 @@ for mp_root in "${ANDROID_HOME-}" "${ANDROID_SDK_ROOT-}" "${HOME-}/Library/Andro
 done
 set -f
 
+# kube_contexts is an answer, not a listing: for each name the request gave, whether
+# kubectl knows a context of exactly that name. With no names it is {} (kubectl is
+# present and answered; nothing was asked), and no context name is ever printed.
 if mp_run kubectl kubectl config get-contexts -o name; then
   mp_list=
-  mp_count=0
-  mp_rest=$MP_OUT
-  while [ -n "$mp_rest" ] && [ "$mp_count" -lt 64 ]; do
+  mp_rest=$MP_WANT
+  while [ -n "$mp_rest" ]; do
     mp_line=${mp_rest%%"$MP_NL"*}
-    case $mp_rest in
-      *"$MP_NL"*) mp_rest=${mp_rest#*"$MP_NL"} ;;
-      *) mp_rest= ;;
+    mp_rest=${mp_rest#*"$MP_NL"}
+    case "$MP_NL$MP_OUT" in
+      *"$MP_NL$mp_line$MP_NL"*) mp_known=true ;;
+      *) mp_known=false ;;
     esac
-    mp_line=${mp_line%"$MP_CR"}
-    [ -n "$mp_line" ] || continue
-    mp_line=$(printf '%.253s' "$mp_line")
     mp_json_str "$mp_line"
-    mp_list=$mp_list${mp_list:+,}$MP_J
-    mp_count=$((mp_count + 1))
+    mp_list=$mp_list${mp_list:+,}$MP_J:$mp_known
   done
-  mp_set kube_contexts "[$mp_list]"
+  mp_set kube_contexts "{$mp_list}"
 elif [ "$MP_RC" -ne 127 ] && [ "$MP_RC" -ne 124 ]; then
   mp_err kubectl-failed
 fi

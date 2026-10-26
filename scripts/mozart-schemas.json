@@ -5,6 +5,10 @@
     "files": [
       "mozart-lib-host.sh",
       "mozart-probe.sh",
+      "mozart_grant.py",
+      "mozart_contract.py",
+      "mozart_state.py",
+      "mozart-resources.py",
       "mozart-schemas.json"
     ]
   },
@@ -12,23 +16,31 @@
     "home_cmd": "import os,pwd;print(pwd.getpwuid(os.geteuid()).pw_dir)"
   },
   "grammars": {
-    "arg": {
-      "pattern": "^[A-Za-z0-9._/-]{1,255}$",
-      "match": "full",
-      "no_leading_dash": true
-    },
-    "abs_path": {
-      "pattern": "^/[A-Za-z0-9._/-]{0,254}$",
+    "arg": {"pattern": "^[A-Za-z0-9._/-]{1,255}$", "match": "full", "no_leading_dash": true},
+    "abs_path": {"pattern": "^/[A-Za-z0-9._/-]{0,254}$", "match": "full"},
+    "version": {"pattern": "^[0-9][0-9A-Za-z._+-]{0,63}$", "match": "full"},
+    "hex64": {"pattern": "^[0-9a-f]{64}$", "match": "full"},
+    "label": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$", "match": "full"},
+    "kube_name": {"pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@=+,-]{0,252}$", "match": "full", "no_leading_dash": true},
+    "local_path": {"pattern": "^/[^\\x00-\\x1f\\x7f;:]{0,4095}$", "match": "full"},
+    "env_name": {"pattern": "^[A-Z_][A-Z0-9_]{0,63}$", "match": "full"},
+    "rfc3339z": {"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "match": "full"},
+    "decimal": {"pattern": "^(0|[1-9][0-9]{0,3})(\\.[0-9]{1,2})?$", "match": "full"},
+    "canonical_int": {"pattern": "^(0|[1-9][0-9]{0,8})$", "match": "full"},
+    "host_addr": {"pattern": "^([A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|\\[[0-9A-Fa-f:.]{2,45}\\])$", "match": "full"},
+    "ssh_user": {"pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,31}$", "match": "full"},
+    "host_key": {
+      "pattern": "^(ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-rsa) [A-Za-z0-9+/]{20,1000}={0,2}$",
       "match": "full"
     },
-    "version": {
-      "pattern": "^[0-9][0-9A-Za-z._+-]{0,63}$",
-      "match": "full"
-    },
-    "hex64": {
-      "pattern": "^[0-9a-f]{64}$",
-      "match": "full"
-    }
+    "sandbox_image": {"pattern": "^[A-Za-z0-9][A-Za-z0-9._/:-]{0,200}@sha256:[0-9a-f]{64}$", "match": "full"},
+    "lease_id": {"pattern": "^l[0-9a-f]{16}$", "match": "full"},
+    "resource_id": {"pattern": "^[A-Za-z0-9._:/=+-]{1,128}$", "match": "full"},
+    "offer_token": {"pattern": "^[A-Za-z0-9._:/=+-]{1,256}$", "match": "full"},
+    "currency": {"pattern": "^[A-Z]{3}$", "match": "full"},
+    "fact_key": {"pattern": "^[a-z][a-z0-9_]{0,31}$", "match": "full"},
+    "sha256_filename": {"pattern": "^[0-9a-f]{64}$", "match": "full"},
+    "launch_id": {"pattern": "^l[0-9a-f]{16}$", "match": "full"}
   },
   "facts": {
     "os": {"kind": "static", "type": "string", "nullable": true, "pattern": "^[a-z0-9._-]{1,32}$"},
@@ -42,10 +54,23 @@
     "adb": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
     "docker": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
     "gpu": {"kind": "static", "type": "string", "nullable": true, "pattern": "^[a-z0-9_-]{1,32}$"},
-    "gpu_name": {"kind": "static", "type": "string", "nullable": true, "maxLength": 120},
-    "kube_contexts": {"kind": "static", "type": "list", "nullable": true, "maxItems": 64, "items": {"type": "string", "maxLength": 253}},
+    "gpu_name": {"kind": "static", "type": "string", "nullable": true, "maxLength": 120, "printable": true},
+    "kube_contexts": {
+      "kind": "request",
+      "type": "map",
+      "nullable": true,
+      "maxProperties": 16,
+      "keys": {"type": "string", "grammar": "kube_name"},
+      "values": {"type": "bool"}
+    },
     "claude": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
-    "claude_flags": {"kind": "static", "type": "list", "nullable": true, "maxItems": 16, "items": {"type": "string", "enum_from": "probe.claude_flags_checked"}},
+    "claude_flags": {
+      "kind": "static",
+      "type": "list",
+      "nullable": true,
+      "maxItems": 16,
+      "items": {"type": "string", "enum_from": "probe.claude_flags_checked"}
+    },
     "codex": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
     "git": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
     "python3": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
@@ -75,7 +100,515 @@
     "extra_keys": {
       "probe_version": {"type": "int", "min": 1, "max": 1000},
       "probed_at": {"type": "string", "nullable": true, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
-      "probe_errors": {"type": "list", "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z0-9_]+(-[a-z0-9_]+)*$", "maxLength": 64}}
+      "probe_errors": {
+        "type": "list",
+        "maxItems": 64,
+        "items": {"type": "string", "pattern": "^[a-z0-9_]+(-[a-z0-9_]+)*$", "maxLength": 64}
+      }
+    },
+    "max_requested_names": 16,
+    "kube_contexts_shape": "A map from each requested context name to whether kubectl knows it. The probe is given names with --kube-context and never prints a name it was not given. With none requested it is {} when kubectl answered and null when it is absent, so the fact is non-identifying."
+  },
+  "exit_codes": {
+    "ok": 0,
+    "bad_request": 2,
+    "refused": 3,
+    "provider_error": 4,
+    "lease_due": 5,
+    "not_mergeable": 6,
+    "internal": 70
+  },
+  "hook_verbs": [
+    "discover",
+    "quote",
+    "provision",
+    "wake",
+    "extend",
+    "status",
+    "release",
+    "list"
+  ],
+  "trust": [
+    "owned",
+    "leased",
+    "shared"
+  ],
+  "transports": [
+    "local",
+    "ssh"
+  ],
+  "permission_modes": [
+    "default",
+    "acceptEdits",
+    "plan",
+    "bypassPermissions"
+  ],
+  "lease_states": [
+    "pending",
+    "ready",
+    "stopping",
+    "scrubbing",
+    "release-blocked",
+    "released",
+    "failed"
+  ],
+  "error_codes": [
+    "not-isolated",
+    "launcher-location",
+    "bundle-integrity",
+    "home-mismatch",
+    "child-session",
+    "no-grant",
+    "grant-disabled",
+    "grant-hygiene",
+    "grant-invalid",
+    "bad-request",
+    "refused",
+    "provider-error",
+    "quota",
+    "capacity",
+    "timeout",
+    "hook-hygiene",
+    "hook-output",
+    "unknown-host",
+    "unknown-label",
+    "usage",
+    "registry-invalid",
+    "io-error",
+    "internal"
+  ],
+  "text": {
+    "note": "Free text from a remote host or a hook is bounded, printable and only ever shown quoted. Printable means no character in a Unicode general category listed under printable_forbidden_categories: controls (Cc, so C1 too), format characters (Cf: bidi overrides, zero-width, BOM), surrogates (Cs), line and paragraph separators (Zl, Zp), private use (Co) and unassigned (Cn).",
+    "printable_forbidden_categories": ["Cc", "Cf", "Cs", "Zl", "Zp", "Co", "Cn"]
+  },
+  "defs": {
+    "cents": {"type": "int", "min": 0, "max": 100000000},
+    "rate": {"type": "int", "min": 0, "max": 1000000},
+    "hours": {"type": "int", "min": 0, "max": 8760},
+    "minutes": {"type": "int", "min": 0, "max": 1440},
+    "time": {"type": "string", "grammar": "rfc3339z"},
+    "time_or_null": {"type": "string", "grammar": "rfc3339z", "nullable": true},
+    "currency": {"type": "string", "grammar": "currency"},
+    "lease_id": {"type": "string", "grammar": "lease_id"},
+    "resource_id": {"type": "string", "grammar": "resource_id"},
+    "state": {"type": "string", "enum_from": "lease_states"},
+    "region": {"type": "string", "maxLength": 40, "printable": true},
+    "zone": {"type": "string", "maxLength": 40, "printable": true},
+    "account_hint": {"type": "string", "maxLength": 80, "printable": true}
+  },
+  "error": {
+    "type": "object",
+    "required": ["schema", "error", "message"],
+    "properties": {
+      "schema": {"type": "string", "enum": ["mozart.error/v1"]},
+      "error": {"type": "string", "enum_from": "error_codes"},
+      "message": {"type": "string", "maxLength": 200, "printable": true},
+      "detail": {"type": "string", "maxLength": 400, "printable": true}
+    }
+  },
+  "hook": {
+    "discover": {
+      "request": {"type": "object", "properties": {}},
+      "response": {
+        "type": "object",
+        "required": ["hosts"],
+        "properties": {
+          "hosts": {
+            "type": "list",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "required": ["label", "facts", "probed_at"],
+              "properties": {
+                "label": {"type": "string", "grammar": "label"},
+                "facts": {
+                  "type": "object",
+                  "properties": {
+                    "os": {"$ref": "facts.os"},
+                    "os_version": {"$ref": "facts.os_version"},
+                    "arch": {"$ref": "facts.arch"},
+                    "cpus": {"$ref": "facts.cpus"},
+                    "mem_gb": {"$ref": "facts.mem_gb"},
+                    "host_id": {"$ref": "facts.host_id"},
+                    "xcodebuild": {"$ref": "facts.xcodebuild"},
+                    "android_sdk": {"$ref": "facts.android_sdk"},
+                    "adb": {"$ref": "facts.adb"},
+                    "docker": {"$ref": "facts.docker"},
+                    "gpu": {"$ref": "facts.gpu"},
+                    "gpu_name": {"$ref": "facts.gpu_name"},
+                    "kube_contexts": {"$ref": "facts.kube_contexts"},
+                    "claude": {"$ref": "facts.claude"},
+                    "claude_flags": {"$ref": "facts.claude_flags"},
+                    "codex": {"$ref": "facts.codex"},
+                    "git": {"$ref": "facts.git"},
+                    "python3": {"$ref": "facts.python3"},
+                    "node": {"$ref": "facts.node"},
+                    "mozart_child_mode": {"$ref": "facts.mozart_child_mode"},
+                    "mozart_command": {"$ref": "facts.mozart_command"},
+                    "keychain_unlocked": {"$ref": "facts.keychain_unlocked"},
+                    "linger": {"$ref": "facts.linger"},
+                    "ps_lstart": {"$ref": "facts.ps_lstart"},
+                    "load": {"$ref": "facts.load"},
+                    "remote_home": {"$ref": "facts.remote_home"}
+                  }
+                },
+                "probed_at": {"$ref": "defs.time"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "quote": {
+      "request": {
+        "type": "object",
+        "required": ["requires", "ttl_hours", "currency"],
+        "properties": {
+          "requires": {"type": "list", "maxItems": 32, "items": {"type": "string", "maxLength": 240, "printable": true}},
+          "ttl_hours": {"type": "int", "min": 1, "max": 720},
+          "currency": {"$ref": "defs.currency"}
+        }
+      },
+      "response": {
+        "type": "object",
+        "required": ["quoted_at", "options"],
+        "properties": {
+          "quoted_at": {"$ref": "defs.time"},
+          "options": {
+            "type": "list",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": [
+                "offer_token",
+                "offer_expires_at",
+                "currency",
+                "rate_cents_per_hour",
+                "min_charge_cents",
+                "min_charge_hours",
+                "boot_minutes",
+                "wake_minutes",
+                "stop_scrub_max_minutes",
+                "provider_expiry",
+                "region",
+                "zone",
+                "account_hint"
+              ],
+              "properties": {
+                "offer_token": {"type": "string", "grammar": "offer_token"},
+                "offer_expires_at": {"$ref": "defs.time"},
+                "currency": {"$ref": "defs.currency"},
+                "rate_cents_per_hour": {"$ref": "defs.rate"},
+                "min_charge_cents": {"$ref": "defs.cents"},
+                "min_charge_hours": {"$ref": "defs.hours"},
+                "min_charge_reason": {"type": "string", "maxLength": 200, "printable": true},
+                "boot_minutes": {"$ref": "defs.minutes"},
+                "wake_minutes": {"$ref": "defs.minutes"},
+                "stop_scrub_max_minutes": {"$ref": "defs.minutes"},
+                "provider_expiry": {"type": "bool"},
+                "region": {"$ref": "defs.region"},
+                "zone": {"$ref": "defs.zone"},
+                "account_hint": {"$ref": "defs.account_hint"},
+                "note": {"type": "string", "maxLength": 200, "printable": true}
+              }
+            }
+          }
+        }
+      }
+    },
+    "provision": {
+      "request": {
+        "type": "object",
+        "required": ["lease_id", "offer_token", "expires_at", "tags"],
+        "properties": {
+          "lease_id": {"$ref": "defs.lease_id"},
+          "offer_token": {"type": "string", "grammar": "offer_token"},
+          "expires_at": {"$ref": "defs.time"},
+          "tags": {"type": "object", "required": ["mozart_lease"], "properties": {"mozart_lease": {"$ref": "defs.lease_id"}}}
+        }
+      },
+      "response": {
+        "type": "object",
+        "required": [
+          "resource_id",
+          "state",
+          "currency",
+          "rate_cents_per_hour",
+          "min_charge_cents",
+          "provider_expiry_set",
+          "release_not_before",
+          "region",
+          "zone",
+          "account_hint"
+        ],
+        "properties": {
+          "resource_id": {"$ref": "defs.resource_id"},
+          "state": {"type": "string", "enum": ["pending", "ready"]},
+          "currency": {"$ref": "defs.currency"},
+          "rate_cents_per_hour": {"$ref": "defs.rate"},
+          "min_charge_cents": {"$ref": "defs.cents"},
+          "provider_expiry_set": {"type": "bool"},
+          "release_not_before": {"$ref": "defs.time_or_null"},
+          "region": {"$ref": "defs.region"},
+          "zone": {"$ref": "defs.zone"},
+          "account_hint": {"$ref": "defs.account_hint"}
+        }
+      }
+    },
+    "extend": {
+      "request": {
+        "type": "object",
+        "required": ["lease_id", "resource_id", "expires_at"],
+        "properties": {
+          "lease_id": {"$ref": "defs.lease_id"},
+          "resource_id": {"$ref": "defs.resource_id"},
+          "expires_at": {"$ref": "defs.time"}
+        }
+      },
+      "response": {
+        "type": "object",
+        "required": ["expires_at", "provider_expiry_set"],
+        "properties": {"expires_at": {"$ref": "defs.time"}, "provider_expiry_set": {"type": "bool"}}
+      }
+    },
+    "status": {
+      "request": {
+        "type": "object",
+        "required": ["lease_id", "resource_id"],
+        "properties": {"lease_id": {"$ref": "defs.lease_id"}, "resource_id": {"$ref": "defs.resource_id"}}
+      },
+      "response": {
+        "type": "object",
+        "required": ["state", "release_not_before"],
+        "properties": {
+          "state": {"$ref": "defs.state"},
+          "release_not_before": {"$ref": "defs.time_or_null"},
+          "address": {"type": "string", "grammar": "host_addr"},
+          "port": {"type": "int", "min": 1, "max": 65535},
+          "user": {"type": "string", "grammar": "ssh_user"},
+          "host_key": {"type": "string", "grammar": "host_key"}
+        }
+      }
+    },
+    "release": {
+      "request": {
+        "type": "object",
+        "required": ["lease_id", "resource_id"],
+        "properties": {"lease_id": {"$ref": "defs.lease_id"}, "resource_id": {"$ref": "defs.resource_id"}}
+      },
+      "response": {
+        "type": "object",
+        "required": ["state", "release_not_before"],
+        "properties": {"state": {"$ref": "defs.state"}, "release_not_before": {"$ref": "defs.time_or_null"}}
+      }
+    },
+    "list": {
+      "request": {"type": "object", "required": ["tag"], "properties": {"tag": {"type": "string", "enum": ["mozart_lease"]}}},
+      "response": {
+        "type": "object",
+        "required": ["resources"],
+        "properties": {
+          "resources": {
+            "type": "list",
+            "maxItems": 256,
+            "items": {
+              "type": "object",
+              "required": ["resource_id", "lease_id", "state"],
+              "properties": {
+                "resource_id": {"$ref": "defs.resource_id"},
+                "lease_id": {"$ref": "defs.lease_id"},
+                "state": {"$ref": "defs.state"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "wake": {
+      "request": {
+        "type": "object",
+        "required": ["lease_id", "offer_token", "expires_at", "tags"],
+        "properties": {
+          "lease_id": {"$ref": "defs.lease_id"},
+          "offer_token": {"type": "string", "grammar": "offer_token"},
+          "expires_at": {"$ref": "defs.time"},
+          "tags": {"type": "object", "required": ["mozart_lease"], "properties": {"mozart_lease": {"$ref": "defs.lease_id"}}}
+        }
+      },
+      "response": {
+        "type": "object",
+        "required": [
+          "resource_id",
+          "state",
+          "currency",
+          "rate_cents_per_hour",
+          "min_charge_cents",
+          "provider_expiry_set",
+          "release_not_before",
+          "region",
+          "zone",
+          "account_hint"
+        ],
+        "properties": {
+          "resource_id": {"$ref": "defs.resource_id"},
+          "state": {"type": "string", "enum": ["pending", "ready"]},
+          "currency": {"$ref": "defs.currency"},
+          "rate_cents_per_hour": {"$ref": "defs.rate"},
+          "min_charge_cents": {"$ref": "defs.cents"},
+          "provider_expiry_set": {"type": "bool"},
+          "release_not_before": {"$ref": "defs.time_or_null"},
+          "region": {"$ref": "defs.region"},
+          "zone": {"$ref": "defs.zone"},
+          "account_hint": {"$ref": "defs.account_hint"}
+        }
+      }
+    }
+  },
+  "remote": {
+    "status": {
+      "type": "object",
+      "required": ["launch_id", "state"],
+      "properties": {
+        "launch_id": {"type": "string", "grammar": "launch_id"},
+        "state": {"type": "string", "enum": ["running", "exited", "unknown"]},
+        "exit_code": {"type": "int", "min": 0, "max": 255}
+      },
+      "when": [
+        {"if": {"key": "state", "equals": "exited"}, "require": ["exit_code"]},
+        {"if": {"key": "state", "equals": "running"}, "forbid": ["exit_code"]},
+        {"if": {"key": "state", "equals": "unknown"}, "forbid": ["exit_code"]}
+      ]
+    }
+  },
+  "grant": {
+    "path_under_home": ".mozart/resources/grant.md",
+    "max_bytes": 65536,
+    "child_markers": {"present": ["MOZART_CHILD_SESSION"], "non_empty": ["MOZART_LAUNCH_CHILD"]},
+    "sections": {
+      "remote_execution": {
+        "heading": "Remote execution",
+        "keys": {
+          "enabled": {"type": "bool", "required": true},
+          "repos": {"type": "list", "sep": ";", "items": {"grammar": "local_path"}, "default": []},
+          "max_concurrent_dispatches": {"type": "int", "min": 1, "max": 16, "default": 1},
+          "currency": {"type": "string", "grammar": "currency", "default": "USD"},
+          "tool_path": {"type": "list", "sep": ":", "items": {"grammar": "local_path"}, "default": []},
+          "max_fact_age_hours": {"type": "int", "min": 1, "max": 8760, "default": 168},
+          "sandbox_all": {"type": "bool", "default": false},
+          "sandbox_image": {"type": "string", "grammar": "sandbox_image", "default": null}
+        }
+      },
+      "host": {
+        "heading_prefix": "Host: ",
+        "keys": {
+          "trust": {"type": "string", "enum_from": "trust", "required": true},
+          "transport": {"type": "string", "enum_from": "transports", "required": true},
+          "permission_mode": {"type": "string", "enum_from": "permission_modes", "required": true},
+          "max_budget_usd": {"type": "string", "grammar": "decimal", "required": true},
+          "address": {"type": "string", "grammar": "host_addr", "default": null},
+          "port": {"type": "int", "min": 1, "max": 65535, "default": 22},
+          "user": {"type": "string", "grammar": "ssh_user", "default": null},
+          "identity_file": {"type": "string", "grammar": "abs_path", "default": null},
+          "identity_agent": {"type": "string", "pattern": "^(none|/[A-Za-z0-9._/-]{0,254})$", "default": null},
+          "host_key": {"type": "string", "grammar": "host_key", "default": null},
+          "lease": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$", "default": null},
+          "repos": {"type": "list", "sep": ";", "items": {"grammar": "local_path"}, "default": []},
+          "dedicated": {"type": "bool", "default": false},
+          "tolerates": {"type": "list", "sep": ",", "items": {"grammar": "label"}, "default": []},
+          "remote_root": {"type": "string", "grammar": "abs_path", "default": null},
+          "path": {"type": "list", "sep": ":", "items": {"grammar": "local_path"}, "default": []},
+          "max_children": {"type": "int", "min": 1, "max": 64, "default": 1},
+          "min_free_mb": {"type": "int", "min": 0, "max": 10000000, "default": 2048},
+          "fetch_timeout_s": {"type": "int", "min": 1, "max": 3600, "default": 300},
+          "max_result_mb": {"type": "int", "min": 1, "max": 100000, "default": 200}
+        }
+      },
+      "provider": {
+        "heading_prefix": "Provider: ",
+        "keys": {
+          "hook": {"type": "string", "grammar": "local_path", "required": true},
+          "hook_sha256": {"type": "string", "grammar": "hex64", "default": null},
+          "env_passthrough": {"type": "list", "sep": ",", "items": {"grammar": "env_name"}, "default": []},
+          "max_leases": {"type": "int", "min": 1, "max": 64, "required": true},
+          "max_lease_hours": {"type": "int", "min": 1, "max": 720, "required": true},
+          "daily_cost_ceiling_usd": {"type": "string", "grammar": "decimal", "required": true},
+          "hook_timeout_s": {"type": "int", "min": 1, "max": 600, "default": 120},
+          "host_template": {"type": "string", "maxLength": 1024, "printable": true, "default": null}
+        }
+      },
+      "discovery_hooks": {
+        "heading": "Discovery hooks",
+        "free_keys": {"grammar": "label"},
+        "value": {"type": "string", "grammar": "local_path"}
+      }
+    }
+  },
+  "registry": {
+    "path_under_home": ".mozart/resources/registry.md",
+    "host": {
+      "heading_prefix": "Host: ",
+      "keys": {
+        "labels": {"type": "kv", "sep": ",", "default": {}},
+        "cost": {"type": "string", "pattern": "^[A-Za-z0-9._ /$-]{1,64}$", "default": null},
+        "owner": {"type": "string", "maxLength": 120, "printable": true, "default": null},
+        "contact": {"type": "string", "maxLength": 120, "printable": true, "default": null},
+        "taints": {"type": "list", "sep": ",", "items": {"grammar": "label"}, "default": []},
+        "identity": {"type": "string", "grammar": "hex64", "default": null}
+      }
+    }
+  },
+  "resources_home": {
+    "mode": 448,
+    "discovered": "discovered",
+    "snapshots": "grant-snapshots",
+    "tmp": "run/tmp",
+    "sweep_after_s": 86400,
+    "hook": {
+      "timeout_s": 120,
+      "max_output_bytes": 1048576,
+      "env_allow": ["HOME", "USER", "LOGNAME", "LANG", "PATH", "TMPDIR"]
+    }
+  },
+  "match": {
+    "stale_after_note": "facts older than grant.remote_execution.max_fact_age_hours carry stale",
+    "result": {
+      "type": "object",
+      "required": ["schema", "matches", "rejects", "local"],
+      "properties": {
+        "schema": {"type": "string", "enum": ["mozart.match/v1"]},
+        "matches": {
+          "type": "list",
+          "items": {
+            "type": "object",
+            "required": ["label", "trust", "dispatchable", "reasons"],
+            "properties": {
+              "label": {"type": "string", "grammar": "label"},
+              "trust": {"type": "string", "enum_from": "trust"},
+              "dispatchable": {"type": "bool"},
+              "reasons": {"type": "list", "items": {"type": "string", "maxLength": 200, "printable": true}}
+            }
+          }
+        },
+        "rejects": {
+          "type": "list",
+          "items": {
+            "type": "object",
+            "required": ["label", "reasons"],
+            "properties": {
+              "label": {"type": "string", "grammar": "label"},
+              "reasons": {"type": "list", "items": {"type": "string", "maxLength": 200, "printable": true}}
+            }
+          }
+        },
+        "local": {
+          "type": "object",
+          "required": ["matches", "reasons"],
+          "properties": {
+            "matches": {"type": "bool"},
+            "reasons": {"type": "list", "items": {"type": "string", "maxLength": 200, "printable": true}}
+          }
+        }
+      }
     }
   }
 }

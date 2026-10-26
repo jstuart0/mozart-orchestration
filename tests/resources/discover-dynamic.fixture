@@ -1,0 +1,16 @@
+{
+ "hosts": [
+  {
+   "label": "web",
+   "probed_at": "2026-10-26T12:00:00Z",
+   "facts": {
+    "os": "linux",
+    "load": 0.5,
+    "keychain_unlocked": true,
+    "kube_contexts": {
+     "x": true
+    }
+   }
+  }
+ ]
+}

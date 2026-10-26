@@ -1,0 +1,42 @@
+## Remote execution
+- enabled: true
+- repos: /srv/repos/alpha;/srv/repos/beta
+- max_concurrent_dispatches: 2
+- currency: USD
+- tool_path: /opt/tools/bin:/usr/local/bin
+- max_fact_age_hours: 168
+- sandbox_all: false
+
+## Host: mini
+- trust: owned
+- transport: ssh
+- permission_mode: default
+- max_budget_usd: 5.00
+- address: mini.example.test
+- port: 2222
+- user: builder
+- identity_file: /srv/keys/mini
+- identity_agent: none
+- host_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq0uVu1rPzAh7P1nQw3Yx9c2d1m8k4f6s7t0u2v3w5x
+- remote_root: /srv/work
+- max_children: 2
+- tolerates: gpu-shared
+
+## Host: cloudbox
+- trust: leased
+- transport: ssh
+- permission_mode: default
+- max_budget_usd: 12
+- lease: lease-a1
+
+## Provider: example
+- hook: /srv/hooks/example
+- hook_sha256: 0000000000000000000000000000000000000000000000000000000000000000
+- env_passthrough: EXAMPLE_REGION,EXAMPLE_PROFILE
+- max_leases: 1
+- max_lease_hours: 24
+- daily_cost_ceiling_usd: 100
+- hook_timeout_s: 60
+
+## Discovery hooks
+- inventory: /srv/hooks/inventory

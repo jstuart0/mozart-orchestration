@@ -1,0 +1,291 @@
+{
+ "schema": null,
+ "cases": [
+  {
+   "schema": "hook.discover.request",
+   "name": "discover request: empty",
+   "valid": true,
+   "value": {}
+  },
+  {
+   "schema": "hook.discover.request",
+   "name": "discover request: an unexpected key",
+   "valid": false,
+   "value": {
+    "x": 1
+   }
+  },
+  {
+   "schema": "hook.quote.request",
+   "name": "quote request",
+   "valid": true,
+   "value": {
+    "requires": [
+     "os=darwin"
+    ],
+    "ttl_hours": 4,
+    "currency": "USD"
+   }
+  },
+  {
+   "schema": "hook.quote.request",
+   "name": "quote request: ttl 0",
+   "valid": false,
+   "value": {
+    "requires": [
+     "os=darwin"
+    ],
+    "ttl_hours": 0,
+    "currency": "USD"
+   }
+  },
+  {
+   "schema": "hook.provision.request",
+   "name": "provision request",
+   "valid": true,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "offer_token": "tok-1",
+    "expires_at": "2026-10-26T12:00:00Z",
+    "tags": {
+     "mozart_lease": "l0123456789abcdef"
+    }
+   }
+  },
+  {
+   "schema": "hook.provision.request",
+   "name": "provision request: a tag for another lease key",
+   "valid": false,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "offer_token": "tok-1",
+    "expires_at": "2026-10-26T12:00:00Z",
+    "tags": {
+     "other": "l0123456789abcdef"
+    }
+   }
+  },
+  {
+   "schema": "hook.wake.request",
+   "name": "wake request",
+   "valid": true,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "offer_token": "tok-1",
+    "expires_at": "2026-10-26T12:00:00Z",
+    "tags": {
+     "mozart_lease": "l0123456789abcdef"
+    }
+   }
+  },
+  {
+   "schema": "hook.wake.request",
+   "name": "wake request: a short lease id",
+   "valid": false,
+   "value": {
+    "lease_id": "l1",
+    "offer_token": "tok-1",
+    "expires_at": "2026-10-26T12:00:00Z",
+    "tags": {
+     "mozart_lease": "l0123456789abcdef"
+    }
+   }
+  },
+  {
+   "schema": "hook.extend.request",
+   "name": "extend request",
+   "valid": true,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "resource_id": "res-1",
+    "expires_at": "2026-10-26T12:00:00Z"
+   }
+  },
+  {
+   "schema": "hook.extend.request",
+   "name": "extend request: a missing resource id",
+   "valid": false,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "expires_at": "2026-10-26T12:00:00Z"
+   }
+  },
+  {
+   "schema": "hook.status.request",
+   "name": "status request",
+   "valid": true,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "resource_id": "res-1"
+   }
+  },
+  {
+   "schema": "hook.status.request",
+   "name": "status request: a resource id with a space",
+   "valid": false,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "resource_id": "res 1"
+   }
+  },
+  {
+   "schema": "hook.release.request",
+   "name": "release request",
+   "valid": true,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "resource_id": "res-1"
+   }
+  },
+  {
+   "schema": "hook.release.request",
+   "name": "release request: an extra key",
+   "valid": false,
+   "value": {
+    "lease_id": "l0123456789abcdef",
+    "resource_id": "res-1",
+    "force": true
+   }
+  },
+  {
+   "schema": "hook.list.request",
+   "name": "list request",
+   "valid": true,
+   "value": {
+    "tag": "mozart_lease"
+   }
+  },
+  {
+   "schema": "hook.list.request",
+   "name": "list request: another tag",
+   "valid": false,
+   "value": {
+    "tag": "anything"
+   }
+  },
+  {
+   "schema": "hook.wake.response",
+   "name": "wake response",
+   "valid": true,
+   "value": {
+    "resource_id": "res-1",
+    "state": "ready",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1"
+   }
+  },
+  {
+   "schema": "hook.wake.response",
+   "name": "wake response: a teardown field",
+   "valid": false,
+   "value": {
+    "resource_id": "res-1",
+    "state": "ready",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1",
+    "teardown": "x"
+   }
+  },
+  {
+   "schema": "hook.extend.response",
+   "name": "extend response",
+   "valid": true,
+   "value": {
+    "expires_at": "2026-10-26T12:00:00Z",
+    "provider_expiry_set": true
+   }
+  },
+  {
+   "schema": "hook.extend.response",
+   "name": "extend response: expiry as a string",
+   "valid": false,
+   "value": {
+    "expires_at": "2026-10-26T12:00:00Z",
+    "provider_expiry_set": "yes"
+   }
+  },
+  {
+   "schema": "hook.release.response",
+   "name": "release response",
+   "valid": true,
+   "value": {
+    "state": "released",
+    "release_not_before": null
+   }
+  },
+  {
+   "schema": "hook.release.response",
+   "name": "release response: a state outside the enum",
+   "valid": false,
+   "value": {
+    "state": "gone",
+    "release_not_before": null
+   }
+  },
+  {
+   "schema": "hook.list.response",
+   "name": "list response",
+   "valid": true,
+   "value": {
+    "resources": [
+     {
+      "resource_id": "res-1",
+      "lease_id": "l0123456789abcdef",
+      "state": "ready"
+     }
+    ]
+   }
+  },
+  {
+   "schema": "hook.list.response",
+   "name": "list response: a bad lease id",
+   "valid": false,
+   "value": {
+    "resources": [
+     {
+      "resource_id": "res-1",
+      "lease_id": "x",
+      "state": "ready"
+     }
+    ]
+   }
+  },
+  {
+   "schema": "hook.quote.response",
+   "name": "quote response: an option with a zero-length region",
+   "valid": true,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  }
+ ]
+}

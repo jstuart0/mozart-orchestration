@@ -5321,26 +5321,27 @@ EOF_V18
 fi
 
 # ---------------------------------------------------------------------------
-# V37-V38 - the host probe, its shell portability and the portability denylist.
+# V37-V42 - the host probe, its shell portability and the portability denylist, then the
+# schema, the trust root, the registry and the requirement matcher.
 # scripts/check-resources.py owns the bodies: they need stub tools, a scratch
 # toolbox of real utilities and several shells, none of which belong in this
 # file. The gate NAMES are a literal list, compared both ways with the checker's
 # own --list (the V18 shape): a gate the checker grows without being named here,
 # or a name here the checker no longer prints, fails instead of being absent.
-# python3 missing is a FAIL, never a skip.
+# python3 missing is a FAIL, never a skip. It runs under -I, the way every user-facing script does.
 # ---------------------------------------------------------------------------
 v37_script="$gate_root/scripts/check-resources.py"
-v37_names="V37_probe V37_shells V38_portable"
+v37_names="V37_probe V37_shells V38_portable V39_schema V40_grant V41_registry V42_match"
 if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v37_script" ]; then
   for v37_g in $v37_names; do
     report "$v37_g" 1 "scripts/check-resources.py unavailable (FAIL, not skip)"
   done
 else
-  v37_listed=$(python3 "$v37_script" --list 2>&1 | sort | paste -sd' ' -)
+  v37_listed=$(python3 -I "$v37_script" --list 2>&1 | sort | paste -sd' ' -)
   v37_literal=$(printf '%s\n' $v37_names | sort | paste -sd' ' -)
   [ "$v37_listed" = "$v37_literal" ] || report "V37_population" 1 \
     "check-resources.py --list prints [$v37_listed], the literal list in this file is [$v37_literal]"
-  v37_out=$(python3 "$v37_script" 2>&1)
+  v37_out=$(python3 -I "$v37_script" 2>&1)
   v37_rc=$?
   v37_seen=""
   while IFS= read -r v37_line; do

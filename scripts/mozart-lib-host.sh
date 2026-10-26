@@ -23,6 +23,18 @@ mz_arg_ok() {
   [ "${#1}" -le 255 ]
 }
 
+# mz_name_ok <string>: succeeds when the string satisfies the remote-name grammar in
+# mozart-schemas.json (grammars.kube_name): 1 to 253 characters from A-Za-z0-9._:/@=+,-,
+# starting with a letter or digit. It is the grammar for a name a request asks about
+# (a kubectl context); every character is inert in a shell word.
+mz_name_ok() {
+  case $1 in
+    ''|[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]*) return 1 ;;
+    *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._:/@=+,-]*) return 1 ;;
+  esac
+  [ "${#1}" -le 253 ]
+}
+
 # mz_sha256 <string>: prints the hex digest of the string's bytes, or nothing.
 mz_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then

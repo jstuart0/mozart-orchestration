@@ -1,0 +1,85 @@
+{
+ "schema": "hook.provision.response",
+ "cases": [
+  {
+   "name": "pending",
+   "valid": true,
+   "value": {
+    "resource_id": "res-1",
+    "state": "pending",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1"
+   }
+  },
+  {
+   "name": "ready with a release time",
+   "valid": true,
+   "value": {
+    "resource_id": "res-1",
+    "state": "ready",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": "2026-10-26T12:00:00Z",
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1"
+   }
+  },
+  {
+   "name": "a missing field",
+   "valid": false,
+   "value": {
+    "resource_id": "res-1",
+    "state": "pending",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "zone": "z1",
+    "account_hint": "acct-1"
+   }
+  },
+  {
+   "name": "a state outside the enum",
+   "valid": false,
+   "value": {
+    "resource_id": "res-1",
+    "state": "stopping",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1"
+   }
+  },
+  {
+   "name": "a teardown field",
+   "valid": false,
+   "value": {
+    "resource_id": "res-1",
+    "state": "pending",
+    "currency": "USD",
+    "rate_cents_per_hour": 100,
+    "min_charge_cents": 2400,
+    "provider_expiry_set": true,
+    "release_not_before": null,
+    "region": "r1",
+    "zone": "z1",
+    "account_hint": "acct-1",
+    "teardown": "rm -rf /"
+   }
+  }
+ ]
+}

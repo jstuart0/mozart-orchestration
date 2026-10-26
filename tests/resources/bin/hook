@@ -1,0 +1,25 @@
+#!/bin/sh
+# Fixture provider/discovery hook, driven by a mode file because a hook is run with a
+# fixed environment and cannot be steered by variables. The test copies this script to
+# a scratch directory and writes two files beside the copy: hook.mode (one word) and,
+# for the "ok" mode, hook.response (the JSON to print).
+#   ok       print hook.response, exit 0          refused   print a refused error, exit 3
+#   junk     print text that is not JSON         provider  print a provider error, exit 4
+#   dup      print an object with a repeated key hang      sleep until killed
+#   huge     print more than the output cap      silent    print nothing, exit 0
+#   env      record the hook's cwd and HOME beside itself, print no hosts
+here=$(dirname "$0")
+mode=$(cat "$here/hook.mode")
+cat >/dev/null
+case "$mode" in
+  ok) cat "$here/hook.response" ;;
+  refused) printf '{"schema":"mozart.error/v1","error":"refused","message":"fixture refusal"}\n'; exit 3 ;;
+  provider) printf '{"schema":"mozart.error/v1","error":"quota","message":"fixture quota"}\n'; exit 4 ;;
+  junk) printf 'this is not json\n' ;;
+  dup) printf '{"hosts":[],"hosts":[]}\n' ;;
+  huge) yes '{"x":1}' | head -c 2000000 ;;
+  hang) exec sleep 30 ;;
+  silent) ;;
+  env) pwd > "$here/hook.cwd"; printf '%s' "$HOME" > "$here/hook.home"; printf '{"hosts":[]}\n' ;;
+  *) exit 9 ;;
+esac

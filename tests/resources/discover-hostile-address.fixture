@@ -1,0 +1,12 @@
+{
+ "hosts": [
+  {
+   "label": "web",
+   "probed_at": "2026-10-26T12:00:00Z",
+   "address": "203.0.113.9",
+   "facts": {
+    "os": "linux"
+   }
+  }
+ ]
+}

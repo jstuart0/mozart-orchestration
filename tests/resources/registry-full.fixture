@@ -1,0 +1,10 @@
+## Host: mini
+- labels: os=darwin,arch=arm64,cpus=10,mem_gb=64,xcodebuild=16.2
+- cost: free
+- owner: the user
+- contact: user@example.test
+- taints: gpu-shared
+- identity: 1111111111111111111111111111111111111111111111111111111111111111
+
+## Host: cloudbox
+- labels: os=linux

@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in improving mozart-orchestration. This is a Claude Code plugin. What it does at run time lives in agent persona files, a slash command, and supporting documentation. It also ships shell and Python scripts under `scripts/`: the contract gates, the conductor linter and metrics, the edition-parity tools, and the read-only host probe with its checker. They are checks and helpers: you run the checks yourself, and the conductor streams the probe to a host, so nobody runs it by hand. There is no compiled code.
+Thank you for your interest in improving mozart-orchestration. This is a Claude Code plugin. What it does at run time lives in agent persona files, a slash command, and supporting documentation. It also ships shell and Python scripts under `scripts/`: the contract gates, the conductor linter and metrics, the edition-parity tools, and the host-resource scripts (a probe, a registry reader and the checker for them). The checks you run yourself. The resource scripts the conductor runs, and only when the user's grant allows it; the probe is streamed to a host, so nobody runs it by hand. There is no compiled code.
 
 ## Scope of contributions
 
@@ -57,8 +57,8 @@ Then exercise the slash command against a real request in a test repo:
 
 Two automated entry points cover the scripts and the contracts between the files; neither replaces reading your diff:
 
-- `bash scripts/mozart-contract-gates.sh` runs the persona-contract gates. It takes three to six minutes (about three in CI, about six on a busy laptop), and `bash -n scripts/mozart-contract-gates.sh` first confirms it parses. It already runs the checker below as three of its gates.
-- `python3 scripts/check-resources.py` runs only the host-probe and shell-portability gates, in seconds, so it is the fast loop while you work on `scripts/` or `tests/resources/`. `--timing` reports the cost of each gate and never fails a run; `--enforce-ceilings` additionally fails a gate that runs over its ceiling. `--only GATE:CASE` runs a single case.
+- `bash scripts/mozart-contract-gates.sh` runs the persona-contract gates. It takes three to six minutes (about three in CI, about six on a busy laptop), and `bash -n scripts/mozart-contract-gates.sh` first confirms it parses. It already runs the resource checker's gates.
+- `python3 scripts/check-resources.py` runs only the resource gates, in seconds, so it is the fast loop while you work on `scripts/` or `tests/resources/`. `--timing` reports the cost of each gate and never fails a run; `--enforce-ceilings` additionally fails a gate that runs over its ceiling. `--only GATE:CASE` runs a single case.
 
 Run the gate suite before pushing a change under `scripts/` or `tests/`; the checker alone is enough between edits. For a change to a prompt, "testing" still means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**. Only one of the four things it must agree on actually moved, and a **split section can put two halves in two files** — so name the half that carries the text you are comparing, not the section:
 

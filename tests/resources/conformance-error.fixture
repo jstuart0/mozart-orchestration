@@ -1,0 +1,40 @@
+{
+ "schema": "error",
+ "cases": [
+  {
+   "name": "a refusal",
+   "valid": true,
+   "value": {
+    "schema": "mozart.error/v1",
+    "error": "refused",
+    "message": "no"
+   }
+  },
+  {
+   "name": "an unknown code",
+   "valid": false,
+   "value": {
+    "schema": "mozart.error/v1",
+    "error": "nope",
+    "message": "no"
+   }
+  },
+  {
+   "name": "a control character in the message",
+   "valid": false,
+   "value": {
+    "schema": "mozart.error/v1",
+    "error": "refused",
+    "message": "a\nb"
+   }
+  },
+  {
+   "name": "a missing message",
+   "valid": false,
+   "value": {
+    "schema": "mozart.error/v1",
+    "error": "refused"
+   }
+  }
+ ]
+}

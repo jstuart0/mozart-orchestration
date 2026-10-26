@@ -1,0 +1,248 @@
+{
+ "schema": "hook.quote.response",
+ "cases": [
+  {
+   "name": "one option",
+   "valid": true,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "negative cents",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": -1,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "cents as a bool",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": true,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "cents as a float",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 1.5,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "huge cents",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 1000000000000,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "a lowercase currency",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "usd",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  },
+  {
+   "name": "six options",
+   "valid": false,
+   "value": {
+    "quoted_at": "2026-10-26T12:00:00Z",
+    "options": [
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     },
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     },
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     },
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     },
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     },
+     {
+      "offer_token": "tok-1",
+      "offer_expires_at": "2026-10-26T12:00:00Z",
+      "currency": "USD",
+      "rate_cents_per_hour": 100,
+      "min_charge_cents": 2400,
+      "min_charge_hours": 24,
+      "boot_minutes": 10,
+      "wake_minutes": 5,
+      "stop_scrub_max_minutes": 30,
+      "provider_expiry": false,
+      "region": "r1",
+      "zone": "z1",
+      "account_hint": "acct-1"
+     }
+    ]
+   }
+  }
+ ]
+}

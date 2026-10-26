@@ -1,9 +1,16 @@
 #!/bin/sh
-# Stub claude for the probe: --version and --help only. STUB_CLAUDE_VERSION picks
+# Stub claude for the probe: --version and --help only. STUB_SPY=1 makes --version record how many of the
+# probe's watchdogs have written a "hit" file, so a test can prove a finished watchdog did nothing. STUB_CLAUDE_VERSION picks
 # the version; STUB_CLAUDE_FLAGS (space-separated) picks which probed flags --help
 # lists, and defaults to all of them.
 case "${1-}" in
   --version)
+    if [ -n "${STUB_SPY-}" ]; then
+      # Look at the probe's scratch directories: how many calls have a watchdog "hit" file?
+      sleep 0.5
+      n=$(find "$TMPDIR" -name hit -path '*mozart-probe.*' 2>/dev/null | wc -l)
+      printf '%s\n' "$((n + 0))" >"${STUB_RECORD-/dev/null}"
+    fi
     printf '%s (Claude Code)\n' "${STUB_CLAUDE_VERSION-2.1.310}"
     ;;
   --help)

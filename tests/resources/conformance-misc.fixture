@@ -1,0 +1,42 @@
+{
+ "schema": "hook.status.response",
+ "cases": [
+  {
+   "name": "a ready status with an address",
+   "valid": true,
+   "value": {
+    "state": "ready",
+    "release_not_before": null,
+    "address": "host.example.test",
+    "port": 22,
+    "user": "builder"
+   }
+  },
+  {
+   "name": "a port of 0",
+   "valid": false,
+   "value": {
+    "state": "ready",
+    "release_not_before": null,
+    "port": 0
+   }
+  },
+  {
+   "name": "a state outside the enum",
+   "valid": false,
+   "value": {
+    "state": "exited",
+    "release_not_before": null
+   }
+  },
+  {
+   "name": "a host key with a trailing command",
+   "valid": false,
+   "value": {
+    "state": "ready",
+    "release_not_before": null,
+    "host_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq0uVu1rPzAh7P1nQw3Yx9c2d1m8k4f6s7t0u2v3w5x; rm -rf /"
+   }
+  }
+ ]
+}
