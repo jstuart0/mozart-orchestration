@@ -1,0 +1,9 @@
+#!/bin/sh
+# Stub kubectl config get-contexts -o name. STUB_KUBE_CONTEXTS is the whole output
+# (newline-separated); unset gives two names, set-but-empty gives none.
+[ "${1-}" = "config" ] && [ "${2-}" = "get-contexts" ] && [ "${3-}" = "-o" ] && [ "${4-}" = "name" ] || exit 2
+if [ "${STUB_KUBE_CONTEXTS+set}" = "set" ]; then
+  [ -z "$STUB_KUBE_CONTEXTS" ] || printf '%s\n' "$STUB_KUBE_CONTEXTS"
+else
+  printf 'ctx-a\nctx-b\n'
+fi

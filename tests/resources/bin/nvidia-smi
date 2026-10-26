@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stub nvidia-smi --query-gpu=name --format=csv,noheader. STUB_GPU_NAME picks the name.
+[ "${1-}" = "--query-gpu=name" ] && [ "${2-}" = "--format=csv,noheader" ] || exit 2
+printf '%s\n' "${STUB_GPU_NAME-NVIDIA Stub 1000}"

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Stub claude for the probe: --version and --help only. STUB_CLAUDE_VERSION picks
+# the version; STUB_CLAUDE_FLAGS (space-separated) picks which probed flags --help
+# lists, and defaults to all of them.
+case "${1-}" in
+  --version)
+    printf '%s (Claude Code)\n' "${STUB_CLAUDE_VERSION-2.1.310}"
+    ;;
+  --help)
+    printf 'Usage: claude [options] [command] [prompt]\n\nOptions:\n'
+    for f in ${STUB_CLAUDE_FLAGS---print --permission-mode --permission-prompts --max-budget-usd --settings --setting-sources --strict-mcp-config --disallowedTools}; do
+      printf '  %-34s Stub description of %s\n' "$f <value>" "$f"
+    done
+    printf '  -h, --help                         Display help for command\n'
+    ;;
+  *) exit 2 ;;
+esac

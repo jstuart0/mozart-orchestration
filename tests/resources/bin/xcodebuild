@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stub xcodebuild -version. STUB_XCODE picks the version word.
+[ "${1-}" = "-version" ] || exit 2
+printf 'Xcode %s\nBuild version 16C5032a\n' "${STUB_XCODE-16.2}"

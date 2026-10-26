@@ -1,0 +1,11 @@
+#!/bin/sh
+# Stub sysctl: -n <name> for the names the probe reads. STUB_NCPU, STUB_MEMSIZE,
+# STUB_CPU_BRAND and STUB_LOADAVG pick the answers (hostile ones included).
+[ "${1-}" = "-n" ] || exit 2
+case "${2-}" in
+  hw.ncpu) printf '%s\n' "${STUB_NCPU-8}" ;;
+  hw.memsize) printf '%s\n' "${STUB_MEMSIZE-17179869184}" ;;
+  machdep.cpu.brand_string) printf '%s\n' "${STUB_CPU_BRAND-Apple M2 Pro}" ;;
+  vm.loadavg) printf '{ %s }\n' "${STUB_LOADAVG-0.50 0.40 0.30}" ;;
+  *) exit 1 ;;
+esac

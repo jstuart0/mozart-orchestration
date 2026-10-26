@@ -13,7 +13,9 @@ jobs:
   validate-json:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Validate plugin.json
         run: |
           python3 -m json.tool .claude-plugin/plugin.json > /dev/null
@@ -29,7 +31,9 @@ jobs:
   validate-required-files:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check required files exist
         run: |
           REQUIRED=(
@@ -84,7 +88,9 @@ jobs:
       # gate reads history. The old comment also asserted a `--no-ff` merge
       # requirement to keep the baseline object reachable; that constraint died with
       # the gate and is not a live requirement.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Syntax-check the gate script
         run: bash -n scripts/mozart-contract-gates.sh
       - name: Run persona-contract gates
@@ -98,3 +104,46 @@ jobs:
       # (see mozart-contract-gates.sh's own Rule 1 and the V0 gate family), so it
       # stays a local-only check run from a checkout that actually has campaign
       # state, not a CI step.
+
+  validate-resources-macos:
+    # The production interpreter on macOS is the system /usr/bin/python3 (3.9), the
+    # floor every script under scripts/ is written to. Run the checker with it,
+    # under `env -i` and `-I`, exactly as a user's launcher would. Only if the runner
+    # image's system Python is not 3.9 does the job fall back to setup-python 3.9
+    # (python-versions ships a 3.9 arm64 build for darwin, 3.9.13 at the time of
+    # writing). The second step runs the same checker under the runner's own python3
+    # (the newest the image offers, or the 3.9 the fallback installed), so an
+    # interpreter newer than the floor is covered too. --timing only reports the cost
+    # of each gate; it never fails the job (--enforce-ceilings is the opt-in that does).
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Detect the system Python
+        id: system-python
+        run: |
+          # A missing binary or a failing shim must route to setup-python, not kill this step (bash -e).
+          /usr/bin/python3 --version 2>&1 || true
+          if /usr/bin/python3 -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)' 2>/dev/null; then
+            echo "is39=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is39=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Python 3.9 (the system Python is not 3.9)
+        if: steps.system-python.outputs.is39 != 'true'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.9"
+      - name: Resource checker under the system Python
+        timeout-minutes: 2
+        if: steps.system-python.outputs.is39 == 'true'
+        run: /usr/bin/env -i /usr/bin/python3 -I scripts/check-resources.py --timing --deadline 180
+      - name: Resource checker under Python 3.9 (fallback)
+        timeout-minutes: 2
+        if: steps.system-python.outputs.is39 != 'true'
+        run: /usr/bin/env -i "$(command -v python3)" -I scripts/check-resources.py --timing --deadline 180
+      - name: Resource checker under the runner's python3
+        timeout-minutes: 2
+        run: python3 -I scripts/check-resources.py --timing --deadline 180

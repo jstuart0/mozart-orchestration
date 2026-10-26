@@ -1,0 +1,8 @@
+#!/bin/sh
+# Stub xcode-select -p. STUB_XCSELECT=fail makes it report no developer tools.
+[ "${1-}" = "-p" ] || exit 2
+if [ "${STUB_XCSELECT-ok}" = "fail" ]; then
+  printf 'xcode-select: error: unable to get active developer directory\n' >&2
+  exit 2
+fi
+printf '/Applications/Xcode.app/Contents/Developer\n'

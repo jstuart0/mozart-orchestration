@@ -1,0 +1,9 @@
+#!/bin/sh
+# Stub security: show-keychain-info only. STUB_KEYCHAIN=locked reproduces the
+# non-interactive refusal of a locked keychain (exit 36).
+[ "${1-}" = "show-keychain-info" ] || exit 2
+if [ "${STUB_KEYCHAIN-unlocked}" = "locked" ]; then
+  printf 'SecKeychainCopySettings: User interaction is not allowed.\n' >&2
+  exit 36
+fi
+printf 'Keychain "stub.keychain-db" lock-on-sleep=no timeout=21600s\n' >&2

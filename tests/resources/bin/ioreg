@@ -1,0 +1,12 @@
+#!/bin/sh
+# Stub ioreg for `ioreg -rd1 -c IOPlatformExpertDevice`. STUB_IOREG_UUID picks the
+# UUID; the value "none" prints the block without any IOPlatformUUID line.
+[ "${1-}" = "-rd1" ] && [ "${2-}" = "-c" ] && [ "${3-}" = "IOPlatformExpertDevice" ] || exit 2
+printf '+-o Root  <class IORegistryEntry, id 0x100000100, retain 20>\n'
+printf '  +-o Stub Machine  <class IOPlatformExpertDevice, id 0x100000110, registered, matched, active, busy 0 (1 ms), retain 40>\n'
+printf '    {\n'
+printf '      "IOPlatformSerialNumber" = "STUB000000"\n'
+if [ "${STUB_IOREG_UUID-11111111-2222-3333-4444-555555555555}" != "none" ]; then
+  printf '      "IOPlatformUUID" = "%s"\n' "${STUB_IOREG_UUID-11111111-2222-3333-4444-555555555555}"
+fi
+printf '    }\n'

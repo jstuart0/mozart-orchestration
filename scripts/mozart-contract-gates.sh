@@ -2705,7 +2705,8 @@ report "V27_portable_grep" "$([ -z "$v27_bad" ] && echo 0 || echo 1)" \
 # V27b scans awk programs inside single quotes after `awk ` and the bodies of
 # heredocs whose delimiter contains AWK. A heredoc under any other delimiter is
 # NOT scanned (a self-test below pins that); the floor on lint and the library
-# turns a renamed delimiter into a failure instead of a silent skip.
+# turns a renamed delimiter into a failure instead of a silent skip. The scanned
+# population is every script under scripts/ bar the gate file and the port tools.
 # V27b - gawk-only constructs. CI's awk is mawk and the author's is
 # one-true-awk; both lack these. Names are checked across the whole script;
 # the regex-interval and three-argument match() checks apply to the extracted
@@ -2741,19 +2742,49 @@ v27b_check() { # $1 = script -> stdout: offending lines (empty when clean)
 }
 v27b_bad=""
 v27b_progs=0
-for v27b_script in "$gate_root/scripts/mozart-lint.sh" "$gate_root/scripts/mozart-metrics.sh" "$gate_root/scripts/lib-campaign.sh"; do
-  [ -f "$v27b_script" ] || { v27b_bad="$v27b_bad [named member absent: $v27b_script]"; continue; }
+v27b_scanned=0
+v27b_names_scanned=""
+# The population is every shell script under scripts/ except the gate file itself
+# (its text is full of the very constructs this gate hunts for) and the two port
+# tools, which are the editions' own harness and say so. A script is scanned the
+# moment it exists; none is added to a list by hand. The awk-program floor below
+# applies to a script that INVOKES awk on a non-comment line, so a script with no awk
+# call (or one that only says the word in a comment) is not made to fail for having no program to extract, while lint, metrics and the
+# library - named, because their programs are the point of this gate - always
+# carry it.
+for v27b_member in mozart-lint.sh mozart-metrics.sh lib-campaign.sh; do
+  [ -f "$gate_root/scripts/$v27b_member" ] || v27b_bad="$v27b_bad [named member absent: scripts/$v27b_member]"
+done
+for v27b_script in "$gate_root"/scripts/*.sh; do
+  v27b_base=$(basename "$v27b_script")
+  case "$v27b_base" in
+    mozart-contract-gates.sh|check-editions.sh|check-edition-lens.sh) continue ;;
+  esac
+  v27b_scanned=$((v27b_scanned + 1))
+  v27b_names_scanned="$v27b_names_scanned${v27b_names_scanned:+, }$v27b_base"
   v27b_n=$({ v27b_programs "$v27b_script"; v27b_heredocs "$v27b_script"; } | grep -c . || true)
-  [ "$v27b_n" -ge 1 ] || v27b_bad="$v27b_bad [no awk program extracted from $(basename "$v27b_script") -- the extractor is blind]"
+  v27b_floor=0
+  case "$v27b_base" in
+    mozart-lint.sh|mozart-metrics.sh|lib-campaign.sh) v27b_floor=1 ;;
+    *) grep -v '^[[:space:]]*#' "$v27b_script" | grep -qE '(^|[[:space:]|;(])awk[[:space:]]' && v27b_floor=1 ;;
+  esac
+  if [ "$v27b_floor" -eq 1 ] && [ "$v27b_n" -lt 1 ]; then
+    v27b_bad="$v27b_bad [no awk program extracted from $v27b_base -- the extractor is blind]"
+  fi
   v27b_progs=$((v27b_progs + v27b_n))
-  case "$v27b_script" in
-    */mozart-lint.sh|*/lib-campaign.sh)
+  case "$v27b_base" in
+    mozart-lint.sh|lib-campaign.sh)
       [ "$(v27b_heredocs "$v27b_script" | grep -c . || true)" -ge 1 ] \
-        || v27b_bad="$v27b_bad [no awk heredoc body read from $(basename "$v27b_script") -- its delimiter must contain AWK or the program is unscanned]" ;;
+        || v27b_bad="$v27b_bad [no awk heredoc body read from $v27b_base -- its delimiter must contain AWK or the program is unscanned]" ;;
   esac
   v27b_hit=$(v27b_check "$v27b_script")
-  [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $(basename "$v27b_script"): $(head -2 <<<"$v27b_hit" | tr '\n' ' ')]"
+  [ -z "$v27b_hit" ] || v27b_bad="$v27b_bad [gawk-only construct in $v27b_base: $(head -2 <<<"$v27b_hit" | tr '\n' ' ')]"
 done
+[ "$v27b_scanned" -ge 4 ] || v27b_bad="$v27b_bad [only $v27b_scanned script(s) scanned, floor 4]"
+case ", $v27b_names_scanned," in
+  *", mozart-probe.sh,"*) ;;
+  *) v27b_bad="$v27b_bad [mozart-probe.sh is not in the scanned population]" ;;
+esac
 v27b_tmp=$(mktemp -d) || { v27b_bad="$v27b_bad [mktemp failed -- the self-tests could not run]"; v27b_tmp=/nonexistent-v27b; }
 printf "awk 'BEGIN { print gensub(/a/, \"b\", \"g\") }'\n" > "$v27b_tmp/name.sh"
 printf "awk '/a{2}/ { print }'\n" > "$v27b_tmp/interval.sh"
@@ -2772,7 +2803,7 @@ done
 [ -z "$(v27b_check "$v27b_tmp/heredoc-unnamed.sh")" ] || v27b_bad="$v27b_bad [self-test: the documented limit changed -- a heredoc whose delimiter lacks AWK is now scanned; update the V27b comment]"
 rm -rf "$v27b_tmp"
 report "V27b_portable_awk" "$([ -z "$v27b_bad" ] && echo 0 || echo 1)" \
-  "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across lint, metrics and the library, planted self-tests caught}"
+  "${v27b_bad:-no gawk-only construct in $v27b_progs awk program line(s) across $v27b_scanned script(s) ($v27b_names_scanned), planted self-tests caught}"
 
 # ---------------------------------------------------------------------------
 # V30_lib - scripts/lib-campaign.sh: the one place lint and metrics get their
@@ -5287,6 +5318,57 @@ $v18_out
 EOF_V18
   [ "$v18_seen" -eq 8 ] || report "V18_population" 1 \
     "check-manual-bundle.py reported $v18_seen gate line(s), want exactly 8"
+fi
+
+# ---------------------------------------------------------------------------
+# V37-V38 - the host probe, its shell portability and the portability denylist.
+# scripts/check-resources.py owns the bodies: they need stub tools, a scratch
+# toolbox of real utilities and several shells, none of which belong in this
+# file. The gate NAMES are a literal list, compared both ways with the checker's
+# own --list (the V18 shape): a gate the checker grows without being named here,
+# or a name here the checker no longer prints, fails instead of being absent.
+# python3 missing is a FAIL, never a skip.
+# ---------------------------------------------------------------------------
+v37_script="$gate_root/scripts/check-resources.py"
+v37_names="V37_probe V37_shells V38_portable"
+if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$v37_script" ]; then
+  for v37_g in $v37_names; do
+    report "$v37_g" 1 "scripts/check-resources.py unavailable (FAIL, not skip)"
+  done
+else
+  v37_listed=$(python3 "$v37_script" --list 2>&1 | sort | paste -sd' ' -)
+  v37_literal=$(printf '%s\n' $v37_names | sort | paste -sd' ' -)
+  [ "$v37_listed" = "$v37_literal" ] || report "V37_population" 1 \
+    "check-resources.py --list prints [$v37_listed], the literal list in this file is [$v37_literal]"
+  v37_out=$(python3 "$v37_script" 2>&1)
+  v37_rc=$?
+  v37_seen=""
+  while IFS= read -r v37_line; do
+    case "$v37_line" in
+      PASS\ \ *|FAIL\ \ *)
+        v37_status=${v37_line%%  *}
+        v37_rest=${v37_line#*  }
+        v37_name=${v37_rest%%  *}
+        v37_detail=${v37_rest#*  }
+        case " $v37_names " in
+          *" $v37_name "*) ;;
+          *) report "V37_population" 1 "check-resources.py reported a gate not named in this file: $v37_name"; continue ;;
+        esac
+        case " $v37_seen " in
+          *" $v37_name "*) report "V37_population" 1 "check-resources.py reported $v37_name twice"; continue ;;
+        esac
+        v37_seen="$v37_seen $v37_name"
+        if [ "$v37_status" = "PASS" ]; then report "$v37_name" 0 "$v37_detail"; else report "$v37_name" 1 "$v37_detail"; fi ;;
+    esac
+  done <<EOF_V37
+$v37_out
+EOF_V37
+  for v37_g in $v37_names; do
+    case " $v37_seen " in
+      *" $v37_g "*) ;;
+      *) report "$v37_g" 1 "no result line from check-resources.py (exit $v37_rc): $(head -c 300 <<<"$v37_out" | tr '\n' ' ')" ;;
+    esac
+  done
 fi
 
 echo

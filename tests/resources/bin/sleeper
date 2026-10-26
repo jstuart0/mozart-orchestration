@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stub that hangs: installed under a tool's name, it proves the caller bounds the
+# tool's run time. STUB_SLEEP is the length in seconds (default 30). It records its
+# start in $STUB_RECORD and execs sleep so a kill reaches the sleeping process.
+printf 'sleeper-started\n' >>"${STUB_RECORD-/dev/null}"
+exec sleep "${STUB_SLEEP-30}"

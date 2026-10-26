@@ -1,0 +1,8 @@
+#!/bin/sh
+# Stub uname for the probe checks. STUB_UNAME_S and STUB_UNAME_M pick the answer.
+case "${1-}" in
+  -s) printf '%s\n' "${STUB_UNAME_S-Darwin}" ;;
+  -m) printf '%s\n' "${STUB_UNAME_M-aarch64}" ;;
+  -r) printf '%s\n' "${STUB_UNAME_R-24.0.0}" ;;
+  *) exit 2 ;;
+esac

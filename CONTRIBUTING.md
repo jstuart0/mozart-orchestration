@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in improving mozart-orchestration. This is a markdown-only Claude Code plugin — all of its behavior lives in agent persona files, a slash command, and supporting documentation. There is no compiled code.
+Thank you for your interest in improving mozart-orchestration. This is a Claude Code plugin. What it does at run time lives in agent persona files, a slash command, and supporting documentation. It also ships shell and Python scripts under `scripts/`: the contract gates, the conductor linter and metrics, the edition-parity tools, and the read-only host probe with its checker. They are checks and helpers: you run the checks yourself, and the conductor streams the probe to a host, so nobody runs it by hand. There is no compiled code.
 
 ## Scope of contributions
 
@@ -55,7 +55,12 @@ Then exercise the slash command against a real request in a test repo:
 /mozart add a health-check endpoint to the API
 ```
 
-There is no automated test suite for prose-only plugins. "Testing" means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**. Only one of the four things it must agree on actually moved, and a **split section can put two halves in two files** — so name the half that carries the text you are comparing, not the section:
+Two automated entry points cover the scripts and the contracts between the files; neither replaces reading your diff:
+
+- `bash scripts/mozart-contract-gates.sh` runs the persona-contract gates. It takes three to six minutes (about three in CI, about six on a busy laptop), and `bash -n scripts/mozart-contract-gates.sh` first confirms it parses. It already runs the checker below as three of its gates.
+- `python3 scripts/check-resources.py` runs only the host-probe and shell-portability gates, in seconds, so it is the fast loop while you work on `scripts/` or `tests/resources/`. `--timing` reports the cost of each gate and never fails a run; `--enforce-ceilings` additionally fails a gate that runs over its ceiling. `--only GATE:CASE` runs a single case.
+
+Run the gate suite before pushing a change under `scripts/` or `tests/`; the checker alone is enough between edits. For a change to a prompt, "testing" still means reading your diff carefully and confirming the agent behaves as expected when invoked. If you changed a specialist's output format, run it against a sample input and verify the output matches the template. If you changed PIPELINE.md, verify it stays consistent with the persona **and the bundled manual**. Only one of the four things it must agree on actually moved, and a **split section can put two halves in two files** — so name the half that carries the text you are comparing, not the section:
 
 | Must agree on | Lives in | Note |
 |---|---|---|
@@ -81,7 +86,7 @@ The trap during a contribution follows from that: **a change made in this repo d
 
 There is no sync tooling in this repo and no supported command that merges the two trees; reconcile by hand, per file, or keep the specialization as a patch you reapply deliberately. One would be worth adding — a contributor holding a specialized install currently has nothing but discipline standing between a routine reinstall and a silent revert. If what you actually want is a code-aware index in a *consuming* repo rather than in your install, use the supported generic path instead: the `## Code retrieval` stanza in `INTEGRATION.md` reaches it through that repo's configuration, without editing a persona at all.
 
-The CI workflow at `.github/workflows/validate-plugin.yml` checks JSON validity and file presence. Run its logic locally before pushing:
+The CI workflow at `.github/workflows/validate-plugin.yml` has four jobs: `validate-json` (JSON validity), `validate-required-files` (file presence), `validate-contract-gates` (the gates above plus the carve self-test) and `validate-resources-macos` (the resource checker under the macOS system Python). The last two are the two entry points above. Run the first two locally before pushing:
 
 ```bash
 python3 -m json.tool .claude-plugin/plugin.json > /dev/null

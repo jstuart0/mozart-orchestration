@@ -1,0 +1,81 @@
+{
+  "schema": "mozart.schemas/v1",
+  "bundle_version": "1",
+  "bundle": {
+    "files": [
+      "mozart-lib-host.sh",
+      "mozart-probe.sh",
+      "mozart-schemas.json"
+    ]
+  },
+  "launcher": {
+    "home_cmd": "import os,pwd;print(pwd.getpwuid(os.geteuid()).pw_dir)"
+  },
+  "grammars": {
+    "arg": {
+      "pattern": "^[A-Za-z0-9._/-]{1,255}$",
+      "match": "full",
+      "no_leading_dash": true
+    },
+    "abs_path": {
+      "pattern": "^/[A-Za-z0-9._/-]{0,254}$",
+      "match": "full"
+    },
+    "version": {
+      "pattern": "^[0-9][0-9A-Za-z._+-]{0,63}$",
+      "match": "full"
+    },
+    "hex64": {
+      "pattern": "^[0-9a-f]{64}$",
+      "match": "full"
+    }
+  },
+  "facts": {
+    "os": {"kind": "static", "type": "string", "nullable": true, "pattern": "^[a-z0-9._-]{1,32}$"},
+    "os_version": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "arch": {"kind": "static", "type": "string", "nullable": true, "pattern": "^[a-z0-9_]{1,32}$"},
+    "cpus": {"kind": "static", "type": "int", "nullable": true, "min": 1, "max": 4096},
+    "mem_gb": {"kind": "static", "type": "number", "nullable": true, "min": 0, "max": 65536},
+    "host_id": {"kind": "static", "type": "string", "nullable": true, "grammar": "hex64"},
+    "xcodebuild": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "android_sdk": {"kind": "static", "type": "int", "nullable": true, "min": 1, "max": 999},
+    "adb": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "docker": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "gpu": {"kind": "static", "type": "string", "nullable": true, "pattern": "^[a-z0-9_-]{1,32}$"},
+    "gpu_name": {"kind": "static", "type": "string", "nullable": true, "maxLength": 120},
+    "kube_contexts": {"kind": "static", "type": "list", "nullable": true, "maxItems": 64, "items": {"type": "string", "maxLength": 253}},
+    "claude": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "claude_flags": {"kind": "static", "type": "list", "nullable": true, "maxItems": 16, "items": {"type": "string", "enum_from": "probe.claude_flags_checked"}},
+    "codex": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "git": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "python3": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "node": {"kind": "static", "type": "string", "nullable": true, "grammar": "version"},
+    "mozart_child_mode": {"kind": "static", "type": "bool", "nullable": true},
+    "mozart_command": {"kind": "static", "type": "bool", "nullable": true},
+    "keychain_unlocked": {"kind": "dynamic", "type": "bool", "nullable": true},
+    "linger": {"kind": "dynamic", "type": "bool", "nullable": true},
+    "ps_lstart": {"kind": "dynamic", "type": "bool", "nullable": true},
+    "load": {"kind": "dynamic", "type": "number", "nullable": true, "min": 0, "max": 1000000},
+    "remote_home": {"kind": "static", "type": "string", "nullable": true, "grammar": "abs_path"}
+  },
+  "probe": {
+    "probe_version": 1,
+    "total_timeout_s": {"default": 30, "min": 1, "max": 600},
+    "sub_probe_timeout_s": 5,
+    "claude_flags_checked": [
+      "--print",
+      "--permission-mode",
+      "--permission-prompts",
+      "--max-budget-usd",
+      "--settings",
+      "--setting-sources",
+      "--strict-mcp-config",
+      "--disallowedTools"
+    ],
+    "extra_keys": {
+      "probe_version": {"type": "int", "min": 1, "max": 1000},
+      "probed_at": {"type": "string", "nullable": true, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+      "probe_errors": {"type": "list", "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z0-9_]+(-[a-z0-9_]+)*$", "maxLength": 64}}
+    }
+  }
+}

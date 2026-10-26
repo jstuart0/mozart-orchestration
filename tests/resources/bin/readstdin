@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stub that reads standard input: installed under a tool's name, it proves whether
+# the caller closed the tool's stdin. It reads one block, appends the byte count to
+# $STUB_RECORD, and prints nothing. A caller that left stdin open to a pipe either
+# gets a nonzero count or blocks here.
+n=$(dd bs=4096 count=1 2>/dev/null | wc -c)
+printf 'stdin-bytes=%s\n' "$((n + 0))" >>"${STUB_RECORD-/dev/null}"
