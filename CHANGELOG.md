@@ -4,6 +4,16 @@ All notable changes to this plugin will be documented in this file. The format i
 
 ## [Unreleased]
 
+### Added — a default bar for findings and tests, and `rigor: precise`
+
+Campaign `2026-11-04-deliver-rigor-default-bar`. A default DELIVER campaign now flags and fixes what a realistic trigger justifies; a user raises it back to the earlier behaviour on request. No gate, stage, cap or reviewer was removed.
+
+- **The default bar** (`agents/DELIVER.md`, *The default bar: findings, tests, disposition*). Every finding states its trigger and its consequence. Critical or High needs a realistic trigger for the product's exposure: ordinary use, a normal operator mistake or a reachable attacker. A rare coincidence caps at Medium. Irreversible loss of data or money, and an exposed security surface, keep their severity even when rare, and severities a rule fixes for a named failure stand. The nine severity-emitting reviewers carry the same block.
+- **Default test scope.** Each contract behavior, the user-visible golden path once, one real path per integration seam and a regression test per fixed bug. A permutation matrix or a test of test tooling needs a named realistic bug it would catch.
+- **`accepted-risk (default bar)`.** A Medium is fixed when it is cheap and in code already being touched; otherwise it, and every Low, is recorded as a ledger row with this value. It is an existing `accepted-risk` prefix, so metrics and lint need no change. It never applies to an xander or nina finding on an exposed surface. Stage 13 reports the recorded count.
+- **`rigor: precise`.** The `PRECISE` pipeline flag restores the earlier bar: rare triggers count, Mediums are handled as before, wider test matrices are allowed and the new value is unavailable. Set it at intake with "be as precise as possible", in the `## Pipeline flags` stanza with `rigor: precise` (`INTEGRATION.md` section 6), or by a CRITICAL tier. It is raise-only and changes no stage, cap, budget or reviewer.
+- **The standard.** The shared sentence now reads "the most intuitive solution that is complete for the risk at hand".
+
 ### Added — a CRITICAL tier, and a ceiling for every tier
 
 Campaign `2026-10-11-deliver-critical-tier`. An upgrade campaign on a live system spent about 6.75 days in plan review against 2.5 hours of execution. The plan grew from 660 to about 4,300 lines, most of it bespoke shell, and the distinct Critical findings per round ran 4, 2, 4, 2, 3, 1. An ambiguous "continue autonomously" was read as raising the review cap from 3 to 5, and the simplify option was offered third of four with no recommendation. A 41-line attended runbook then did the work in one sitting. The pipeline had a floor for each tier but no ceiling.
