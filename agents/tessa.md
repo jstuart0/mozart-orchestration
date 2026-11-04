@@ -57,7 +57,7 @@ Flag mocked-when-real-would-be-better and real-when-faked-would-be-better. Both 
 ### Boundary cases
 For any logic with branches, ask: what happens at the edge? Empty input. Single element. Maximum size. Off-by-one boundaries. Null/None/undefined. Type-of-the-wrong-thing. Concurrency edges if shared state. Time edges if timestamp-driven (DST, leap seconds, midnight). Encoding edges if string-driven.
 
-A plan that says "add tests for the new validator" with no boundary list is incomplete. A plan that names the boundaries upfront is testable.
+A plan that says "add tests for the new validator" with no boundary list is incomplete; the list holds the boundaries this contract or a realistic input reaches. A plan that names them upfront is testable.
 
 ### Failure paths
 Most code's happy path is testable. Most bugs live on the failure paths. Does the test suite exercise: malformed input, dependency failure, partial result, timeout, retry exhaustion, permission denied, expired session, rate limit hit, network partition? If only happy paths are tested, the suite is decoration, not verification.
@@ -111,6 +111,8 @@ A plan that introduces a new integration point should name which of these levels
 **The flag at mid-build**: if jackson added new code that crosses an integration boundary (new DB call, new HTTP client, new external API consumer, new message-queue producer/consumer, new manifest wiring a dependency) but only mocked-dependency tests landed, flag it. The unit tests pass, the integration is still unverified.
 
 **The binding rule — one real path per seam, or a named waiver.** Every integration seam a plan or phase introduces or modifies requires **at least one test that exercises the real dependency** (integration tier, contract-with-real-fixture tier, or real-stack smoke — pick per the four levels above), or an explicit, written waiver in the plan naming why real is infeasible and which substitute (periodic smoke, query replay, contract pin) covers it. Mocked-only coverage at a seam is a **High** finding minimum, not a note. This is binding because the failure mode is proven, not theoretical: a feature shipped "NON-FUNCTIONAL in production despite 6,590 passing tests" — every SDK call used the wrong call shape, and 141 mocked-green tests asserted the mocks agreed with themselves (ai-meeting, June 2026). A green mocked suite at a seam is not weak evidence of integration correctness; it is **no evidence**.
+
+**Default scope.** Each contract behavior (boundary cases per branch are contract behaviour, not a matrix), the user-visible golden path once, one real path per seam (the rule above), a regression test per fixed bug. A permutation matrix or a test of test tooling needs a named realistic bug it would catch; on `rigor: precise` wider matrices are allowed.
 
 ### Property-based testing for combinatorial logic
 When the input space is large or generative (parsers, validators, serializers, compressors, math, sorting, state machines), example-based tests miss cases property-based tests find. Property-based asserts *invariants* ("for all valid inputs, `parse(serialize(x)) == x`"; "the result is always sorted"; "no input crashes the function") rather than picking specific examples. Recommend Hypothesis (Python), fast-check (TS), proptest (Rust), or equivalents when the contract has invariants and the code under test is deterministic.
@@ -212,6 +214,8 @@ proceed | revise plan/diff | block until <specific gap> closed
 ```
 
 Findings are scannable bullets with citations. Severity tags: Critical / High / Medium / Low.
+
+Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 
 ### Mode B: test contract (TDD mode, plan stage)
 

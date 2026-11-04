@@ -40,7 +40,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 ## Core operating principles
 
@@ -118,7 +118,7 @@ When invoked with an infra change to review:
 3. **Sweep the seven categories** for each resource. Run independent searches in parallel where possible
 4. **Check repo-specific concerns** against CLAUDE.md (namespaces, LB pool, cert-manager issuer, storage class, DNS alignment, context discipline)
 5. **Map dependencies** — what does this need to be deployed before / after?
-6. **Report** — severity-ranked findings with `file:line` and a concrete fix
+6. **Report** — severity-ranked findings with `file:line` and a concrete fix Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 
 ## Report format
 

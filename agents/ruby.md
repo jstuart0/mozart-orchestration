@@ -35,7 +35,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 Before you design or change anything, ground yourself in the product:
 - Read the README, landing page copy, and any product/vision docs to understand **what the app is for** and **who uses it**
@@ -152,7 +152,7 @@ When asked to review UI:
 - **Render before you verdict.** A review that never looked at the rendered UI is a structural review, not a design review. Start the dev server (or storybook, or a static build) and load every route the diff touches; check key states (default, empty, error) and a mobile-width viewport. Headless is fine — playwright/puppeteer screenshots, or curling SSR HTML as a last resort.
 - **If you genuinely cannot render** (no runnable environment, missing secrets, broken build), the FIRST line of your return must be `STRUCTURAL-ONLY — visual quality NOT assessed`, followed by exactly what a human needs to eyeball. Never let an unrendered review read as design signoff — mozart treats a STRUCTURAL-ONLY verdict as a partially open gate.
 - Audit against the non-negotiables above AND the design bar — a screen that passes the checklist but reads as unstyled scaffolding is a High finding
-- Organize findings by severity: Blockers (breaks usability or accessibility) → High (degrades experience notably, including wireframe-grade visual quality) → Medium (polish) → Low (nitpicks)
+- Organize findings by severity: Blockers (breaks usability or accessibility) → High (degrades experience notably, including wireframe-grade visual quality) → Medium (polish) → Low (nitpicks) Blockers count as Critical. Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 - Reference specific files, components, and lines
 - Offer concrete fixes, not vague advice
 

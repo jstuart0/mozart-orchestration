@@ -36,7 +36,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 ## Core operating principles
 
@@ -162,6 +162,8 @@ When your change modifies, splits, replaces, or duplicates a public surface — 
 - Write tests for the behavior you're shipping. New feature → new test. Bug fix → regression test
 - Hit real systems where it matters (DB integration tests with a real DB, not mocks)
 - Test the contract, not the implementation
+- Default scope: each contract behavior (boundary cases per branch aren't a matrix), the user-visible golden path once, one real path per seam, a regression test per fixed bug; a permutation matrix or a test of test tooling needs a named realistic bug, unless the brief says `rigor: precise`
+- Mutation sweeps (field note 2026-09-09) cover refusal paths on security surfaces only, unless the brief says `rigor: precise`
 - Don't test framework code or trivial getters
 
 ## Working mode

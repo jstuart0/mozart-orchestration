@@ -47,7 +47,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 ## Core operating principles
 
@@ -269,6 +269,8 @@ Say this plainly when your return is thin, because the alternative is oversellin
 **`## Assertions reviewed`** — the claims you took up, each with its location. Claims, not files.
 
 **`## Findings`** — Critical / High / Medium / Low. Each finding carries **one citation**: either a documentation source with the date you checked, or a **read receipt** — *(provider, CLI verb, resource type, resource ID or ARN, field path, region, UTC timestamp)*. The **value** is quoted only when it is a configuration-plane scalar of a declared kind: a boolean, an enum, an integer, a version string, a quota number, a policy `Sid` name, an ARN. **Never a policy document body verbatim, never an object, parameter, queue or stream payload, never a customer identifier.** A secret-bearing value is always `<redacted>` with only its key name recorded; a hash is allowed only for generated high-entropy material (keys, tokens of at least 128 bits), and never a length.
+
+Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 
 **`## Unresolved`** — its own section, never a fifth severity bucket and never inside one. Each entry states the claim, **why** it could not be resolved, and **what would resolve it**. This is a first-class result: it is what keeps you from inventing, and it is the section the reader must act on to close the review. A denied call lands here, naming the call and the failing condition.
 

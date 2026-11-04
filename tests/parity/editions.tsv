@@ -412,6 +412,7 @@ rule-ceil-noprom-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilin
 rule-delta-6-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
 rule-s9-crit-codex	codex	6	once	.codex/skills/mozart/SKILL.md	### 9. External review — claude on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
 rule-stanza-crit-codex	codex	6	once	INTEGRATION.md	## 4. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-stanza-rigor-codex	codex	6	once	INTEGRATION.md	## 4. Pipeline flags (stanza optional)		1	`rigor: precise`
 rule-restore-new-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
 rule-restore-go-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
 rule-restore-gone-codex	codex	6	once	.codex/skills/mozart/SKILL.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
@@ -434,6 +435,7 @@ rule-ceil-noprom-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier 
 rule-delta-6-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
 rule-s9-crit-copilot	copilot	2	once	.github/mozart/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
 rule-stanza-crit-copilot	copilot	2	once	.github/mozart/INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-stanza-rigor-copilot	copilot	2	once	.github/mozart/INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`rigor: precise`
 rule-restore-new-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
 rule-restore-go-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
 rule-restore-gone-copilot	copilot	2	once	.github/mozart/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
@@ -459,6 +461,7 @@ rule-ceil-noprom-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier cei
 rule-delta-6-orchestration	orchestration	0	once	agents/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
 rule-s9-crit-orchestration	orchestration	0	once	agents/DELIVER.md	### 9. External review — codex on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
 rule-stanza-crit-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`heavy_is_critical: true`
+rule-stanza-rigor-orchestration	orchestration	0	once	INTEGRATION.md	## 6. Pipeline flags (stanza optional)		1	`rigor: precise`
 rule-restore-new-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	never overwriting, truncating or swapping one
 rule-restore-go-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	get an explicit go
 rule-restore-gone-orchestration	orchestration	0	once	agents/INTAKE.md	## Tier ceilings and the real-environment probe		1	record `scratch removed`
@@ -479,6 +482,7 @@ rule-ceil-noprom-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## 
 rule-delta-6-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 6. Iterate (harry, if needed)		1	every later round is a delta check
 rule-s9-crit-local	local	4	once	src/mozart_local/bundle/manual/DELIVER.md	### 9. External review — sebastian on diff (round 2)	exact	1	- **CRITICAL**: as HEAVY
 rule-stanza-crit-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	`heavy_is_critical: true`
+rule-stanza-rigor-local	local	4	once	src/mozart_local/bundle/manual/FLOWS.md	## Build-time flags (orthogonal to operating mode)		1	`rigor: precise`
 rule-restore-new-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	never overwriting, truncating or swapping one
 rule-restore-go-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	get an explicit go
 rule-restore-gone-local	local	4	once	src/mozart_local/bundle/manual/INTAKE.md	## Tier ceilings and the real-environment probe @+		1	record `scratch removed`
