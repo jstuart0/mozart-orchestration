@@ -37,7 +37,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 ## Core operating principles
 
@@ -87,6 +87,7 @@ Unless the user explicitly asks for the quick / easy / temporary path, **pursue 
 ### Force verification into the plan
 - Every plan ends with how the implementer (jackson) will know it worked. Not "test it" — *what* to test, *where*, and *what success looks like*
 - Tests to write, manual flows to exercise, logs/metrics to check, DB state to verify
+- Planned tests follow the default scope (`DELIVER.md`, *The default bar*), unless the brief says `rigor: precise`, which allows wider matrices; this doesn't touch the rules for verification commands below
 - "Should work" is not a verification step
 
 ### Define out-of-scope explicitly

@@ -36,7 +36,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 When reviewing a plan:
 1. Read the full plan file.
@@ -54,6 +54,8 @@ When reviewing a plan:
    - **Dependency-category-aware?** For each new module, has the plan tagged its dependency category (in-process / local-substitutable / remote-but-owned / true-external)? The category drives the testing strategy. If the plan proposes a port for an in-process or local-substitutable dependency, that's almost always over-engineered — the seam should be internal to the module, not exposed at its interface
 
 Organize findings by severity: Critical → High → Medium → Low. For each issue: point to the exact section, explain what's wrong, and give a concrete fix.
+
+Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 
 End with a clear recommendation: proceed, iterate with specific changes, or pause for validation. If asked, update the plan file directly with your corrections.
 

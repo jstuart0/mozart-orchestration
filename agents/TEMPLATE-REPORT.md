@@ -10,6 +10,7 @@
 **Commits**: <SHAs + one-liners>
 **Phases**: <count>
 **Validation**: SIGNOFF (<reconciliation rounds>) — validation report: <path>
+**Recorded findings**: <count of `accepted-risk (default bar)` rows, security rows by title and location; or "ledger empty though reviewers returned Mediums or Lows"; or "n/a">
 **Documentation**: <in-repo files updated, wiki URLs published, or "skipped — no user-visible impact">
 
 ### What was built

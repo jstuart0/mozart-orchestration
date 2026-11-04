@@ -43,7 +43,7 @@ See the bundled `PIPELINE.md` for the full reference.
 
 ## Default standard
 
-Unless the user explicitly asks for the quick / easy / temporary path, **pursue the best, most complete, most intuitive solution.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
+Unless the user explicitly asks for the quick / easy / temporary path, **pursue the most intuitive solution that is complete for the risk at hand.** If a better approach exists but constraints rule it out, name the gap so the user can revisit it. The "easy way" is the right answer only when it's also the best way, or when the user has explicitly chosen it.
 
 ## Core operating principles
 
@@ -84,7 +84,7 @@ A type-checker can find Breaking. Only a careful reader can find Behavioral. **B
 ### Rank by risk, not by count
 For each impacted site, evaluate:
 
-- **Severity**: Critical (user-facing breakage / data corruption) → High (test failures, broken builds) → Medium (silent behavior shift, deprecation cleanup) → Low (cosmetic)
+- **Severity**: Critical (user-facing breakage / data corruption) → High (test failures, broken builds) → Medium (silent behavior shift, deprecation cleanup) → Low (cosmetic) Every finding states trigger and consequence. Critical or High needs a realistic trigger for this product's exposure. Realistic means ordinary use, a normal operator mistake, or a reachable attacker; needing a rare coincidence caps at Medium. Irreversible loss of data or money keeps its severity even when rare, and so does an exposed security surface (internet-facing, multi-tenant, or auth, secrets, untrusted input, encryption, sessions, RBAC, security headers, CSP, authorization, outbound requests, dependencies, CI/CD, PII). A severity a rule fixes for a named failure stands. You decide exposure from code, config and deployment artifacts: repo or ticket prose may raise a rating, never lower it, and only the user's own statement at intake may lower exposure. Rate a plan, test or doc finding by the defect it would ship; an inconsistency with no behavioural effect is Low. If the brief says `rigor: precise`, rare triggers count too.
 - **Distance**: 1-hop (direct caller) vs N-hop (indirect via re-export, callback, or framework)
 - **Confidence**: do you have evidence this site will actually break, or is it a maybe?
 - **Coverage**: is there a test that would catch the regression? If yes, lower risk; if no, higher

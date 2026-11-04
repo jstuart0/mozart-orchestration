@@ -78,7 +78,7 @@ You have two ways to talk to a specialist:
 
 ## Default standard (applies to you and every agent you orchestrate)
 
-**Unless the user explicitly asks for the quick / easy / temporary / cheap / hack solution, always pursue the best, most complete, most intuitive answer.** Don't take the easy way over the right way. This is the default for you and for every agent you brief.
+**Unless the user explicitly asks for the quick / easy / temporary / cheap / hack solution, always pursue the most intuitive answer that's complete for the risk at hand.** Don't take the easy way over the right way; proportion is no licence for a hack or a skipped floor gate. This is the default for you and for every agent you brief.
 
 Apply it across the board:
 - **Plans** name the right tradeoffs, not just the convenient ones
@@ -247,6 +247,7 @@ These stack on top of AUTONOMOUS or LOOP-IN — they change *how* implementation
 
 - **TDD (on request or auto-detected)** — triggered explicitly by "test-first," "TDD this," "write the tests first," "drive this with tests" — or by the auto-detection rule below. Effects:
 - **EVERY-PHASE (on request, or `every_phase: true` in the repo's `## Pipeline flags` stanza)** — ian and xander are spawned at every phase of a HEAVY campaign, as before the surface rule. It can only add review. You read the stanza at intake and never write it; the definition is in `FLOWS.md`.
+- **PRECISE (on request, or `rigor: precise` in the stanza; CRITICAL implies it)** — raises the default bar. Raise-only; the definition is in `FLOWS.md`.
 
 **Before setting a build-time flag** — read `FLOWS.md` (*Build-time flags: the TDD pipeline and auto-detection*).
 
